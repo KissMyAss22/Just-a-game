@@ -208,7 +208,66 @@ Base-upgrades: Kluis (+25% opslag), Aggregaat (+1 uur offline), Boekhouder
 
 ---
 
-## 8. Je personage
+## 8. Rebirth
+
+Op een gegeven moment is elke upgrade gekocht en wordt de curve saai. Met een
+**rebirth** geef je alles op — geld, level, woning, voertuigen, upgrades,
+spullen — en krijg je **erfenis** terug: een blijvende valuta die je uitgeeft
+aan permanente voordelen.
+
+### Hoeveel je krijgt
+
+```
+erfenis(totaal) = floor(12 × √(levenslange opbrengst / 1.000.000))
+je krijgt       = erfenis(totaal) − wat je al eerder hebt gekregen
+```
+
+`lifetimeEarned` wordt **nooit** gereset. Dat is de kern van het ontwerp: omdat
+de formule een wortel is en je alleen het verschil krijgt, kost elke volgende
+rebirth vanzelf meer dan de vorige. Er is geen aparte teller nodig die de prijs
+opdrijft — 694.445 verdiend voor de eerste, 14,7 miljoen voor de tweede.
+
+Drempels: level 20 én minstens 10 erfenis winst. Zonder die tweede eis zou je
+je voortgang kunnen weggooien voor bijna niets.
+
+### Erfenis is een valuta, geen multiplier
+
+Dit is de belangrijkste keuze in het ontwerp. Een vlakke "+5% per rebirth" is
+een knop; een valuta die je uitgeeft is een beslissing. Zes voordelen, elk met
+een eigen kostencurve:
+
+| Voordeel | Effect | Max |
+|---|---|---|
+| Imperium | +3% passief inkomen | 50 |
+| Onderhandelaar | +2% verkoopopbrengst | 30 |
+| Ervaring | +4% XP | 25 |
+| Nachtploeg | +1 uur offline inkomen | 12 |
+| Stadskennis | +2% loopsnelheid | 20 |
+| Startkapitaal | +25.000 cash bij je volgende rebirth | 10 |
+
+Ze stapelen mét flex, upgrades en boosts in plaats van die te vervangen — een
+test bewaakt precies dat.
+
+### Wat blijft
+
+Gems, je erfenis en wat je ermee kocht, je personage, je season pass, en je
+levenslange opbrengst. Gems zijn premium valuta en mogen nooit verdwijnen; dat
+staat ook in een test.
+
+### Detail dat er echt toe doet
+
+Startkapitaal uit het Startkapitaal-voordeel telt **niet** mee als levenslange
+opbrengst. Zou het dat wel doen, dan zou dat voordeel zichzelf voeden en elke
+volgende rebirth goedkoper maken in plaats van duurder. Daarom heeft `grant()`
+een `countsAsEarnings`-vlag.
+
+Verder gaat de kluis vóór de reset naar je cash, zodat die opbrengst nog
+meetelt voor je erfenis, en gaat het wegvagen van je cash via het grootboek —
+zodat de som van alle transacties blijft kloppen met je saldo.
+
+---
+
+## 9. Je personage
 
 Naam en uiterlijk staan in `packages/shared/src/character.ts`, niet in de UI —
 want zodra andere spelers je in fase 4 zien lopen, moet de server dezelfde
@@ -224,7 +283,7 @@ definitie kennen.
 
 ---
 
-## 9. Anti-cheat
+## 10. Anti-cheat
 
 De client stuurt **intenties**, nooit uitkomsten.
 
@@ -242,14 +301,15 @@ De client stuurt **intenties**, nooit uitkomsten.
 
 ---
 
-## 10. Fasering
+## 11. Fasering
 
 | Fase | Inhoud | Status |
 |---|---|---|
 | 0 | Monorepo, server, database, 3D-scene op je telefoon | ✅ af |
 | 1 | Speelbare kern: stad, lopen, items, base, offline inkomen, winkel, season pass | ✅ af |
 | 2 | Boosts, manager met commissie, craften, personage met naam en uiterlijk | ✅ af |
-| 2b | Base-indeling op posities in een 3D-ruimte, balanceerronde met simulatie | 🚧 volgende |
+| 2b | Rebirth met erfenis en permanente voordelen | ✅ af |
+| 2c | Base-indeling op posities in een 3D-ruimte, balanceerronde met simulatie | 🚧 volgende |
 | 3 | Rijdbare voertuigen, dag/nacht, geluid, LOD en performanceronde op een midrange toestel | ⬜ |
 | 4 | Roleplay en multiplayer (Colyseus) — zie hieronder | ⬜ |
 | 5 | Live-ops: seizoenen configureren zonder deploy, events, admin-tooling | ⬜ |
@@ -281,14 +341,16 @@ economie.
 
 ---
 
-## 11. Wat bewust nog niet gebouwd is
+## 12. Wat bewust nog niet gebouwd is
 
 - **Handel tussen spelers.** De grootste bron van economie-exploits. Pas als de
   rest stabiel is, en dan met logging en limieten.
 - **Base-indeling.** Items worden geplaatst als aantal, nog niet op een
   specifieke plek in een 3D-ruimte die je zelf inricht.
 - **Balanceerronde.** De curve is met de hand gekozen en door tests bewaakt,
-  maar nog niet doorgerekend met een simulatie over meerdere speeluren.
+  maar nog niet doorgerekend met een simulatie over meerdere speeluren. Met
+  rebirth erbij is dat nu belangrijker geworden: hoe lang een ronde hoort te
+  duren voordat opnieuw beginnen aantrekkelijk wordt, is nu een gok.
 - **Colyseus.** Bewust nog niet toegevoegd: eerst moet het spel in je eentje
   leuk zijn.
 - **Meertaligheid.** Alles is Nederlands. Voor de App Store wordt dat een
@@ -296,17 +358,16 @@ economie.
 
 ---
 
-## 12. Open vragen
+## 13. Open vragen
 
 1. Moet de stad een **dag/nachtcyclus** krijgen die ook de loot beïnvloedt?
    (Nu al voorbereid met een tijd-modifier in de spawnweging.)
-2. Willen we **prestige** (opnieuw beginnen met een permanente multiplier)?
-   Idle games hebben dat meestal nodig om na een paar weken interessant te
-   blijven. Dit is de eerstvolgende beslissing die het ontwerp echt raakt.
-3. Vanaf welk moment stappen we over van gast-accounts naar echte logins?
+2. Vanaf welk moment stappen we over van gast-accounts naar echte logins?
    Apple eist Sign in with Apple zodra er een andere social login is.
-4. Hoe streng wordt roleplay? Zijn jobs vrijblijvend, of kies je één beroep dat
+3. Hoe streng wordt roleplay? Zijn jobs vrijblijvend, of kies je één beroep dat
    je identiteit bepaalt? Dat laatste geeft meer karakter maar maakt de
    economie afhankelijker van hoeveel spelers er tegelijk online zijn.
 
 *Beantwoord:* RP betekent roleplay — uitgewerkt in fase 4 hierboven.
+*Beantwoord:* ja op prestige, onder de naam **rebirth** — uitgewerkt in
+hoofdstuk 8.

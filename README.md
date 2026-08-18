@@ -101,7 +101,8 @@ mag voorspellen, maar nooit beslissen.
 | 0 | Monorepo, server, 3D-scene op je telefoon | ✅ |
 | 1 | Speelbare kern: stad, lopen, items, base, offline inkomen | ✅ |
 | 2 | Boosts, manager, craften, personage met naam en uiterlijk | ✅ |
-| 2b | Base-indeling op posities, balanceerronde | 🚧 |
+| 2b | Rebirth met erfenis en permanente voordelen | ✅ |
+| 2c | Base-indeling op posities, balanceerronde | 🚧 |
 | 3 | Alle districten, streaming, rijdbare voertuigen | ⬜ |
 | 4 | Multiplayer, chat, profielen, leaderboards | ⬜ |
 | 5 | Season pass live-ops, quests, events | ⬜ |
@@ -128,6 +129,8 @@ Zie `docs/GAME_DESIGN.md` voor het volledige ontwerp.
   tegen commissie.
 - Een eigen personage: naam en uiterlijk die je kiest en die je in de stad ziet
   rondlopen.
+- Rebirth: ruil je hele voortgang in voor erfenis en koop daarmee permanente
+  voordelen. Elke volgende rebirth vraagt vanzelf meer dan de vorige.
 - Een grootboek waarin elke munt herleidbaar is, en server-side controles tegen
   teleporteren, dubbel oprapen en klok-manipulatie.
 

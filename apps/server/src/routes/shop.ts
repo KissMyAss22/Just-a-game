@@ -25,7 +25,7 @@ export async function shopRoutes(app: FastifyInstance): Promise<void> {
     const playerId = playerIdOf(request);
     const loaded = await loadPlayer(prisma, playerId);
     const cash = Number(loaded.player.cash);
-    const level = loaded.player.level;
+    const level = loaded.level;
 
     return {
       cash,
@@ -128,7 +128,7 @@ export async function shopRoutes(app: FastifyInstance): Promise<void> {
       if (target.tier <= current.tier) {
         throw new GameError('Je hebt al iets beters.', 400, 'already_owned');
       }
-      if (loaded.player.level < target.requiredLevel) {
+      if (loaded.level < target.requiredLevel) {
         throw new GameError(
           `Hiervoor heb je level ${target.requiredLevel} nodig.`,
           400,
@@ -158,7 +158,7 @@ export async function shopRoutes(app: FastifyInstance): Promise<void> {
       if (loaded.ownedVehicleIds.includes(vehicle.id)) {
         throw new GameError('Dit voertuig heb je al.', 400, 'already_owned');
       }
-      if (loaded.player.level < vehicle.requiredLevel) {
+      if (loaded.level < vehicle.requiredLevel) {
         throw new GameError(
           `Hiervoor heb je level ${vehicle.requiredLevel} nodig.`,
           400,

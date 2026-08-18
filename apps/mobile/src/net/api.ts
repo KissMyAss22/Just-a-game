@@ -350,6 +350,60 @@ export const buyBoost = (boostId: string) =>
     body: { boostId },
   });
 
+// --- rebirth ---------------------------------------------------------------
+
+export interface LegacyPerkEntry {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  level: number;
+  maxLevel: number;
+  cost: number | null;
+  affordable: boolean;
+}
+
+export interface RebirthResponse {
+  pending: number;
+  hasLevel: boolean;
+  hasGain: boolean;
+  canRebirth: boolean;
+  earningsNeeded: number;
+  requiredLevel: number;
+  minimumGain: number;
+  level: number;
+  lifetimeEarned: number;
+  erfenis: number;
+  rebirthCount: number;
+  resets: string[];
+  keeps: string[];
+  bonuses: {
+    income: number;
+    sell: number;
+    xp: number;
+    offlineCapHours: number;
+    moveSpeed: number;
+    headstartCash: number;
+  };
+  perks: LegacyPerkEntry[];
+  serverTime: number;
+}
+
+export const fetchRebirth = () => request<RebirthResponse>('/rebirth');
+
+export const doRebirth = () =>
+  request<{
+    erfenisGained: number;
+    headstart: number;
+    rebirthCount: number;
+    state: PlayerStateDto;
+  }>('/rebirth', { body: { confirm: true } });
+
+export const buyLegacyPerk = (perkId: string) =>
+  request<{ perkId: string; level: number; state: PlayerStateDto }>('/rebirth/perk', {
+    body: { perkId },
+  });
+
 // --- profiel ---------------------------------------------------------------
 
 export const updateProfile = (input: { displayName?: string; appearance?: Appearance }) =>

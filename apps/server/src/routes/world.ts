@@ -75,7 +75,14 @@ export async function worldRoutes(app: FastifyInstance): Promise<void> {
       const quantity = doubled ? 2 : 1;
 
       await addItem(tx, playerId, item.id, quantity);
-      const xp = await grantXp(tx, playerId, loaded.player.xp, loaded.player.level, xpForItem(item));
+      const xp = await grantXp(
+        tx,
+        playerId,
+        loaded.player.xp,
+        loaded.level,
+        xpForItem(item),
+        loaded.stats.xpMultiplier,
+      );
 
       await trackQuest(tx, playerId, loaded.player.seed, now, 'collect_items', quantity);
       await trackQuest(tx, playerId, loaded.player.seed, now, 'collect_rarity', 1, {

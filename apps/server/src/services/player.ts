@@ -23,6 +23,17 @@ export interface LoadedPlayer {
   ownedVehicleIds: string[];
   activeBoosts: ActiveBoostDto[];
   appearance: Appearance;
+  /** Permanente voordelen uit rebirths: perk-id -> level. */
+  legacy: Record<string, number>;
+  /**
+   * Het level, altijd afgeleid uit XP.
+   *
+   * De `level`-kolom is een kopie voor snelle queries; die kan in theorie
+   * afwijken. Alles wat op level poort — winkel, recepten, rebirth — leest
+   * deze waarde, zodat de server nooit een ander level hanteert dan de speler
+   * op zijn scherm ziet.
+   */
+  level: number;
   stats: PlayerStats;
 }
 
@@ -37,6 +48,7 @@ export async function loadPlayer(tx: Tx, playerId: string): Promise<LoadedPlayer
       inventory: { where: { quantity: { gt: 0 } } },
       vehicles: true,
       boosts: { where: { expiresAt: { gt: now } } },
+      legacy: true,
     },
   });
   if (!player) throw new GameError('Speler niet gevonden.', 404, 'player_not_found');
@@ -56,12 +68,16 @@ export async function loadPlayer(tx: Tx, playerId: string): Promise<LoadedPlayer
     expiresAt: boost.expiresAt.getTime(),
   }));
 
+  const legacy: Record<string, number> = {};
+  for (const perk of player.legacy) legacy[perk.perkId] = perk.level;
+
   const stats = computeStats({
     propertyId: player.propertyId,
     vehicleId: player.vehicleId,
     upgrades,
     placements,
     activeBoostIds: activeBoosts.map((b) => b.boostId),
+    legacy,
   });
 
   return {
@@ -72,6 +88,8 @@ export async function loadPlayer(tx: Tx, playerId: string): Promise<LoadedPlayer
     ownedVehicleIds,
     activeBoosts,
     appearance: normalizeAppearance(player.appearance),
+    legacy,
+    level: levelFromTotalXp(player.xp).level,
     stats,
   };
 }
@@ -201,8 +219,10 @@ export async function grantXp(
   currentXp: number,
   currentLevel: number,
   amount: number,
+  /** Permanente ervaringsbonus uit rebirths. */
+  xpMultiplier = 1,
 ): Promise<XpResult> {
-  const gained = Math.max(0, Math.round(amount));
+  const gained = Math.max(0, Math.round(amount * xpMultiplier));
   const totalXp = currentXp + gained;
   const progress = levelFromTotalXp(totalXp);
   const levelsGained = Math.max(0, progress.level - currentLevel);
@@ -252,6 +272,10 @@ export function toPlayerStateDto(
       ownedVehicleIds: loaded.ownedVehicleIds,
       upgrades: loaded.upgrades,
       appearance: loaded.appearance,
+      erfenis: player.erfenis,
+      rebirthCount: player.rebirthCount,
+      lifetimeEarned: Number(player.lifetimeEarned),
+      legacy: loaded.legacy,
       x: player.x,
       z: player.z,
     },
@@ -278,6 +302,9 @@ export function toPlayerStateDto(
       autoCollect: stats.autoCollect,
       managerFee: stats.managerFee,
       doubleDropChance: stats.doubleDropChance,
+      legacyMultiplier: stats.legacyMultiplier,
+      sellMultiplier: stats.sellMultiplier,
+      xpMultiplier: stats.xpMultiplier,
     },
     inventory: loaded.inventory,
     placements: loaded.placements,

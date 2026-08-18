@@ -35,6 +35,8 @@ interface GameStore {
   craft: (recipeId: string, times?: number) => Promise<boolean>;
   buyBoost: (boostId: string) => Promise<boolean>;
   saveProfile: (input: { displayName?: string; appearance?: Appearance }) => Promise<boolean>;
+  rebirth: () => Promise<boolean>;
+  buyLegacyPerk: (perkId: string) => Promise<boolean>;
   applyState: (state: PlayerStateDto) => void;
   toast: (text: string, detail?: string, color?: string) => void;
   dismissToast: (id: number) => void;
@@ -226,6 +228,41 @@ export const useGame = create<GameStore>((set, get) => ({
       const result = await api.buyBoost(boostId);
       get().applyState(result.state);
       get().toast('Boost actief', undefined, 'legendary');
+      return true;
+    } catch (error) {
+      get().toast(error instanceof Error ? error.message : 'Mislukt');
+      return false;
+    } finally {
+      set({ busy: false });
+    }
+  },
+
+  async rebirth() {
+    if (get().busy) return false;
+    set({ busy: true });
+    try {
+      const result = await api.doRebirth();
+      get().applyState(result.state);
+      get().toast(
+        `Rebirth #${result.rebirthCount}`,
+        `+${result.erfenisGained} erfenis${result.headstart > 0 ? ` en ${result.headstart} startkapitaal` : ''}`,
+        'legendary',
+      );
+      return true;
+    } catch (error) {
+      get().toast(error instanceof Error ? error.message : 'Rebirth mislukt');
+      return false;
+    } finally {
+      set({ busy: false });
+    }
+  },
+
+  async buyLegacyPerk(perkId) {
+    if (get().busy) return false;
+    set({ busy: true });
+    try {
+      const result = await api.buyLegacyPerk(perkId);
+      get().applyState(result.state);
       return true;
     } catch (error) {
       get().toast(error instanceof Error ? error.message : 'Mislukt');

@@ -36,6 +36,16 @@ model Player {
   cash  BigInt @default(0)
   gems  Int    @default(0)
 
+  /// Alles wat er ooit aan cash is bijgeschreven. Wordt door een rebirth
+  /// bewust NIET gereset: de erfenisformule rekent hierop, waardoor elke
+  /// volgende rebirth vanzelf meer opbrengst vraagt dan de vorige.
+  lifetimeEarned BigInt @default(0)
+  /// Erfenis die nog uitgegeven kan worden.
+  erfenis        Int    @default(0)
+  /// Erfenis die in totaal ooit is uitgekeerd.
+  erfenisClaimed Int    @default(0)
+  rebirthCount   Int    @default(0)
+
   propertyId String @default("squat")
   vehicleId  String @default("on_foot")
 
@@ -66,6 +76,7 @@ model Player {
   upgrades       PlayerUpgrade[]
   vehicles       PlayerVehicle[]
   boosts         PlayerBoost[]
+  legacy         PlayerLegacy[]
   inventory      InventoryItem[]
   placements     Placement[]
   transactions   Transaction[]
@@ -134,6 +145,17 @@ model Transaction {
   player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
 
   @@index([playerId, createdAt])
+}
+
+/// Permanente voordelen die met erfenis zijn gekocht. Overleeft een rebirth.
+model PlayerLegacy {
+  playerId String
+  perkId   String
+  level    Int    @default(0)
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@id([playerId, perkId])
 }
 
 /// Een lopende boost. Verlopen rijen worden opgeruimd bij het laden.

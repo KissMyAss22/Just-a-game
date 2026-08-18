@@ -75,7 +75,7 @@ export async function economyRoutes(app: FastifyInstance): Promise<void> {
       const loaded = await loadPlayer(tx, playerId);
       const item = getItem(body.itemId);
       const market = marketMultiplier(item.category, dayIndexFor(now.getTime()));
-      const value = stackValue(item.id, body.quantity, market);
+      const value = stackValue(item.id, body.quantity, market * loaded.stats.sellMultiplier);
       if (value <= 0) {
         throw new GameError('Dit item kun je niet verkopen.', 400, 'not_sellable');
       }
@@ -115,7 +115,11 @@ export async function economyRoutes(app: FastifyInstance): Promise<void> {
         const item = getItem(entry.itemId);
         if (RARITIES.indexOf(item.rarity) > maxIndex) continue;
         if (item.baseValue <= 0) continue;
-        const value = stackValue(item.id, entry.quantity, marketMultiplier(item.category, day));
+        const value = stackValue(
+          item.id,
+          entry.quantity,
+          marketMultiplier(item.category, day) * loaded.stats.sellMultiplier,
+        );
         if (value <= 0) continue;
         await removeItem(tx, playerId, item.id, entry.quantity);
         total += value;

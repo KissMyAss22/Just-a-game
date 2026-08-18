@@ -10,6 +10,7 @@ import { authRoutes } from './routes/auth.js';
 import { craftRoutes } from './routes/craft.js';
 import { economyRoutes } from './routes/economy.js';
 import { profileRoutes } from './routes/profile.js';
+import { rebirthRoutes } from './routes/rebirth.js';
 import { seasonRoutes } from './routes/season.js';
 import { shopRoutes } from './routes/shop.js';
 import { stateRoutes } from './routes/state.js';
@@ -60,6 +61,7 @@ async function main(): Promise<void> {
   await app.register(seasonRoutes);
   await app.register(craftRoutes);
   await app.register(profileRoutes);
+  await app.register(rebirthRoutes);
 
   await prisma.$connect();
 

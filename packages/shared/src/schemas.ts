@@ -101,6 +101,20 @@ export const updateProfileSchema = z
   });
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 
+export const buyLegacyPerkSchema = z.object({
+  perkId: z.string().min(1).max(64),
+});
+export type BuyLegacyPerkInput = z.infer<typeof buyLegacyPerkSchema>;
+
+/**
+ * Een rebirth gooit je hele voortgang weg. De client moet dat expliciet
+ * bevestigen, zodat een losse POST nooit per ongeluk alles wist.
+ */
+export const rebirthSchema = z.object({
+  confirm: z.literal(true),
+});
+export type RebirthInput = z.infer<typeof rebirthSchema>;
+
 export const reportPositionSchema = z.object({
   x: z.number().finite(),
   z: z.number().finite(),
@@ -149,6 +163,14 @@ export interface PlayerStateDto {
     ownedVehicleIds: string[];
     upgrades: Record<string, number>;
     appearance: { skin: number; outfit: number; accent: number };
+    /** Erfenis die nog uit te geven is. */
+    erfenis: number;
+    /** Hoe vaak je al opnieuw begonnen bent. */
+    rebirthCount: number;
+    /** Alles wat je ooit hebt verdiend; wordt nooit gereset. */
+    lifetimeEarned: number;
+    /** Permanente voordelen: perk-id -> level. */
+    legacy: Record<string, number>;
     x: number;
     z: number;
   };
@@ -173,6 +195,9 @@ export interface PlayerStateDto {
     autoCollect: boolean;
     managerFee: number;
     doubleDropChance: number;
+    legacyMultiplier: number;
+    sellMultiplier: number;
+    xpMultiplier: number;
   };
   inventory: InventoryEntryDto[];
   placements: InventoryEntryDto[];

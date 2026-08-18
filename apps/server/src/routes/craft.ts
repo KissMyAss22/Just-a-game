@@ -15,7 +15,7 @@ export async function craftRoutes(app: FastifyInstance): Promise<void> {
 
     return {
       cash,
-      level: loaded.player.level,
+      level: loaded.level,
       recipes: RECIPES.map((recipe) => {
         const output = getItem(recipe.output.itemId);
         return {
@@ -40,7 +40,7 @@ export async function craftRoutes(app: FastifyInstance): Promise<void> {
             incomePerHour: output.incomePerHour ?? 0,
             flex: output.flex ?? 0,
           },
-          readiness: checkRecipe(recipe, loaded.inventory, cash, loaded.player.level),
+          readiness: checkRecipe(recipe, loaded.inventory, cash, loaded.level),
         };
       }),
     };
@@ -75,7 +75,7 @@ export async function craftRoutes(app: FastifyInstance): Promise<void> {
         scaled,
         loaded.inventory,
         Number(loaded.player.cash),
-        loaded.player.level,
+        loaded.level,
       );
       if (!readiness.hasLevel) {
         throw new GameError(

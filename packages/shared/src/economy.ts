@@ -1,5 +1,6 @@
 import { getItem } from './items';
 import { getProperty } from './properties';
+import { legacyBonuses } from './rebirth';
 import { RARITY_VALUE_MULTIPLIER, type ItemDef, BOOSTS_BY_ID } from './types';
 import { getVehicle } from './vehicles';
 
@@ -210,6 +211,8 @@ export interface StatsInput {
   placements: readonly PlacementInput[];
   /** Actieve tijdelijke boosts. */
   activeBoostIds?: readonly string[];
+  /** Permanente voordelen uit rebirths: perk-id -> level. */
+  legacy?: Readonly<Record<string, number>>;
 }
 
 export interface PlayerStats {
@@ -232,6 +235,12 @@ export interface PlayerStats {
   managerFee: number;
   /** Kans op een dubbele opbrengst bij het oprapen, uit actieve boosts. */
   doubleDropChance: number;
+  /** Permanente vermenigvuldiger op inkomen uit rebirths. */
+  legacyMultiplier: number;
+  /** Permanente vermenigvuldiger op verkoopopbrengst. */
+  sellMultiplier: number;
+  /** Permanente vermenigvuldiger op ervaring. */
+  xpMultiplier: number;
 }
 
 function upgradeLevel(upgrades: Readonly<Record<string, number>>, id: string): number {
@@ -283,10 +292,13 @@ export function computeStats(input: StatsInput): PlayerStats {
 
   const managerLvl = upgradeLevel(input.upgrades, 'manager');
 
+  const legacy = legacyBonuses(input.legacy ?? {});
+
   const flexMult = flexMultiplier(flexScore);
   const upgradeMult = 1 + bookkeeperLevel * getUpgrade('bookkeeper').perLevel;
   const boostMult = 1 + boostBonus;
-  const incomePerHour = baseIncomePerHour * (1 + flexMult) * upgradeMult * boostMult;
+  const incomePerHour =
+    baseIncomePerHour * (1 + flexMult) * upgradeMult * boostMult * legacy.income;
 
   return {
     incomePerHour: Math.round(incomePerHour * 100) / 100,
@@ -298,14 +310,20 @@ export function computeStats(input: StatsInput): PlayerStats {
     vaultCapacity: Math.floor(
       property.vaultCapacity * (1 + vaultLevel * getUpgrade('vault').perLevel),
     ),
-    offlineCapHours: property.offlineCapHours + generatorLevel * getUpgrade('generator').perLevel,
+    offlineCapHours:
+      property.offlineCapHours +
+      generatorLevel * getUpgrade('generator').perLevel +
+      legacy.offlineCapHours,
     inventorySlots:
       ECONOMY.baseInventorySlots + vehicle.carryBonus + backpackLevel * getUpgrade('backpack').perLevel,
-    moveSpeed: ECONOMY.baseMoveSpeed * vehicle.speedMultiplier,
+    moveSpeed: ECONOMY.baseMoveSpeed * vehicle.speedMultiplier * legacy.moveSpeed,
     pickupRadius: ECONOMY.basePickupRadius + magnetLevel * getUpgrade('magnet').perLevel,
     autoCollect: managerLvl > 0,
     managerFee: managerFee(managerLvl),
     doubleDropChance,
+    legacyMultiplier: legacy.income,
+    sellMultiplier: legacy.sell,
+    xpMultiplier: legacy.xp,
   };
 }
 

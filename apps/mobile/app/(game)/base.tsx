@@ -217,6 +217,24 @@ export default function BaseScreen() {
       <Text style={styles.craftHint}>
         Materialen niet verkopen maar omzetten in interieur? Dat doe je bij de Werkbank.
       </Text>
+
+      <SectionTitle hint={state.player.rebirthCount > 0 ? `${state.player.rebirthCount}x gedaan` : undefined}>
+        Rebirth
+      </SectionTitle>
+      <Panel>
+        <Row>
+          <Text style={styles.bigIcon}>🏛️</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.propertyName}>
+              {state.player.erfenis > 0 ? `${formatMoney(state.player.erfenis)} erfenis` : 'Opnieuw beginnen'}
+            </Text>
+            <Text style={styles.dim}>
+              Ruil je hele voortgang in voor permanente voordelen.
+            </Text>
+          </View>
+          <Button label="Bekijk" compact tone="ghost" onPress={() => router.push('/(game)/rebirth')} />
+        </Row>
+      </Panel>
     </ScrollView>
   );
 }

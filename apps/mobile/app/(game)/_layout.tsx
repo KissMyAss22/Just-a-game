@@ -55,8 +55,9 @@ export default function GameLayout() {
           tabBarIcon: ({ color }) => <TabIcon emoji="🎟️" color={color} />,
         }}
       />
-      {/* Bereikbaar via je naam op het base-scherm, niet als eigen tab. */}
+      {/* Bereikbaar via het base-scherm, niet als eigen tab. */}
       <Tabs.Screen name="profile" options={{ href: null }} />
+      <Tabs.Screen name="rebirth" options={{ href: null }} />
     </Tabs>
   );
 }
