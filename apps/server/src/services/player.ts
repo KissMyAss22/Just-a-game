@@ -1,8 +1,13 @@
 import {
+  accrualCapacity,
   accrueIncome,
+  afterManagerFee,
   computeStats,
   levelFromTotalXp,
+  normalizeAppearance,
   xpForNextLevel,
+  type ActiveBoostDto,
+  type Appearance,
   type PlayerStats,
   type PlayerStateDto,
 } from '@game/shared';
@@ -16,11 +21,14 @@ export interface LoadedPlayer {
   placements: { itemId: string; quantity: number }[];
   inventory: { itemId: string; quantity: number }[];
   ownedVehicleIds: string[];
+  activeBoosts: ActiveBoostDto[];
+  appearance: Appearance;
   stats: PlayerStats;
 }
 
 /** Laadt de speler met alles wat nodig is om zijn statistieken te berekenen. */
 export async function loadPlayer(tx: Tx, playerId: string): Promise<LoadedPlayer> {
+  const now = new Date();
   const player = await tx.player.findUnique({
     where: { id: playerId },
     include: {
@@ -28,6 +36,7 @@ export async function loadPlayer(tx: Tx, playerId: string): Promise<LoadedPlayer
       placements: true,
       inventory: { where: { quantity: { gt: 0 } } },
       vehicles: true,
+      boosts: { where: { expiresAt: { gt: now } } },
     },
   });
   if (!player) throw new GameError('Speler niet gevonden.', 404, 'player_not_found');
@@ -42,14 +51,29 @@ export async function loadPlayer(tx: Tx, playerId: string): Promise<LoadedPlayer
   const ownedVehicleIds = player.vehicles.map((v) => v.vehicleId);
   if (!ownedVehicleIds.includes(player.vehicleId)) ownedVehicleIds.push(player.vehicleId);
 
+  const activeBoosts: ActiveBoostDto[] = player.boosts.map((boost) => ({
+    boostId: boost.boostId,
+    expiresAt: boost.expiresAt.getTime(),
+  }));
+
   const stats = computeStats({
     propertyId: player.propertyId,
     vehicleId: player.vehicleId,
     upgrades,
     placements,
+    activeBoostIds: activeBoosts.map((b) => b.boostId),
   });
 
-  return { player, upgrades, placements, inventory, ownedVehicleIds, stats };
+  return {
+    player,
+    upgrades,
+    placements,
+    inventory,
+    ownedVehicleIds,
+    activeBoosts,
+    appearance: normalizeAppearance(player.appearance),
+    stats,
+  };
 }
 
 /**
@@ -59,21 +83,30 @@ export async function loadPlayer(tx: Tx, playerId: string): Promise<LoadedPlayer
  * kopen, item plaatsen, woning kopen). Anders zou de nieuwe, hogere rate met
  * terugwerkende kracht over de afgelopen uren worden toegepast.
  */
-export async function settleVault(tx: Tx, loaded: LoadedPlayer, now: Date) {
+export interface SettleResult extends ReturnType<typeof accrueIncome> {
+  /** Wat de manager automatisch heeft geïnd, na commissie. */
+  managerCollected: number;
+  /** Wat de manager daarvoor inhield. */
+  managerFeePaid: number;
+}
+
+export async function settleVault(
+  tx: Tx,
+  loaded: LoadedPlayer,
+  now: Date,
+): Promise<SettleResult> {
   const result = accrueIncome({
     ratePerHour: loaded.stats.incomePerHour,
     accruedAt: loaded.player.accruedAt.getTime(),
     now: now.getTime(),
     offlineCapHours: loaded.stats.offlineCapHours,
     vaultBalance: Number(loaded.player.vaultBalance),
-    vaultCapacity: loaded.stats.vaultCapacity,
+    // Met een manager is er geen bovengrens: de kluis wordt continu geleegd.
+    vaultCapacity: accrualCapacity(loaded.stats),
   });
 
   const nextAccruedAt = new Date(Math.round(result.accruedAt));
-  if (
-    result.earned > 0 ||
-    nextAccruedAt.getTime() !== loaded.player.accruedAt.getTime()
-  ) {
+  if (result.earned > 0 || nextAccruedAt.getTime() !== loaded.player.accruedAt.getTime()) {
     loaded.player = await tx.player.update({
       where: { id: loaded.player.id },
       data: {
@@ -82,7 +115,32 @@ export async function settleVault(tx: Tx, loaded: LoadedPlayer, now: Date) {
       },
     });
   }
-  return result;
+
+  let managerCollected = 0;
+  let managerFeePaid = 0;
+
+  // De manager int meteen door, zodat er niets verloren gaat aan een volle
+  // kluis — maar hij houdt zijn commissie in.
+  if (loaded.stats.autoCollect) {
+    const gross = Math.floor(result.vaultBalance);
+    if (gross > 0) {
+      const { net, fee } = afterManagerFee(gross, loaded.stats.managerFee);
+      loaded.player = await tx.player.update({
+        where: { id: loaded.player.id },
+        data: { vaultBalance: BigInt(0) },
+      });
+      const balance = await grant(tx, loaded.player.id, 'cash', net, 'manager_collect', {
+        gross,
+        fee,
+      });
+      loaded.player.cash = BigInt(balance);
+      result.vaultBalance = 0;
+      managerCollected = net;
+      managerFeePaid = fee;
+    }
+  }
+
+  return { ...result, managerCollected, managerFeePaid };
 }
 
 /** Totaal aantal items in de rugzak. */
@@ -193,6 +251,7 @@ export function toPlayerStateDto(
       vehicleId: player.vehicleId,
       ownedVehicleIds: loaded.ownedVehicleIds,
       upgrades: loaded.upgrades,
+      appearance: loaded.appearance,
       x: player.x,
       z: player.z,
     },
@@ -216,9 +275,13 @@ export function toPlayerStateDto(
       inventorySlots: stats.inventorySlots,
       moveSpeed: stats.moveSpeed,
       pickupRadius: stats.pickupRadius,
+      autoCollect: stats.autoCollect,
+      managerFee: stats.managerFee,
+      doubleDropChance: stats.doubleDropChance,
     },
     inventory: loaded.inventory,
     placements: loaded.placements,
+    activeBoosts: loaded.activeBoosts,
     serverTime: now.getTime(),
   };
 }

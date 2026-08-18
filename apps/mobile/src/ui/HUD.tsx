@@ -1,4 +1,4 @@
-import { districtAtWorld, formatDuration, formatMoney } from '@game/shared';
+import { BOOSTS_BY_ID, districtAtWorld, formatDuration, formatMoney } from '@game/shared';
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -41,12 +41,13 @@ export function HUD() {
   const toasts = useGame((s) => s.toasts);
   const vault = useLiveVault();
   const surroundings = useSurroundings();
+  const clockOffset = useGame((s) => s.clockOffset);
 
   if (!state) return null;
   const { player, stats } = state;
   const carried = state.inventory.reduce((sum, entry) => sum + entry.quantity, 0);
   const vaultBalance = vault?.vaultBalance ?? state.vault.balance;
-  const vaultFull = vaultBalance >= stats.vaultCapacity;
+  const vaultFull = !stats.autoCollect && vaultBalance >= stats.vaultCapacity;
 
   return (
     <View style={[styles.overlay, { paddingTop: insets.top + 8 }]} pointerEvents="box-none">
@@ -79,33 +80,56 @@ export function HUD() {
         </Text>
       </View>
 
+      {/* Lopende boosts */}
+      {state.activeBoosts.length > 0 ? (
+        <View style={styles.boostRow} pointerEvents="none">
+          {state.activeBoosts.map((active) => {
+            const def = BOOSTS_BY_ID[active.boostId];
+            const remaining = (active.expiresAt - (Date.now() + clockOffset)) / 1000;
+            return (
+              <View key={active.boostId} style={styles.boostPill}>
+                <Text style={styles.boostText}>
+                  {def?.icon ?? '⚡'} {formatDuration(remaining)}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+      ) : null}
+
       {/* Kluis */}
       <View style={styles.vaultCard}>
-        <Text style={styles.vaultLabel}>KLUIS</Text>
+        <Text style={styles.vaultLabel}>{stats.autoCollect ? 'MANAGER' : 'KLUIS'}</Text>
         <Text style={[styles.vaultValue, vaultFull && { color: theme.color.danger }]}>
           {formatMoney(vaultBalance)}
         </Text>
-        <Bar
-          value={vaultBalance}
-          max={stats.vaultCapacity}
-          color={vaultFull ? theme.color.danger : theme.color.accent}
-          height={6}
-        />
+        {stats.autoCollect ? null : (
+          <Bar
+            value={vaultBalance}
+            max={stats.vaultCapacity}
+            color={vaultFull ? theme.color.danger : theme.color.accent}
+            height={6}
+          />
+        )}
         <Text style={styles.vaultHint}>
           {formatMoney(stats.incomePerHour)}/u ·{' '}
-          {vaultFull
-            ? 'vol!'
-            : vault && Number.isFinite(vault.secondsUntilFull)
-              ? `vol over ${formatDuration(vault.secondsUntilFull)}`
-              : `max ${formatMoney(stats.vaultCapacity)}`}
+          {stats.autoCollect
+            ? `automatisch, -${Math.round(stats.managerFee * 100)}%`
+            : vaultFull
+              ? 'vol!'
+              : vault && Number.isFinite(vault.secondsUntilFull)
+                ? `vol over ${formatDuration(vault.secondsUntilFull)}`
+                : `max ${formatMoney(stats.vaultCapacity)}`}
         </Text>
-        <Button
-          label="Legen"
-          compact
-          onPress={() => void claimVault()}
-          disabled={vaultBalance < 1}
-          loading={busy}
-        />
+        {stats.autoCollect ? null : (
+          <Button
+            label="Legen"
+            compact
+            onPress={() => void claimVault()}
+            disabled={vaultBalance < 1}
+            loading={busy}
+          />
+        )}
       </View>
 
       {/* Rugzak */}
@@ -156,6 +180,16 @@ const styles = StyleSheet.create({
   locationRow: { paddingHorizontal: 16, paddingTop: 10 },
   district: { color: theme.color.text, fontSize: 20, fontWeight: '800' },
   nearby: { color: theme.color.textDim, fontSize: 12, marginTop: 2 },
+  boostRow: { flexDirection: 'row', gap: 6, paddingHorizontal: 16, paddingTop: 8 },
+  boostPill: {
+    backgroundColor: theme.color.panel,
+    borderRadius: theme.radius.pill,
+    borderWidth: 1,
+    borderColor: theme.color.accentDim,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  boostText: { color: theme.color.text, fontSize: 12, fontWeight: '700' },
   vaultCard: {
     position: 'absolute',
     right: 12,

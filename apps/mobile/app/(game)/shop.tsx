@@ -1,4 +1,4 @@
-import { formatMoney, type PlayerStateDto } from '@game/shared';
+import { formatDuration, formatMoney, type PlayerStateDto } from '@game/shared';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -8,19 +8,24 @@ import { useGame } from '../../src/state/useGame';
 import { Button, Panel, Row, SectionTitle } from '../../src/ui/components';
 import { theme } from '../../src/ui/theme';
 
-type Tab = 'upgrades' | 'properties' | 'vehicles';
+type Tab = 'upgrades' | 'properties' | 'vehicles' | 'boosts';
 
 export default function ShopScreen() {
   const insets = useSafeAreaInsets();
   const applyState = useGame((s) => s.applyState);
   const toast = useGame((s) => s.toast);
+  const buyBoost = useGame((s) => s.buyBoost);
+  const clockOffset = useGame((s) => s.clockOffset);
   const [shop, setShop] = useState<api.ShopResponse | null>(null);
+  const [boosts, setBoosts] = useState<Awaited<ReturnType<typeof api.fetchBoosts>> | null>(null);
   const [tab, setTab] = useState<Tab>('upgrades');
   const [pending, setPending] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
-      setShop(await api.fetchShop());
+      const [shopData, boostData] = await Promise.all([api.fetchShop(), api.fetchBoosts()]);
+      setShop(shopData);
+      setBoosts(boostData);
     } catch (error) {
       toast(error instanceof Error ? error.message : 'Winkel laden mislukt');
     }
@@ -69,6 +74,7 @@ export default function ShopScreen() {
             ['upgrades', 'Base'],
             ['properties', 'Woningen'],
             ['vehicles', 'Voertuigen'],
+            ['boosts', 'Boosts'],
           ] as const
         ).map(([key, label]) => (
           <Button
@@ -137,6 +143,53 @@ export default function ShopScreen() {
                     onPress={() => void buy(property.id, () => api.buyProperty(property.id))}
                   />
                 )}
+              </Row>
+            </Panel>
+          ))}
+        </>
+      ) : null}
+
+      {tab === 'boosts' && boosts ? (
+        <>
+          <SectionTitle hint="met gems, tijdelijk actief">Boosts</SectionTitle>
+          {boosts.active.length > 0 ? (
+            <Panel style={styles.card}>
+              <Text style={styles.dim}>Nu actief</Text>
+              {boosts.active.map((active) => {
+                const def = boosts.catalog.find((b) => b.id === active.boostId);
+                const remaining = (active.expiresAt - (Date.now() + clockOffset)) / 1000;
+                return (
+                  <Row key={active.boostId} style={{ marginTop: 6 }}>
+                    <Text style={styles.icon}>{def?.icon ?? '⚡'}</Text>
+                    <Text style={[styles.name, { flex: 1 }]}>{def?.name ?? active.boostId}</Text>
+                    <Text style={styles.badge}>nog {formatDuration(remaining)}</Text>
+                  </Row>
+                );
+              })}
+            </Panel>
+          ) : null}
+
+          {boosts.catalog.map((boost) => (
+            <Panel key={boost.id} style={styles.card}>
+              <Row>
+                <Text style={styles.icon}>{boost.icon}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.name}>{boost.name}</Text>
+                  <Text style={styles.dim}>
+                    {boost.description} · {boost.durationHours} uur
+                  </Text>
+                </View>
+                <Button
+                  label={`💎 ${boost.priceGems}`}
+                  compact
+                  disabled={!boost.affordable}
+                  loading={pending === boost.id}
+                  onPress={async () => {
+                    setPending(boost.id);
+                    if (await buyBoost(boost.id)) await load();
+                    setPending(null);
+                  }}
+                />
               </Row>
             </Panel>
           ))}

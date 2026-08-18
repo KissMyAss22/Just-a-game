@@ -73,6 +73,34 @@ export const claimQuestSchema = z.object({
 });
 export type ClaimQuestInput = z.infer<typeof claimQuestSchema>;
 
+export const craftSchema = z.object({
+  recipeId: z.string().min(1).max(64),
+  /** Hoe vaak je het recept achter elkaar wilt uitvoeren. */
+  times: z.number().int().min(1).max(50).default(1),
+});
+export type CraftInput = z.infer<typeof craftSchema>;
+
+export const activateBoostSchema = z.object({
+  boostId: z.string().min(1).max(64),
+});
+export type ActivateBoostInput = z.infer<typeof activateBoostSchema>;
+
+export const appearanceSchema = z.object({
+  skin: z.number().int().min(0).max(63),
+  outfit: z.number().int().min(0).max(63),
+  accent: z.number().int().min(0).max(63),
+});
+
+export const updateProfileSchema = z
+  .object({
+    displayName: z.string().min(1).max(64).optional(),
+    appearance: appearanceSchema.optional(),
+  })
+  .refine((value) => value.displayName !== undefined || value.appearance !== undefined, {
+    message: 'Geef een naam of een uiterlijk mee.',
+  });
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
+
 export const reportPositionSchema = z.object({
   x: z.number().finite(),
   z: z.number().finite(),
@@ -100,6 +128,12 @@ export interface InventoryEntryDto {
   quantity: number;
 }
 
+export interface ActiveBoostDto {
+  boostId: string;
+  /** Servertijd in ms waarop de boost afloopt. */
+  expiresAt: number;
+}
+
 export interface PlayerStateDto {
   player: {
     id: string;
@@ -114,6 +148,7 @@ export interface PlayerStateDto {
     vehicleId: string;
     ownedVehicleIds: string[];
     upgrades: Record<string, number>;
+    appearance: { skin: number; outfit: number; accent: number };
     x: number;
     z: number;
   };
@@ -135,9 +170,13 @@ export interface PlayerStateDto {
     inventorySlots: number;
     moveSpeed: number;
     pickupRadius: number;
+    autoCollect: boolean;
+    managerFee: number;
+    doubleDropChance: number;
   };
   inventory: InventoryEntryDto[];
   placements: InventoryEntryDto[];
+  activeBoosts: ActiveBoostDto[];
   /** Servertijd in ms — de client synchroniseert hierop. */
   serverTime: number;
 }

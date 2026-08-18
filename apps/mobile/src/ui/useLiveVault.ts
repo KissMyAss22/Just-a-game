@@ -29,7 +29,11 @@ export function useLiveVault(): AccrualResult | null {
       now: tick + clockOffset,
       offlineCapHours: state.stats.offlineCapHours,
       vaultBalance: state.vault.balance,
-      vaultCapacity: state.vault.capacity,
+      // Met een manager is er geen plafond: hij leegt de kluis continu, dus
+      // wat je hier ziet is wat er bij de volgende sync naar je cash gaat.
+      vaultCapacity: state.stats.autoCollect
+        ? Number.POSITIVE_INFINITY
+        : state.vault.capacity,
     });
   }, [state, tick, clockOffset]);
 }

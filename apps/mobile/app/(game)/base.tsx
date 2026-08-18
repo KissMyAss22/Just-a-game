@@ -6,8 +6,9 @@ import {
   getVehicle,
   type InventoryEntryDto,
 } from '@game/shared';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGame } from '../../src/state/useGame';
 import { Bar, Button, Empty, Panel, Row, SectionTitle } from '../../src/ui/components';
@@ -50,6 +51,7 @@ function ItemRow({
 
 export default function BaseScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const state = useGame((s) => s.state);
   const busy = useGame((s) => s.busy);
   const place = useGame((s) => s.place);
@@ -88,7 +90,10 @@ export default function BaseScreen() {
         />
       }
     >
-      <Text style={styles.title}>{state.player.displayName}</Text>
+      <Pressable onPress={() => router.push('/(game)/profile')} style={styles.titleRow}>
+        <Text style={styles.title}>{state.player.displayName}</Text>
+        <Text style={styles.editHint}>personage aanpassen ›</Text>
+      </Pressable>
 
       <Panel>
         <Row>
@@ -209,6 +214,9 @@ export default function BaseScreen() {
         />
         <Button label="Verkoop alles" onPress={() => void sellAll('mythic')} loading={busy} />
       </Row>
+      <Text style={styles.craftHint}>
+        Materialen niet verkopen maar omzetten in interieur? Dat doe je bij de Werkbank.
+      </Text>
     </ScrollView>
   );
 }
@@ -224,7 +232,9 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.color.bg },
-  title: { color: theme.color.text, fontSize: 26, fontWeight: '800', marginBottom: 12 },
+  titleRow: { marginBottom: 12 },
+  title: { color: theme.color.text, fontSize: 26, fontWeight: '800' },
+  editHint: { color: theme.color.accent, fontSize: 12, fontWeight: '600', marginTop: 2 },
   bigIcon: { fontSize: 34 },
   propertyName: { color: theme.color.text, fontSize: 19, fontWeight: '700' },
   dim: { color: theme.color.textDim, fontSize: 12, marginTop: 4 },
@@ -251,4 +261,11 @@ const styles = StyleSheet.create({
   itemName: { color: theme.color.text, fontSize: 15, fontWeight: '600' },
   itemQty: { color: theme.color.textDim, fontWeight: '400' },
   itemMeta: { fontSize: 11, marginTop: 2 },
+  craftHint: {
+    color: theme.color.textDim,
+    fontSize: 12,
+    marginTop: 14,
+    lineHeight: 18,
+    textAlign: 'center',
+  },
 });

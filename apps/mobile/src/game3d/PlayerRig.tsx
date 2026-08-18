@@ -1,4 +1,4 @@
-import { ECONOMY, resolveMovement } from '@game/shared';
+import { DEFAULT_APPEARANCE, ECONOMY, appearanceColors, resolveMovement } from '@game/shared';
 import { useFrame, useThree } from '@react-three/fiber/native';
 import { useRef } from 'react';
 import * as THREE from 'three';
@@ -20,6 +20,10 @@ export function PlayerRig() {
   const { camera } = useThree();
   const groupRef = useRef<THREE.Group>(null);
   const facing = useRef(0);
+  // Je eigen personage. In fase 4 krijgen andere spelers dezelfde opbouw,
+  // dus de kleuren komen uit @game/shared en niet uit de UI-thema's.
+  const appearance = useGame((s) => s.state?.player.appearance) ?? DEFAULT_APPEARANCE;
+  const colors = appearanceColors(appearance);
 
   useFrame((_, rawDelta) => {
     const delta = Math.min(rawDelta, 0.05);
@@ -81,16 +85,20 @@ export function PlayerRig() {
       </mesh>
       <mesh position={[0, 1.05, 0]}>
         <capsuleGeometry args={[0.42, 0.9, 4, 10]} />
-        <meshLambertMaterial color="#4dd4ac" />
+        <meshLambertMaterial color={colors.outfit} />
       </mesh>
       <mesh position={[0, 1.75, 0]}>
         <sphereGeometry args={[0.34, 14, 12]} />
-        <meshLambertMaterial color="#f2d7b8" />
+        <meshLambertMaterial color={colors.skin} />
       </mesh>
-      {/* Klein neusje zodat je ziet welke kant je op kijkt. */}
-      <mesh position={[0, 1.72, 0.34]}>
-        <boxGeometry args={[0.16, 0.16, 0.2]} />
-        <meshLambertMaterial color="#2b3a55" />
+      {/* Pet in je accentkleur; laat ook zien welke kant je op kijkt. */}
+      <mesh position={[0, 1.98, 0.02]}>
+        <cylinderGeometry args={[0.33, 0.35, 0.18, 12]} />
+        <meshLambertMaterial color={colors.accent} />
+      </mesh>
+      <mesh position={[0, 1.93, 0.3]}>
+        <boxGeometry args={[0.44, 0.06, 0.3]} />
+        <meshLambertMaterial color={colors.accent} />
       </mesh>
     </group>
   );

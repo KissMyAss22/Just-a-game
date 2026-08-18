@@ -1,4 +1,4 @@
-import { getItem, type PlayerStateDto, type SpawnDto } from '@game/shared';
+import { getItem, type Appearance, type PlayerStateDto, type SpawnDto } from '@game/shared';
 import { create } from 'zustand';
 import * as api from '../net/api';
 import { playerPosition, setPlayerPosition, travelBuffer } from './position';
@@ -32,6 +32,9 @@ interface GameStore {
   sellAll: (maxRarity: string) => Promise<void>;
   place: (itemId: string, quantity: number) => Promise<void>;
   unplace: (itemId: string, quantity: number) => Promise<void>;
+  craft: (recipeId: string, times?: number) => Promise<boolean>;
+  buyBoost: (boostId: string) => Promise<boolean>;
+  saveProfile: (input: { displayName?: string; appearance?: Appearance }) => Promise<boolean>;
   applyState: (state: PlayerStateDto) => void;
   toast: (text: string, detail?: string, color?: string) => void;
   dismissToast: (id: number) => void;
@@ -119,7 +122,11 @@ export const useGame = create<GameStore>((set, get) => ({
 
     try {
       const result = await api.collectSpawn(spawn.id, playerPosition.x, playerPosition.z);
-      get().toast(`${result.icon} ${result.name}`, `+${result.xpGained} xp`, result.rarity);
+      get().toast(
+        `${result.icon} ${result.name}${result.doubled ? ' x2' : ''}`,
+        result.doubled ? `dubbele opbrengst · +${result.xpGained} xp` : `+${result.xpGained} xp`,
+        result.rarity,
+      );
       if (result.levelUp) {
         get().toast(`Level ${result.level}!`, `+${result.levelRewards.cash} cash`, 'legendary');
       }
@@ -187,6 +194,57 @@ export const useGame = create<GameStore>((set, get) => ({
       get().applyState(state);
     } catch (error) {
       get().toast(error instanceof Error ? error.message : 'Mislukt');
+    } finally {
+      set({ busy: false });
+    }
+  },
+
+  async craft(recipeId, times = 1) {
+    if (get().busy) return false;
+    set({ busy: true });
+    try {
+      const result = await api.craft(recipeId, times);
+      get().applyState(result.state);
+      get().toast(
+        `${result.crafted.icon} ${result.crafted.name}`,
+        `${result.crafted.quantity}x gemaakt`,
+        result.crafted.rarity,
+      );
+      return true;
+    } catch (error) {
+      get().toast(error instanceof Error ? error.message : 'Craften mislukt');
+      return false;
+    } finally {
+      set({ busy: false });
+    }
+  },
+
+  async buyBoost(boostId) {
+    if (get().busy) return false;
+    set({ busy: true });
+    try {
+      const result = await api.buyBoost(boostId);
+      get().applyState(result.state);
+      get().toast('Boost actief', undefined, 'legendary');
+      return true;
+    } catch (error) {
+      get().toast(error instanceof Error ? error.message : 'Mislukt');
+      return false;
+    } finally {
+      set({ busy: false });
+    }
+  },
+
+  async saveProfile(input) {
+    if (get().busy) return false;
+    set({ busy: true });
+    try {
+      get().applyState(await api.updateProfile(input));
+      get().toast('Profiel opgeslagen', undefined, 'uncommon');
+      return true;
+    } catch (error) {
+      get().toast(error instanceof Error ? error.message : 'Opslaan mislukt');
+      return false;
     } finally {
       set({ busy: false });
     }

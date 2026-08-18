@@ -13,6 +13,7 @@ import type { FastifyInstance } from 'fastify';
 import { authenticate, playerIdOf } from '../lib/auth.js';
 import { GameError } from '../lib/errors.js';
 import { prisma } from '../lib/prisma.js';
+import { grantBoost } from '../services/boosts.js';
 import { grant, spend, type Tx } from '../services/ledger.js';
 import { addItem, loadPlayer } from '../services/player.js';
 import { claimQuest, questViews } from '../services/quests.js';
@@ -32,6 +33,7 @@ async function applyRewards(
   playerId: string,
   rewards: readonly Reward[],
   reason: string,
+  now: Date,
 ): Promise<void> {
   for (const reward of rewards) {
     switch (reward.kind) {
@@ -60,7 +62,7 @@ async function applyRewards(
         });
         break;
       case 'boost':
-        // Boosts krijgen hun eigen tabel zodra ze in fase 2 echt gaan werken.
+        await grantBoost(tx, playerId, reward.boostId, reward.hours, now);
         break;
     }
   }
@@ -149,7 +151,7 @@ export async function seasonRoutes(app: FastifyInstance): Promise<void> {
         throw new GameError('Hier zit geen beloning op.', 400, 'no_reward');
       }
 
-      await applyRewards(tx, playerId, rewards, `season_${body.track}`);
+      await applyRewards(tx, playerId, rewards, `season_${body.track}`, now);
       await tx.seasonProgress.update({
         where: { playerId_seasonIndex: { playerId, seasonIndex: window.index } },
         data:

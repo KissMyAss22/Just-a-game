@@ -7,11 +7,14 @@ import { env } from './env.js';
 import { GameError } from './lib/errors.js';
 import { disconnectPrisma, prisma } from './lib/prisma.js';
 import { authRoutes } from './routes/auth.js';
+import { craftRoutes } from './routes/craft.js';
 import { economyRoutes } from './routes/economy.js';
+import { profileRoutes } from './routes/profile.js';
 import { seasonRoutes } from './routes/season.js';
 import { shopRoutes } from './routes/shop.js';
 import { stateRoutes } from './routes/state.js';
 import { worldRoutes } from './routes/world.js';
+import { pruneExpiredBoosts } from './services/boosts.js';
 import { ensureSpawns } from './services/spawner.js';
 
 async function main(): Promise<void> {
@@ -55,6 +58,8 @@ async function main(): Promise<void> {
   await app.register(economyRoutes);
   await app.register(shopRoutes);
   await app.register(seasonRoutes);
+  await app.register(craftRoutes);
+  await app.register(profileRoutes);
 
   await prisma.$connect();
 
@@ -62,6 +67,7 @@ async function main(): Promise<void> {
   await ensureSpawns().catch((error) => app.log.error(error, 'eerste spawnronde mislukt'));
   const spawnTimer = setInterval(() => {
     ensureSpawns().catch((error) => app.log.error(error, 'spawnronde mislukt'));
+    pruneExpiredBoosts().catch((error) => app.log.error(error, 'opruimen boosts mislukt'));
   }, Math.max(5, env.spawnIntervalSeconds) * 1000);
   spawnTimer.unref();
 

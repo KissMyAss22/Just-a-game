@@ -35,6 +35,13 @@ export default function GameLayout() {
         }}
       />
       <Tabs.Screen
+        name="craft"
+        options={{
+          title: 'Werkbank',
+          tabBarIcon: ({ color }) => <TabIcon emoji="🪚" color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="shop"
         options={{
           title: 'Winkel',
@@ -48,6 +55,8 @@ export default function GameLayout() {
           tabBarIcon: ({ color }) => <TabIcon emoji="🎟️" color={color} />,
         }}
       />
+      {/* Bereikbaar via je naam op het base-scherm, niet als eigen tab. */}
+      <Tabs.Screen name="profile" options={{ href: null }} />
     </Tabs>
   );
 }

@@ -69,10 +69,15 @@ export async function worldRoutes(app: FastifyInstance): Promise<void> {
       const outcome = await collectSpawn(tx, loaded, body.spawnId, body.x, body.z, now);
       const item = getItem(outcome.itemId);
 
-      await addItem(tx, playerId, item.id, 1);
+      // Sommige boosts geven kans op een dubbele opbrengst. De worp gebeurt
+      // hier op de server; de client hoort alleen de uitkomst.
+      const doubled = Math.random() < loaded.stats.doubleDropChance;
+      const quantity = doubled ? 2 : 1;
+
+      await addItem(tx, playerId, item.id, quantity);
       const xp = await grantXp(tx, playerId, loaded.player.xp, loaded.player.level, xpForItem(item));
 
-      await trackQuest(tx, playerId, loaded.player.seed, now, 'collect_items', 1);
+      await trackQuest(tx, playerId, loaded.player.seed, now, 'collect_items', quantity);
       await trackQuest(tx, playerId, loaded.player.seed, now, 'collect_rarity', 1, {
         itemId: item.id,
       });
@@ -82,7 +87,8 @@ export async function worldRoutes(app: FastifyInstance): Promise<void> {
         name: item.name,
         rarity: item.rarity,
         icon: item.icon,
-        quantity: 1,
+        quantity,
+        doubled,
         xpGained: xpForItem(item),
         level: xp.level,
         levelUp: xp.levelsGained > 0,

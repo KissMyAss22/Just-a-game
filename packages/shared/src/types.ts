@@ -89,22 +89,61 @@ export type Reward =
   | { kind: 'vehicle'; vehicleId: string }
   | { kind: 'boost'; boostId: string; hours: number };
 
-/** Actieve tijdelijke boost op je inkomen. */
+/** Tijdelijke boost die je met gems koopt of uit de season pass krijgt. */
 export interface BoostDef {
   id: string;
   name: string;
+  description: string;
   /** Vermenigvuldiger op passief inkomen, bv. 0.5 = +50%. */
   incomeBonus: number;
-  /** Vermenigvuldiger op spawnrate, bv. 0.25 = +25%. */
+  /** Kans op een dubbele opbrengst bij het oprapen, bv. 0.25 = 25%. */
   spawnBonus?: number;
+  /** Standaardduur in uren. */
+  durationHours: number;
+  /** Prijs in gems. */
+  priceGems: number;
   icon: string;
 }
 
 export const BOOSTS: readonly BoostDef[] = [
-  { id: 'coffee', name: 'Koffie', incomeBonus: 0.25, icon: '☕' },
-  { id: 'manager', name: 'Manager', incomeBonus: 0.5, icon: '🧑‍💼' },
-  { id: 'city_deal', name: 'Stadsdeal', incomeBonus: 1, spawnBonus: 0.25, icon: '🤝' },
-  { id: 'golden_hour', name: 'Gouden Uur', incomeBonus: 2, spawnBonus: 0.5, icon: '🌇' },
+  {
+    id: 'coffee',
+    name: 'Koffie',
+    description: '+25% passief inkomen',
+    incomeBonus: 0.25,
+    durationHours: 2,
+    priceGems: 15,
+    icon: '☕',
+  },
+  {
+    id: 'assistant',
+    name: 'Assistent',
+    description: '+50% passief inkomen',
+    incomeBonus: 0.5,
+    durationHours: 4,
+    priceGems: 40,
+    icon: '🧑‍🔧',
+  },
+  {
+    id: 'city_deal',
+    name: 'Stadsdeal',
+    description: '+100% inkomen en 25% kans op dubbele opbrengst',
+    incomeBonus: 1,
+    spawnBonus: 0.25,
+    durationHours: 8,
+    priceGems: 90,
+    icon: '🤝',
+  },
+  {
+    id: 'golden_hour',
+    name: 'Gouden Uur',
+    description: '+200% inkomen en 50% kans op dubbele opbrengst',
+    incomeBonus: 2,
+    spawnBonus: 0.5,
+    durationHours: 1,
+    priceGems: 120,
+    icon: '🌇',
+  },
 ] as const;
 
 export const BOOSTS_BY_ID: Readonly<Record<string, BoostDef>> = Object.fromEntries(

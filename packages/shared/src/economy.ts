@@ -75,7 +75,29 @@ export type UpgradeEffect =
   | 'offlineCap'
   | 'income'
   | 'inventory'
-  | 'pickupRadius';
+  | 'pickupRadius'
+  | 'manager';
+
+/**
+ * De manager int je kluis automatisch, dus die loopt nooit meer over — maar
+ * hij houdt wel commissie in. Elk managerlevel verlaagt die commissie.
+ *
+ * Zo blijven alle drie de knoppen zinvol: vroeg upgrade je de kluis omdat je
+ * zelf int, halverwege neem je een manager om niets meer te verliezen, en
+ * daarna koop je de commissie omlaag.
+ */
+export const MANAGER = {
+  /** Commissie bij managerlevel 1. */
+  baseFee: 0.3,
+  /** Hoeveel de commissie per extra level daalt. */
+  feePerLevel: 0.05,
+} as const;
+
+/** Commissie die de manager inhoudt, 0 als je er geen hebt. */
+export function managerFee(level: number): number {
+  if (level <= 0) return 0;
+  return Math.max(0.05, MANAGER.baseFee - (level - 1) * MANAGER.feePerLevel);
+}
 
 export interface BaseUpgradeDef {
   id: string;
@@ -140,6 +162,16 @@ export const BASE_UPGRADES: readonly BaseUpgradeDef[] = [
     perLevel: 0.6,
     icon: '🧲',
   },
+  {
+    id: 'manager',
+    name: 'Manager',
+    description: 'Int je kluis automatisch; elk level kost minder commissie',
+    baseCost: 9_000,
+    maxLevel: 6,
+    effect: 'manager',
+    perLevel: MANAGER.feePerLevel,
+    icon: '🧑‍💼',
+  },
 ] as const;
 
 export const BASE_UPGRADES_BY_ID: Readonly<Record<string, BaseUpgradeDef>> =
@@ -194,6 +226,12 @@ export interface PlayerStats {
   inventorySlots: number;
   moveSpeed: number;
   pickupRadius: number;
+  /** Met een manager loopt de kluis niet over: hij wordt continu geleegd. */
+  autoCollect: boolean;
+  /** Deel dat de manager inhoudt, 0..1. */
+  managerFee: number;
+  /** Kans op een dubbele opbrengst bij het oprapen, uit actieve boosts. */
+  doubleDropChance: number;
 }
 
 function upgradeLevel(upgrades: Readonly<Record<string, number>>, id: string): number {
@@ -234,9 +272,16 @@ export function computeStats(input: StatsInput): PlayerStats {
   const magnetLevel = upgradeLevel(input.upgrades, 'magnet');
 
   let boostBonus = 0;
+  let doubleDropChance = 0;
   for (const id of input.activeBoostIds ?? []) {
-    boostBonus += BOOSTS_BY_ID[id]?.incomeBonus ?? 0;
+    const boost = BOOSTS_BY_ID[id];
+    if (!boost) continue;
+    boostBonus += boost.incomeBonus;
+    doubleDropChance += boost.spawnBonus ?? 0;
   }
+  doubleDropChance = Math.min(0.9, doubleDropChance);
+
+  const managerLvl = upgradeLevel(input.upgrades, 'manager');
 
   const flexMult = flexMultiplier(flexScore);
   const upgradeMult = 1 + bookkeeperLevel * getUpgrade('bookkeeper').perLevel;
@@ -258,7 +303,25 @@ export function computeStats(input: StatsInput): PlayerStats {
       ECONOMY.baseInventorySlots + vehicle.carryBonus + backpackLevel * getUpgrade('backpack').perLevel,
     moveSpeed: ECONOMY.baseMoveSpeed * vehicle.speedMultiplier,
     pickupRadius: ECONOMY.basePickupRadius + magnetLevel * getUpgrade('magnet').perLevel,
+    autoCollect: managerLvl > 0,
+    managerFee: managerFee(managerLvl),
+    doubleDropChance,
   };
+}
+
+/**
+ * De capaciteit waarmee daadwerkelijk gerekend wordt. Met een manager is die
+ * onbegrensd, omdat de kluis continu wordt geleegd — `vaultCapacity` blijft
+ * dan alleen nog de waarde die de app in de balk laat zien.
+ */
+export function accrualCapacity(stats: PlayerStats): number {
+  return stats.autoCollect ? Number.POSITIVE_INFINITY : stats.vaultCapacity;
+}
+
+/** Wat er van een automatische inning overblijft na commissie. */
+export function afterManagerFee(amount: number, fee: number): { net: number; fee: number } {
+  const commission = Math.floor(amount * fee);
+  return { net: Math.max(0, amount - commission), fee: commission };
 }
 
 // ---------------------------------------------------------------------------

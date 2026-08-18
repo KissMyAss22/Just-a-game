@@ -5,6 +5,8 @@ import { RARITY_VALUE_MULTIPLIER, type ItemCategory, type ItemDef, type Rarity }
 export interface LootItemDef extends ItemDef {
   /** Leeg = kan overal vallen. Anders alleen in deze districten. */
   districts?: readonly DistrictId[];
+  /** Alleen te maken bij de werkbank; ligt nooit op straat. */
+  craftOnly?: boolean;
 }
 
 /**
@@ -56,6 +58,15 @@ export const ITEMS: readonly LootItemDef[] = [
   { id: 'race_ecu', name: 'Race-ECU', category: 'part', rarity: 'legendary', baseValue: 1300, icon: '🧠', districts: ['hills', 'industrial'] },
   { id: 'season_key', name: 'Seizoenssleutel', category: 'token', rarity: 'legendary', baseValue: 0, icon: '🔑' },
 
+  // --- alleen te craften ----------------------------------------------------
+  { id: 'workbench', name: 'Werkbank', category: 'decor', rarity: 'uncommon', baseValue: 45, incomePerHour: 18, flex: 4, icon: '🪚', craftOnly: true },
+  { id: 'neon_sign', name: 'Neonreclame', category: 'decor', rarity: 'rare', baseValue: 100, incomePerHour: 44, flex: 13, icon: '🪧', craftOnly: true },
+  { id: 'home_gym', name: 'Thuisgym', category: 'decor', rarity: 'rare', baseValue: 118, incomePerHour: 52, flex: 15, icon: '🏋️', craftOnly: true },
+  { id: 'race_sim', name: 'Racesimulator', category: 'decor', rarity: 'epic', baseValue: 395, incomePerHour: 118, flex: 30, icon: '🕹️', craftOnly: true },
+  { id: 'art_wall', name: 'Kunstwand', category: 'decor', rarity: 'epic', baseValue: 420, incomePerHour: 126, flex: 34, icon: '🎨', craftOnly: true },
+  { id: 'trophy_case', name: 'Prijzenkast', category: 'decor', rarity: 'legendary', baseValue: 1_650, incomePerHour: 445, flex: 105, icon: '🏆', craftOnly: true },
+  { id: 'private_vault', name: 'Privékluis', category: 'decor', rarity: 'legendary', baseValue: 1_800, incomePerHour: 480, flex: 120, icon: '🔒', craftOnly: true },
+
   // --- mythic -------------------------------------------------------------
   { id: 'meteorite', name: 'Meteorietsplinter', category: 'valuable', rarity: 'mythic', baseValue: 6500, flex: 250, icon: '☄️' },
   { id: 'city_deed', name: 'Eigendomsakte', category: 'decor', rarity: 'mythic', baseValue: 9000, incomePerHour: 2400, flex: 400, icon: '📜', districts: ['island', 'hills'] },
@@ -91,7 +102,10 @@ export function pickItemForDistrict(
   rand: number,
 ): LootItemDef | null {
   const pool = ITEMS.filter(
-    (i) => i.rarity === rarity && (!i.districts || i.districts.includes(districtId)),
+    (i) =>
+      i.rarity === rarity &&
+      !i.craftOnly &&
+      (!i.districts || i.districts.includes(districtId)),
   );
   if (pool.length === 0) return null;
   const index = Math.min(pool.length - 1, Math.floor(rand * pool.length));

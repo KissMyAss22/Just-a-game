@@ -120,6 +120,50 @@ Elke mutatie van cash of gems schrijft een rij in `Transaction` met bedrag,
 reden en het saldo daarna. Dit is niet optioneel: het is de enige manier om
 een duplicatie-bug te vinden of iemand te compenseren.
 
+### De manager
+
+Vanaf de manager-upgrade wordt je kluis automatisch geleegd, dus je verliest
+nooit meer inkomen aan overloop — maar hij houdt commissie in: 30% op level 1,
+aflopend tot 5% op level 6.
+
+Dat houdt alle drie de knoppen zinvol. Vroeg upgrade je de kluis omdat je zelf
+int. Halverwege neem je een manager zodat er niets meer verloren gaat. Daarna
+koop je de commissie omlaag. Zonder die commissie zou de kluis-upgrade meteen
+waardeloos worden.
+
+Technisch: `computeStats()` geeft `autoCollect` en `managerFee` terug, en
+`accrualCapacity()` levert `Infinity` zolang er een manager is. De inning
+gebeurt in `settleVault()` en schrijft twee bedragen in het grootboek — bruto
+en commissie — zodat te zien is wat de manager heeft gekost.
+
+### Boosts
+
+Tijdelijke vermenigvuldigers die je met gems koopt of uit de season pass
+krijgt: Koffie (+25%, 2 u), Assistent (+50%, 4 u), Stadsdeal (+100% en 25% kans
+op dubbele opbrengst, 8 u) en Gouden Uur (+200% en 50% kans, 1 u).
+
+De `spawnBonus` van een boost is bewust geen hogere spawnrate in de stad — die
+geldt voor iedereen en is dus geen persoonlijke beloning. In plaats daarvan is
+het een kans op **dubbele opbrengst** bij het oprapen. De worp gebeurt op de
+server; de client hoort alleen de uitkomst.
+
+Koop je een boost die al loopt, dan wordt de looptijd verlengd in plaats van
+overschreven.
+
+### Craften
+
+Materialen hadden alleen een verkoopwaarde; met recepten worden ze de
+grondstof voor interieur dat elk uur geld oplevert. De acht recepten vormen een
+ladder van level 2 (Werkbank) tot level 34 (Privékluis), waarbij latere
+recepten eerdere producten als ingrediënt gebruiken.
+
+Alles wat je maakt is `craftOnly`: het ligt nooit op straat, dus craften is de
+enige route ernaartoe. Een test bewaakt dat die items nergens in een spawnpool
+terechtkomen.
+
+`checkRecipe()` staat in `@game/shared` en wordt door de server gebruikt om te
+beslissen en door de app om de knop te tonen — één regel, twee gebruikers.
+
 ---
 
 ## 5. Items
@@ -164,7 +208,23 @@ Base-upgrades: Kluis (+25% opslag), Aggregaat (+1 uur offline), Boekhouder
 
 ---
 
-## 8. Anti-cheat
+## 8. Je personage
+
+Naam en uiterlijk staan in `packages/shared/src/character.ts`, niet in de UI —
+want zodra andere spelers je in fase 4 zien lopen, moet de server dezelfde
+definitie kennen.
+
+- **Uiterlijk**: huidskleur, kleding en pet, elk een index in een vast palet.
+  Wat er uit de database komt gaat altijd door `normalizeAppearance()`, zodat
+  een kapotte of verouderde waarde nooit tot een crash leidt.
+- **Naam**: 3 tot 18 tekens, letters/cijfers/spaties/`-`/`_`, geen dubbele
+  spaties, en een korte lijst gereserveerde namen. Dit is bewust een
+  vormcontrole — echte moderatie hoort bij chat in fase 4.
+- De server valideert de naam opnieuw; de app toont alleen dezelfde melding.
+
+---
+
+## 9. Anti-cheat
 
 De client stuurt **intenties**, nooit uitkomsten.
 
@@ -182,43 +242,71 @@ De client stuurt **intenties**, nooit uitkomsten.
 
 ---
 
-## 9. Fasering
+## 10. Fasering
 
 | Fase | Inhoud | Status |
 |---|---|---|
 | 0 | Monorepo, server, database, 3D-scene op je telefoon | ✅ af |
 | 1 | Speelbare kern: stad, lopen, items, base, offline inkomen, winkel, season pass | ✅ af |
-| 2 | Boosts echt laten werken, managers/automatisatie, base-indeling met plaatsing op posities, craften, balanceerronde | 🚧 volgende |
+| 2 | Boosts, manager met commissie, craften, personage met naam en uiterlijk | ✅ af |
+| 2b | Base-indeling op posities in een 3D-ruimte, balanceerronde met simulatie | 🚧 volgende |
 | 3 | Rijdbare voertuigen, dag/nacht, geluid, LOD en performanceronde op een midrange toestel | ⬜ |
-| 4 | Multiplayer (Colyseus): andere spelers zien, chat + moderatie, profielen, base-bezoek, leaderboards | ⬜ |
+| 4 | Roleplay en multiplayer (Colyseus) — zie hieronder | ⬜ |
 | 5 | Live-ops: seizoenen configureren zonder deploy, events, admin-tooling | ⬜ |
 | 6 | Echte IAP (RevenueCat), analytics, Sentry, privacybeleid, App Store | ⬜ |
 
+### Fase 4 in detail: roleplay
+
+Bevestigd: **RP staat voor roleplay**, in de geest van SundayCity. Dat maakt
+fase 4 concreet, in deze volgorde:
+
+1. **Samen in dezelfde stad.** Colyseus-room per stadsdeel, ~30 spelers per
+   instantie, positie-sync op 10 Hz met interpolatie. Je ziet elkaars
+   personage — naam, kleding, pet, voertuig — precies zoals het al gedefinieerd
+   is in `character.ts`.
+2. **Communiceren.** Emotes en tekstchat met proximity: alleen wie in de buurt
+   staat leest mee. Filter, blokkeren, muten en rapporteren horen bij deze stap
+   en niet erna — zonder die tools komt de app niet door de App Store-review.
+3. **Rollen in de economie.** Jobs die je in de stad kunt aannemen en die
+   spelers van elkaar afhankelijk maken: koerier (pakketten tussen districten),
+   monteur (voertuigonderdelen omzetten in reparaties), handelaar (inkoop op de
+   ene markt, verkoop op de andere). Elk beroep krijgt een eigen voortgang en
+   ontsluit gereedschap.
+4. **Sociale structuur.** Vriendenlijst, elkaars base bezoeken en waarderen,
+   leaderboards op rijkdom en Flex Score, en later crews.
+
+Bewust ná dit alles: handel in items tussen spelers. Dat is de grootste bron
+van economie-exploits en vraagt eerst limieten, logging en een stabiele
+economie.
+
 ---
 
-## 10. Wat bewust nog niet gebouwd is
+## 11. Wat bewust nog niet gebouwd is
 
 - **Handel tussen spelers.** De grootste bron van economie-exploits. Pas als de
   rest stabiel is, en dan met logging en limieten.
-- **Boosts.** De definities staan er (`BOOSTS`), de multiplier wordt al
-  toegepast, maar er is nog geen tabel met looptijden. Fase 2.
-- **Craften.** Materialen worden verzameld maar hebben nog geen bestemming
-  behalve verkopen.
-- **Base-indeling.** Items worden nu geplaatst als aantal, niet op een
-  specifieke plek in een 3D-ruimte.
-- **Colyseus.** Bewust nog niet toegevoegd: eerst moet het spel alleen leuk
-  zijn.
+- **Base-indeling.** Items worden geplaatst als aantal, nog niet op een
+  specifieke plek in een 3D-ruimte die je zelf inricht.
+- **Balanceerronde.** De curve is met de hand gekozen en door tests bewaakt,
+  maar nog niet doorgerekend met een simulatie over meerdere speeluren.
+- **Colyseus.** Bewust nog niet toegevoegd: eerst moet het spel in je eentje
+  leuk zijn.
+- **Meertaligheid.** Alles is Nederlands. Voor de App Store wordt dat een
+  aparte klus, geen blokkade.
 
 ---
 
-## 11. Open vragen
+## 12. Open vragen
 
 1. Moet de stad een **dag/nachtcyclus** krijgen die ook de loot beïnvloedt?
    (Nu al voorbereid met een tijd-modifier in de spawnweging.)
-2. Wordt "RP" letterlijk rollenspel (jobs, rollen, verhaallijnen) of vooral
-   samen in dezelfde stad zijn? Dit bepaalt de omvang van fase 4.
-3. Willen we **prestige** (opnieuw beginnen met een permanente multiplier)?
+2. Willen we **prestige** (opnieuw beginnen met een permanente multiplier)?
    Idle games hebben dat meestal nodig om na een paar weken interessant te
-   blijven.
-4. Vanaf welk moment stappen we over van gast-accounts naar echte logins?
+   blijven. Dit is de eerstvolgende beslissing die het ontwerp echt raakt.
+3. Vanaf welk moment stappen we over van gast-accounts naar echte logins?
    Apple eist Sign in with Apple zodra er een andere social login is.
+4. Hoe streng wordt roleplay? Zijn jobs vrijblijvend, of kies je één beroep dat
+   je identiteit bepaalt? Dat laatste geeft meer karakter maar maakt de
+   economie afhankelijker van hoeveel spelers er tegelijk online zijn.
+
+*Beantwoord:* RP betekent roleplay — uitgewerkt in fase 4 hierboven.

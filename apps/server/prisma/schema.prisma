@@ -39,6 +39,10 @@ model Player {
   propertyId String @default("squat")
   vehicleId  String @default("on_foot")
 
+  /// Uiterlijk van je personage. Wordt altijd door normalizeAppearance()
+  /// gehaald voordat het gebruikt wordt, dus rommel hier kan geen kwaad.
+  appearance Json @default("{}")
+
   /// Laatst bekende positie in de stad (wereldcoördinaten in meters).
   x Float @default(0)
   z Float @default(0)
@@ -61,6 +65,7 @@ model Player {
   user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   upgrades       PlayerUpgrade[]
   vehicles       PlayerVehicle[]
+  boosts         PlayerBoost[]
   inventory      InventoryItem[]
   placements     Placement[]
   transactions   Transaction[]
@@ -129,6 +134,19 @@ model Transaction {
   player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
 
   @@index([playerId, createdAt])
+}
+
+/// Een lopende boost. Verlopen rijen worden opgeruimd bij het laden.
+model PlayerBoost {
+  id        String   @id @default(cuid())
+  playerId  String
+  boostId   String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@index([playerId, expiresAt])
 }
 
 /// Een item dat op straat ligt. De server bepaalt waar en wat.

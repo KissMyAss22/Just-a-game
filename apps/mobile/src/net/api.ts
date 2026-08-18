@@ -1,7 +1,10 @@
 import type {
+  ActiveBoostDto,
+  Appearance,
   CollectResultDto,
   InventoryEntryDto,
   PlayerStateDto,
+  RecipeReadiness,
   SpawnDto,
 } from '@game/shared';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -176,6 +179,8 @@ export interface CollectResponse extends CollectResultDto {
   name: string;
   rarity: string;
   icon: string;
+  /** Waar door een boost een dubbele opbrengst uit kwam. */
+  doubled: boolean;
   levelRewards: { cash: number; gems: number };
 }
 
@@ -286,6 +291,69 @@ export interface SeasonResponse {
 }
 
 export const fetchSeason = () => request<SeasonResponse>('/season');
+
+// --- craften ---------------------------------------------------------------
+
+export interface RecipeEntry {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  cashCost: number;
+  requiredLevel: number;
+  inputs: { itemId: string; quantity: number; name: string; icon: string }[];
+  output: {
+    itemId: string;
+    quantity: number;
+    name: string;
+    icon: string;
+    rarity: string;
+    incomePerHour: number;
+    flex: number;
+  };
+  readiness: RecipeReadiness;
+}
+
+export const fetchRecipes = () =>
+  request<{ cash: number; level: number; recipes: RecipeEntry[] }>('/craft');
+
+export const craft = (recipeId: string, times = 1) =>
+  request<{
+    crafted: { itemId: string; name: string; icon: string; rarity: string; quantity: number };
+    state: PlayerStateDto;
+  }>('/craft', { body: { recipeId, times } });
+
+// --- boosts ----------------------------------------------------------------
+
+export interface BoostEntry {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  incomeBonus: number;
+  spawnBonus: number;
+  durationHours: number;
+  priceGems: number;
+  affordable: boolean;
+}
+
+export const fetchBoosts = () =>
+  request<{
+    gems: number;
+    active: ActiveBoostDto[];
+    catalog: BoostEntry[];
+    serverTime: number;
+  }>('/boosts');
+
+export const buyBoost = (boostId: string) =>
+  request<{ boostId: string; expiresAt: number; state: PlayerStateDto }>('/boost/buy', {
+    body: { boostId },
+  });
+
+// --- profiel ---------------------------------------------------------------
+
+export const updateProfile = (input: { displayName?: string; appearance?: Appearance }) =>
+  request<PlayerStateDto>('/player/profile', { body: input });
 export const claimQuest = (questId: string) =>
   request<{ seasonXpGained: number; tier: number }>('/season/quest/claim', { body: { questId } });
 export const claimTier = (tier: number, track: 'free' | 'premium') =>
