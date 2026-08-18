@@ -1,0 +1,183 @@
+// Datamodel van Just a Game.
+//
+// Uitgangspunt: de server is de baas over de economie. Elke muntmutatie loopt
+// via de Transaction-tabel (het grootboek), zodat duplicatie-bugs opspoorbaar
+// zijn en spelers gecompenseerd kunnen worden.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Een account. Nu nog een gast-account op basis van een device-id; later
+/// koppelbaar aan e-mail of Sign in with Apple.
+model User {
+  id        String   @id @default(cuid())
+  deviceId  String   @unique
+  createdAt DateTime @default(now())
+  lastSeen  DateTime @default(now())
+  player    Player?
+}
+
+model Player {
+  id          String @id @default(cuid())
+  userId      String @unique
+  displayName String
+
+  /// Vaste seed voor deterministische keuzes (bv. welke quests je krijgt).
+  seed Int
+
+  level Int    @default(1)
+  xp    Int    @default(0)
+  cash  BigInt @default(0)
+  gems  Int    @default(0)
+
+  propertyId String @default("squat")
+  vehicleId  String @default("on_foot")
+
+  /// Laatst bekende positie in de stad (wereldcoördinaten in meters).
+  x Float @default(0)
+  z Float @default(0)
+
+  /// Kluis: hier hoopt passief inkomen zich op tot je het ophaalt.
+  vaultBalance BigInt   @default(0)
+  /// Tot dit moment is het passieve inkomen bijgeschreven (servertijd).
+  accruedAt    DateTime @default(now())
+
+  /// Totaal afgelegde afstand in meters — voor quests en statistieken.
+  distanceTotal Float @default(0)
+  /// Tijdstip van de laatste positiemelding, voor de snelheidscontrole.
+  positionAt    DateTime @default(now())
+  /// Tijdstip van de laatste opgeraapte spawn, voor rate limiting.
+  lastCollectAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  upgrades       PlayerUpgrade[]
+  vehicles       PlayerVehicle[]
+  inventory      InventoryItem[]
+  placements     Placement[]
+  transactions   Transaction[]
+  seasonProgress SeasonProgress[]
+  questProgress  QuestProgress[]
+  spawns         Spawn[]
+
+  @@index([cash])
+}
+
+model PlayerUpgrade {
+  playerId  String
+  upgradeId String
+  level     Int    @default(0)
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@id([playerId, upgradeId])
+}
+
+model PlayerVehicle {
+  playerId   String
+  vehicleId  String
+  acquiredAt DateTime @default(now())
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@id([playerId, vehicleId])
+}
+
+/// Items in je rugzak.
+model InventoryItem {
+  playerId String
+  itemId   String
+  quantity Int    @default(0)
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@id([playerId, itemId])
+}
+
+/// Items die in je base staan; alleen deze leveren passief inkomen en flex op.
+model Placement {
+  playerId String
+  itemId   String
+  quantity Int    @default(0)
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@id([playerId, itemId])
+}
+
+/// Het grootboek: elke wijziging van cash of gems staat hier.
+model Transaction {
+  id        String   @id @default(cuid())
+  playerId  String
+  currency  String
+  /// Positief = bijschrijving, negatief = afschrijving.
+  amount    BigInt
+  /// Waarom: 'sell', 'vault_collect', 'buy_upgrade', 'quest_reward', ...
+  reason    String
+  balance   BigInt
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@index([playerId, createdAt])
+}
+
+/// Een item dat op straat ligt. De server bepaalt waar en wat.
+model Spawn {
+  id         String   @id @default(cuid())
+  districtId String
+  itemId     String
+  rarity     String
+  x          Float
+  z          Float
+  createdAt  DateTime @default(now())
+  expiresAt  DateTime
+
+  collectedById String?
+  collectedAt   DateTime?
+
+  collectedBy Player? @relation(fields: [collectedById], references: [id], onDelete: SetNull)
+
+  @@index([districtId, collectedAt, expiresAt])
+  @@index([collectedAt, expiresAt])
+}
+
+model SeasonProgress {
+  playerId       String
+  seasonIndex    Int
+  seasonXp       Int      @default(0)
+  premium        Boolean  @default(false)
+  claimedFree    Int[]    @default([])
+  claimedPremium Int[]    @default([])
+  updatedAt      DateTime @updatedAt
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@id([playerId, seasonIndex])
+}
+
+model QuestProgress {
+  id          String   @id @default(cuid())
+  playerId    String
+  questId     String
+  scope       String
+  /// Dagnummer (daily) of weeknummer (weekly) waarop deze quest hoort.
+  periodIndex Int
+  progress    Int      @default(0)
+  claimed     Boolean  @default(false)
+  updatedAt   DateTime @updatedAt
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([playerId, questId, periodIndex])
+  @@index([playerId, scope, periodIndex])
+}

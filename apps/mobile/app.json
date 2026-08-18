@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "Just a Game",
+    "slug": "just-a-game",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "justagame",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "backgroundColor": "#0b1020",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.justagame.app"
+    },
+    "android": {
+      "package": "com.justagame.app",
+      "edgeToEdgeEnabled": true
+    },
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

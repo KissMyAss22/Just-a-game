@@ -1,0 +1,37 @@
+# Lokale ontwikkelomgeving: start met `pnpm db:up` vanuit de repo-root.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: jag-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: game
+      POSTGRES_PASSWORD: game
+      POSTGRES_DB: justagame
+    ports:
+      - '5432:5432'
+    volumes:
+      - jag-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U game -d justagame']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: jag-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - jag-redisdata:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  jag-pgdata:
+  jag-redisdata:
