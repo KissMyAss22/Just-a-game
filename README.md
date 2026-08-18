@@ -102,7 +102,7 @@ mag voorspellen, maar nooit beslissen.
 | 1 | Speelbare kern: stad, lopen, items, base, offline inkomen | ✅ |
 | 2 | Boosts, manager, craften, personage met naam en uiterlijk | ✅ |
 | 2b | Rebirth met erfenis en permanente voordelen | ✅ |
-| 2c | Base-indeling op posities, balanceerronde | 🚧 |
+| 2c | Balansronde met simulatie, base-indeling op posities | 🚧 |
 | 3 | Alle districten, streaming, rijdbare voertuigen | ⬜ |
 | 4 | Multiplayer, chat, profielen, leaderboards | ⬜ |
 | 5 | Season pass live-ops, quests, events | ⬜ |

@@ -301,7 +301,68 @@ De client stuurt **intenties**, nooit uitkomsten.
 
 ---
 
-## 11. Fasering
+## 11. De balansronde
+
+De hele economie is nu met de hand afgesteld: getallen die redelijk aanvoelen,
+vastgezet met tests. Wat er níét is, is bewijs dat het ritme klopt over uren
+spelen. Dat blijft de grootste onbekende van het project, en met rebirth erbij
+is het belangrijker geworden — hoe lang een ronde hoort te duren voordat
+opnieuw beginnen aantrekkelijk wordt, is nu puur een gok.
+
+Dit hoofdstuk legt vast hóé we die balans gaan vinden, zodat "later" een plan
+is en geen wens.
+
+### Hoe we meten
+
+Een simulatie in `packages/shared` die een virtuele speler tegen de échte
+formules laat spelen: hij raapt items op met een realistisch tempo, verkoopt,
+plaatst wat inkomen oplevert, en koopt steeds de upgrade met de beste
+verhouding tussen prijs en opbrengst. De uitvoer is een tijdlijn.
+
+Dat kan omdat de economie uit pure functies bestaat (`computeStats`,
+`accrueIncome`, `upgradeCost`, `checkRecipe`, `erfenisFor`). Er is geen server
+en geen database voor nodig, en de simulatie kan daarna als test blijven
+draaien — dan merken we het meteen als een balanswijziging de curve breekt.
+
+### Wat we meten
+
+| Vraag | Wat we uitlezen |
+|---|---|
+| Voelt het begin snel? | Tijd tot de eerste betaalbare upgrade |
+| Loopt het door? | Langste periode zonder iets dat je kunt kopen |
+| Klopt de woningladder? | Tijd tot elke property-tier |
+| Wanneer komt rebirth? | Tijd tot level 20 en tot de eerste rebirth |
+| Loopt het uit de hand? | Verhouding inkomen/kosten per uur — groeit die weg of zakt hij in |
+| Is offline de moeite? | Wat 8 uur offline oplevert, uitgedrukt in minuten actief spelen |
+| Blijft actief spelen zinvol? | Aandeel actief versus passief inkomen door de tijd |
+
+### Wanneer is het goed
+
+Streefwaarden om tegen af te zetten — geen wetten, wel een meetlat:
+
+- Eerste upgrade binnen **2 minuten**.
+- Eerste eigen woning (Studio) binnen **een kwartier**.
+- Nooit langer dan **20 minuten** zonder iets dat je kunt kopen.
+- Level 20 en de eerste rebirth na **6 tot 10 uur** speeltijd, verspreid over
+  ongeveer een week.
+- 8 uur offline is ongeveer **30 tot 60 minuten** actief spelen waard: genoeg
+  om terug te komen, te weinig om alleen offline te spelen.
+- Actief verzamelen blijft ook laat in het spel merkbaar — zakt het onder een
+  tiende van je inkomen, dan is de stad versiering geworden.
+
+### Wat we daarna aanpassen
+
+In deze volgorde, want elke knop hierboven beïnvloedt de volgende:
+
+1. `ECONOMY.costGrowth` (nu 1,15) — bepaalt hoe snel alles duurder wordt.
+2. De `incomePerHour`-waarden van items en woningen.
+3. `ECONOMY.flexDivisor` — hoe zwaar luxe meetelt.
+4. De spawnrates per district — hoeveel actief spelen oplevert.
+5. `REBIRTH.pointsFactor` en de kosten van de erfenis-voordelen.
+
+---
+
+## 12. Fasering
 
 | Fase | Inhoud | Status |
 |---|---|---|
@@ -309,7 +370,7 @@ De client stuurt **intenties**, nooit uitkomsten.
 | 1 | Speelbare kern: stad, lopen, items, base, offline inkomen, winkel, season pass | ✅ af |
 | 2 | Boosts, manager met commissie, craften, personage met naam en uiterlijk | ✅ af |
 | 2b | Rebirth met erfenis en permanente voordelen | ✅ af |
-| 2c | Base-indeling op posities in een 3D-ruimte, balanceerronde met simulatie | 🚧 volgende |
+| 2c | Balansronde met simulatie (hoofdstuk 11) en base-indeling op posities | 🚧 volgende |
 | 3 | Rijdbare voertuigen, dag/nacht, geluid, LOD en performanceronde op een midrange toestel | ⬜ |
 | 4 | Roleplay en multiplayer (Colyseus) — zie hieronder | ⬜ |
 | 5 | Live-ops: seizoenen configureren zonder deploy, events, admin-tooling | ⬜ |
@@ -341,16 +402,15 @@ economie.
 
 ---
 
-## 12. Wat bewust nog niet gebouwd is
+## 13. Wat bewust nog niet gebouwd is
 
 - **Handel tussen spelers.** De grootste bron van economie-exploits. Pas als de
   rest stabiel is, en dan met logging en limieten.
 - **Base-indeling.** Items worden geplaatst als aantal, nog niet op een
   specifieke plek in een 3D-ruimte die je zelf inricht.
-- **Balanceerronde.** De curve is met de hand gekozen en door tests bewaakt,
-  maar nog niet doorgerekend met een simulatie over meerdere speeluren. Met
-  rebirth erbij is dat nu belangrijker geworden: hoe lang een ronde hoort te
-  duren voordat opnieuw beginnen aantrekkelijk wordt, is nu een gok.
+- **Balansronde.** De curve is met de hand gekozen en door tests bewaakt, maar
+  nog niet doorgerekend over meerdere speeluren. Dit is de grootste onbekende
+  van het project; hoofdstuk 11 beschrijft hoe we hem gaan wegnemen.
 - **Colyseus.** Bewust nog niet toegevoegd: eerst moet het spel in je eentje
   leuk zijn.
 - **Meertaligheid.** Alles is Nederlands. Voor de App Store wordt dat een
@@ -358,7 +418,7 @@ economie.
 
 ---
 
-## 13. Open vragen
+## 14. Open vragen
 
 1. Moet de stad een **dag/nachtcyclus** krijgen die ook de loot beïnvloedt?
    (Nu al voorbereid met een tijd-modifier in de spawnweging.)
