@@ -30,8 +30,9 @@ interface GameStore {
   collect: (spawn: SpawnDto) => Promise<void>;
   claimVault: () => Promise<void>;
   sellAll: (maxRarity: string) => Promise<void>;
-  place: (itemId: string, quantity: number) => Promise<void>;
-  unplace: (itemId: string, quantity: number) => Promise<void>;
+  place: (itemId: string, spot?: { x: number; z: number; rotation: number }) => Promise<boolean>;
+  moveItem: (placementId: string, x: number, z: number, rotation: number) => Promise<boolean>;
+  storeItem: (placementId: string) => Promise<boolean>;
   craft: (recipeId: string, times?: number) => Promise<boolean>;
   buyBoost: (boostId: string) => Promise<boolean>;
   saveProfile: (input: { displayName?: string; appearance?: Appearance }) => Promise<boolean>;
@@ -174,28 +175,44 @@ export const useGame = create<GameStore>((set, get) => ({
     }
   },
 
-  async place(itemId, quantity) {
-    if (get().busy) return;
+  async place(itemId, spot) {
+    if (get().busy) return false;
     set({ busy: true });
     try {
-      const state = await api.placeItem(itemId, quantity);
-      get().applyState(state);
-      get().toast(`${getItem(itemId).name} geplaatst`, undefined, 'uncommon');
+      get().applyState(await api.placeItem(itemId, spot));
+      get().toast(`${getItem(itemId).name} neergezet`, undefined, 'uncommon');
+      return true;
     } catch (error) {
       get().toast(error instanceof Error ? error.message : 'Mislukt');
+      return false;
     } finally {
       set({ busy: false });
     }
   },
 
-  async unplace(itemId, quantity) {
-    if (get().busy) return;
+  async moveItem(placementId, x, z, rotation) {
+    if (get().busy) return false;
     set({ busy: true });
     try {
-      const state = await api.unplaceItem(itemId, quantity);
-      get().applyState(state);
+      get().applyState(await api.moveItem(placementId, x, z, rotation));
+      return true;
     } catch (error) {
       get().toast(error instanceof Error ? error.message : 'Mislukt');
+      return false;
+    } finally {
+      set({ busy: false });
+    }
+  },
+
+  async storeItem(placementId) {
+    if (get().busy) return false;
+    set({ busy: true });
+    try {
+      get().applyState(await api.storeItem(placementId));
+      return true;
+    } catch (error) {
+      get().toast(error instanceof Error ? error.message : 'Mislukt');
+      return false;
     } finally {
       set({ busy: false });
     }

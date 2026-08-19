@@ -1,3 +1,4 @@
+import { decorationBonus, floorPlanFor, type PlacedItem } from './home';
 import { getItem } from './items';
 import { getProperty } from './properties';
 import { legacyBonuses } from './rebirth';
@@ -197,10 +198,8 @@ export function upgradeCost(
 // Afgeleide spelerstatistieken
 // ---------------------------------------------------------------------------
 
-export interface PlacementInput {
-  itemId: string;
-  quantity: number;
-}
+/** Wat er in je base staat: elk voorwerp met zijn eigen plek. */
+export type PlacementInput = PlacedItem;
 
 export interface StatsInput {
   propertyId: string;
@@ -208,7 +207,7 @@ export interface StatsInput {
   /** upgrade-id -> huidig level */
   upgrades: Readonly<Record<string, number>>;
   /** Items die in je base staan; alleen die tellen mee voor inkomen en flex. */
-  placements: readonly PlacementInput[];
+  placements: readonly PlacedItem[];
   /** Actieve tijdelijke boosts. */
   activeBoostIds?: readonly string[];
   /** Permanente voordelen uit rebirths: perk-id -> level. */
@@ -241,6 +240,10 @@ export interface PlayerStats {
   sellMultiplier: number;
   /** Permanente vermenigvuldiger op ervaring. */
   xpMultiplier: number;
+  /** Bonus omdat je woning goed gevuld is, 0..0,25. */
+  decorationBonus: number;
+  /** Aantal plekken in je woning, uit de plattegrond. */
+  slots: number;
 }
 
 function upgradeLevel(upgrades: Readonly<Record<string, number>>, id: string): number {
@@ -269,9 +272,8 @@ export function computeStats(input: StatsInput): PlayerStats {
 
   for (const placement of input.placements) {
     const item = getItem(placement.itemId);
-    const qty = Math.max(0, Math.floor(placement.quantity));
-    baseIncomePerHour += (item.incomePerHour ?? 0) * qty;
-    flexScore += (item.flex ?? 0) * qty;
+    baseIncomePerHour += item.incomePerHour ?? 0;
+    flexScore += item.flex ?? 0;
   }
 
   const vaultLevel = upgradeLevel(input.upgrades, 'vault');
@@ -293,12 +295,19 @@ export function computeStats(input: StatsInput): PlayerStats {
   const managerLvl = upgradeLevel(input.upgrades, 'manager');
 
   const legacy = legacyBonuses(input.legacy ?? {});
+  const plan = floorPlanFor(property.id);
+  const decoration = decorationBonus(plan, input.placements);
 
   const flexMult = flexMultiplier(flexScore);
   const upgradeMult = 1 + bookkeeperLevel * getUpgrade('bookkeeper').perLevel;
   const boostMult = 1 + boostBonus;
   const incomePerHour =
-    baseIncomePerHour * (1 + flexMult) * upgradeMult * boostMult * legacy.income;
+    baseIncomePerHour *
+    (1 + flexMult) *
+    upgradeMult *
+    boostMult *
+    legacy.income *
+    (1 + decoration);
 
   return {
     incomePerHour: Math.round(incomePerHour * 100) / 100,
@@ -324,6 +333,8 @@ export function computeStats(input: StatsInput): PlayerStats {
     legacyMultiplier: legacy.income,
     sellMultiplier: legacy.sell,
     xpMultiplier: legacy.xp,
+    decorationBonus: decoration,
+    slots: plan.width * plan.depth - 1,
   };
 }
 

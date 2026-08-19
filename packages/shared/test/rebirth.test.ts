@@ -160,10 +160,15 @@ describe('erfenis in je statistieken', () => {
       upgrades: { bookkeeper: 5 },
       activeBoostIds: ['coffee'],
       legacy: { legacy_income: 10 },
-      placements: [{ itemId: 'aquarium', quantity: 1 }],
+      placements: [{ id: 'a', itemId: 'aquarium', x: 0, z: 0, rotation: 0 }],
     });
     const verwacht =
-      (5 + 28) * (1 + stats.flexMultiplier) * stats.upgradeMultiplier * stats.boostMultiplier * 1.3;
+      (5 + 28) *
+      (1 + stats.flexMultiplier) *
+      stats.upgradeMultiplier *
+      stats.boostMultiplier *
+      1.3 *
+      (1 + stats.decorationBonus);
     expect(stats.incomePerHour).toBeCloseTo(Math.round(verwacht * 100) / 100, 1);
   });
 });

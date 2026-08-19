@@ -102,7 +102,8 @@ mag voorspellen, maar nooit beslissen.
 | 1 | Speelbare kern: stad, lopen, items, base, offline inkomen | ✅ |
 | 2 | Boosts, manager, craften, personage met naam en uiterlijk | ✅ |
 | 2b | Rebirth met erfenis en permanente voordelen | ✅ |
-| 2c | Balansronde met simulatie, base-indeling op posities | 🚧 |
+| 2c | Base-indeling: spullen op echte plekken in je woning | ✅ |
+| 2d | Balansronde met simulatie | 🚧 |
 | 3 | Alle districten, streaming, rijdbare voertuigen | ⬜ |
 | 4 | Multiplayer, chat, profielen, leaderboards | ⬜ |
 | 5 | Season pass live-ops, quests, events | ⬜ |
@@ -131,6 +132,8 @@ Zie `docs/GAME_DESIGN.md` voor het volledige ontwerp.
   rondlopen.
 - Rebirth: ruil je hele voortgang in voor erfenis en koop daarmee permanente
   voordelen. Elke volgende rebirth vraagt vanzelf meer dan de vorige.
+- Je woning inrichten in 3D: elk meubel staat op een echte plek, grote stukken
+  nemen meer ruimte in, en een volle kamer levert tot 25% extra inkomen op.
 - Een grootboek waarin elke munt herleidbaar is, en server-side controles tegen
   teleporteren, dubbel oprapen en klok-manipulatie.
 

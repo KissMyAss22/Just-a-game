@@ -118,15 +118,23 @@ model InventoryItem {
   @@id([playerId, itemId])
 }
 
-/// Items die in je base staan; alleen deze leveren passief inkomen en flex op.
+/// Een voorwerp dat op een echte plek in je woning staat.
+///
+/// Eén rij per voorwerp, niet per soort: twee lampen zijn twee rijen met elk
+/// hun eigen positie. Alleen wat hier staat levert passief inkomen en flex op.
 model Placement {
+  id       String @id @default(cuid())
   playerId String
   itemId   String
-  quantity Int    @default(0)
+  /// Cel linksboven, in de plattegrond van je woning.
+  x        Int    @default(0)
+  z        Int    @default(0)
+  /// Kwartslagen met de klok mee: 0, 1, 2 of 3.
+  rotation Int    @default(0)
 
   player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
 
-  @@id([playerId, itemId])
+  @@index([playerId])
 }
 
 /// Het grootboek: elke wijziging van cash of gems staat hier.

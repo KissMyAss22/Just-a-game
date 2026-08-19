@@ -4,6 +4,7 @@ export * from './items';
 export * from './crafting';
 export * from './character';
 export * from './properties';
+export * from './home';
 export * from './vehicles';
 export * from './economy';
 export * from './rebirth';

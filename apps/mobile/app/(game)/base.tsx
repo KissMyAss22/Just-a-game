@@ -4,6 +4,7 @@ import {
   getItem,
   getProperty,
   getVehicle,
+  isPlaceable,
   type InventoryEntryDto,
 } from '@game/shared';
 import { useRouter } from 'expo-router';
@@ -55,7 +56,6 @@ export default function BaseScreen() {
   const state = useGame((s) => s.state);
   const busy = useGame((s) => s.busy);
   const place = useGame((s) => s.place);
-  const unplace = useGame((s) => s.unplace);
   const sellAll = useGame((s) => s.sellAll);
   const refresh = useGame((s) => s.refresh);
   const vault = useLiveVault();
@@ -64,15 +64,9 @@ export default function BaseScreen() {
   if (!state) return null;
   const property = getProperty(state.player.propertyId);
   const vehicle = getVehicle(state.player.vehicleId);
-  const placedCount = state.placements.reduce((sum, p) => sum + p.quantity, 0);
-  const placeable = state.inventory.filter((entry) => {
-    const item = getItem(entry.itemId);
-    return Boolean(item.incomePerHour || item.flex);
-  });
-  const junk = state.inventory.filter((entry) => {
-    const item = getItem(entry.itemId);
-    return !item.incomePerHour && !item.flex;
-  });
+  const placedCount = state.placements.length;
+  const placeable = state.inventory.filter((entry) => isPlaceable(getItem(entry.itemId)));
+  const junk = state.inventory.filter((entry) => !isPlaceable(getItem(entry.itemId)));
 
   return (
     <ScrollView
@@ -101,7 +95,7 @@ export default function BaseScreen() {
           <View style={{ flex: 1 }}>
             <Text style={styles.propertyName}>{property.name}</Text>
             <Text style={styles.dim}>
-              {placedCount}/{property.slots} plekken bezet · {vehicle.icon} {vehicle.name}
+              {placedCount}/{state.stats.slots} plekken bezet · {vehicle.icon} {vehicle.name}
             </Text>
           </View>
         </Row>
@@ -112,6 +106,10 @@ export default function BaseScreen() {
           <Stat
             label="Flexbonus"
             value={`+${Math.round(state.stats.flexMultiplier * 100)}%`}
+          />
+          <Stat
+            label="Inrichting"
+            value={`+${Math.round(state.stats.decorationBonus * 100)}%`}
           />
           <Stat label="Offline" value={`${state.stats.offlineCapHours} u`} />
         </View>
@@ -146,21 +144,26 @@ export default function BaseScreen() {
         </Text>
       </Panel>
 
-      <SectionTitle hint={`${placedCount}/${property.slots}`}>In je base</SectionTitle>
-      {state.placements.length === 0 ? (
-        <Empty text="Nog niets geplaatst. Geplaatste items leveren elk uur geld op." />
-      ) : (
-        <Panel>
-          {state.placements.map((entry) => (
-            <ItemRow
-              key={entry.itemId}
-              entry={entry}
-              actionLabel="Terug"
-              action={() => void unplace(entry.itemId, 1)}
-            />
-          ))}
-        </Panel>
-      )}
+      <SectionTitle hint={`${placedCount}/${state.stats.slots} plekken`}>In je woning</SectionTitle>
+      <Panel>
+        <Row>
+          <Text style={styles.bigIcon}>🛋️</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.propertyName}>
+              {placedCount === 0 ? 'Nog leeg' : `${placedCount} voorwerpen`}
+            </Text>
+            <Text style={styles.dim}>
+              Zet je spullen op een echte plek neer. Hoe voller de kamer, hoe hoger je
+              inrichtingsbonus.
+            </Text>
+          </View>
+          <Button
+            label="Inrichten"
+            compact
+            onPress={() => router.push('/(game)/interior')}
+          />
+        </Row>
+      </Panel>
 
       <SectionTitle hint="leveren inkomen op">Te plaatsen</SectionTitle>
       {placeable.length === 0 ? (
@@ -172,7 +175,7 @@ export default function BaseScreen() {
               key={entry.itemId}
               entry={entry}
               actionLabel="Plaats"
-              action={() => void place(entry.itemId, 1)}
+              action={() => void place(entry.itemId)}
             />
           ))}
         </Panel>

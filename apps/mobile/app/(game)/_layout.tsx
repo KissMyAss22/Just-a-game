@@ -58,6 +58,7 @@ export default function GameLayout() {
       {/* Bereikbaar via het base-scherm, niet als eigen tab. */}
       <Tabs.Screen name="profile" options={{ href: null }} />
       <Tabs.Screen name="rebirth" options={{ href: null }} />
+      <Tabs.Screen name="interior" options={{ href: null }} />
     </Tabs>
   );
 }

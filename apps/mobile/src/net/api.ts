@@ -209,11 +209,17 @@ export const sellItem = (itemId: string, quantity: number) =>
     body: { itemId, quantity },
   });
 
-export const placeItem = (itemId: string, quantity: number) =>
-  request<PlayerStateDto>('/base/place', { body: { itemId, quantity } });
+/** Zonder x/z zoekt de server zelf de eerste vrije plek. */
+export const placeItem = (
+  itemId: string,
+  spot?: { x: number; z: number; rotation: number },
+) => request<PlayerStateDto>('/base/place', { body: { itemId, ...(spot ?? {}) } });
 
-export const unplaceItem = (itemId: string, quantity: number) =>
-  request<PlayerStateDto>('/base/unplace', { body: { itemId, quantity } });
+export const moveItem = (placementId: string, x: number, z: number, rotation: number) =>
+  request<PlayerStateDto>('/base/move', { body: { placementId, x, z, rotation } });
+
+export const storeItem = (placementId: string) =>
+  request<PlayerStateDto>('/base/store', { body: { placementId } });
 
 export interface ShopEntry {
   id: string;

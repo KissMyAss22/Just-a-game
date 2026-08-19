@@ -182,15 +182,67 @@ hetzelfde bedrag.
 
 ---
 
-## 6. Base, woningen en voertuigen
+## 6. Je woning inrichten
 
-Woningen (Kraakpand → Privé-eiland) bepalen basisinkomen, plaatsingsplekken,
-kluisgrootte en offline-cap. Voertuigen (te voet → Superjacht) bepalen
-loopsnelheid, draagcapaciteit en toegang tot verre districten. Een auto kopen
-is dus een echte progressiestap, geen skin.
+Woningen (Kraakpand → Privé-eiland) bepalen basisinkomen, kluisgrootte en
+offline-cap. Voertuigen (te voet → Superjacht) bepalen loopsnelheid,
+draagcapaciteit en toegang tot verre districten. Een auto kopen is dus een
+echte progressiestap, geen skin.
 
 Base-upgrades: Kluis (+25% opslag), Aggregaat (+1 uur offline), Boekhouder
-(+6% inkomen), Rugzak (+4 plekken), Magneet (+0,6 m oppakafstand).
+(+6% inkomen), Rugzak (+4 plekken), Magneet (+0,6 m oppakafstand), Manager
+(int automatisch, tegen commissie).
+
+### De plattegrond is de capaciteit
+
+Elke woning heeft een **vloerplan**: een raster van cellen van 1,2 meter met
+een deur die altijd vrij blijft. Hoeveel er in past staat nergens als los
+getal — het is simpelweg het aantal vrije cellen. Twee plekken die allebei de
+capaciteit bepalen zouden vroeg of laat uit elkaar gaan lopen, en dat is precies
+de bugsoort die dit project al een keer heeft gehad met het spelerlevel.
+
+| Woning | Plattegrond | Plekken |
+|---|---|---|
+| Kraakpand | 2 × 2 | 3 |
+| Studio | 3 × 2 | 5 |
+| Appartement | 3 × 3 | 8 |
+| Rijtjeshuis | 4 × 3 | 11 |
+| Loft | 4 × 4 | 15 |
+| Villa | 5 × 5 | 24 |
+| Penthouse | 6 × 5 | 29 |
+| Landhuis | 6 × 6 | 35 |
+| Privé-eiland | 8 × 6 | 47 |
+
+### Spullen nemen ruimte in
+
+Elk voorwerp staat op een **echte plek**, met een eigen rij in de database —
+twee lampen zijn twee rijen met elk hun eigen positie, geen rij met aantal 2.
+Grote stukken beslaan meer cellen: een aquarium 2 × 1, een vleugel 2 × 2. Draaien
+wisselt breedte en diepte om.
+
+Daardoor past een vleugel niet in een kraakpand. Dat is geen bug maar het punt:
+groot meubilair is een reden om een groter huis te willen. De speler krijgt
+altijd een uitlegbare reden terug — "daar staat al iets", "daar zit de deur",
+"dat past niet binnen de muren" — nooit een stille weigering.
+
+### De inrichtingsbonus
+
+Een volle kamer levert tot **+25% inkomen** op, oplopend met hoeveel van de
+vloer bezet is. Zo is inrichten niet alleen versiering, en is een groter huis
+kopen niet automatisch beter: je bonus zákt als je verhuist naar een kamer die
+je nog niet gevuld hebt. Dat maakt van verhuizen een investering in plaats van
+een gratis upgrade.
+
+### Bediening
+
+Slepen in 3D is onnauwkeurig op een telefoon, dus het gaat in twee stappen:
+tik een vak aan om de cursor te verzetten, zie meteen of het past (groen of
+rood), en bevestig. De app rekent met exact dezelfde `checkPlacement()` als de
+server, dus de knop kan nooit iets toestaan wat de server daarna weigert.
+
+Tikken wordt zelf uitgerekend — een straal door het scherm, gesneden met het
+vlak y = 0 — in plaats van via het event-systeem van react-three-fiber. Dat is
+voorspelbaarder en werkt overal gelijk.
 
 ---
 
@@ -331,6 +383,7 @@ draaien — dan merken we het meteen als een balanswijziging de curve breekt.
 | Voelt het begin snel? | Tijd tot de eerste betaalbare upgrade |
 | Loopt het door? | Langste periode zonder iets dat je kunt kopen |
 | Klopt de woningladder? | Tijd tot elke property-tier |
+| Loont verhuizen? | Hoe lang je bonus lager is na een grotere woning |
 | Wanneer komt rebirth? | Tijd tot level 20 en tot de eerste rebirth |
 | Loopt het uit de hand? | Verhouding inkomen/kosten per uur — groeit die weg of zakt hij in |
 | Is offline de moeite? | Wat 8 uur offline oplevert, uitgedrukt in minuten actief spelen |
@@ -356,7 +409,8 @@ In deze volgorde, want elke knop hierboven beïnvloedt de volgende:
 
 1. `ECONOMY.costGrowth` (nu 1,15) — bepaalt hoe snel alles duurder wordt.
 2. De `incomePerHour`-waarden van items en woningen.
-3. `ECONOMY.flexDivisor` — hoe zwaar luxe meetelt.
+3. `ECONOMY.flexDivisor` en `DECORATION_BONUS_CAP` — hoe zwaar luxe en een
+   gevulde kamer meetellen.
 4. De spawnrates per district — hoeveel actief spelen oplevert.
 5. `REBIRTH.pointsFactor` en de kosten van de erfenis-voordelen.
 
@@ -370,7 +424,8 @@ In deze volgorde, want elke knop hierboven beïnvloedt de volgende:
 | 1 | Speelbare kern: stad, lopen, items, base, offline inkomen, winkel, season pass | ✅ af |
 | 2 | Boosts, manager met commissie, craften, personage met naam en uiterlijk | ✅ af |
 | 2b | Rebirth met erfenis en permanente voordelen | ✅ af |
-| 2c | Balansronde met simulatie (hoofdstuk 11) en base-indeling op posities | 🚧 volgende |
+| 2c | Base-indeling: spullen op echte plekken in je woning | ✅ af |
+| 2d | Balansronde met simulatie (hoofdstuk 11) | 🚧 volgende |
 | 3 | Rijdbare voertuigen, dag/nacht, geluid, LOD en performanceronde op een midrange toestel | ⬜ |
 | 4 | Roleplay en multiplayer (Colyseus) — zie hieronder | ⬜ |
 | 5 | Live-ops: seizoenen configureren zonder deploy, events, admin-tooling | ⬜ |
@@ -406,8 +461,6 @@ economie.
 
 - **Handel tussen spelers.** De grootste bron van economie-exploits. Pas als de
   rest stabiel is, en dan met logging en limieten.
-- **Base-indeling.** Items worden geplaatst als aantal, nog niet op een
-  specifieke plek in een 3D-ruimte die je zelf inricht.
 - **Balansronde.** De curve is met de hand gekozen en door tests bewaakt, maar
   nog niet doorgerekend over meerdere speeluren. Dit is de grootste onbekende
   van het project; hoofdstuk 11 beschrijft hoe we hem gaan wegnemen.

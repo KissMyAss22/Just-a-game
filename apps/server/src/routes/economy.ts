@@ -1,13 +1,18 @@
 import {
+  PLACEMENT_PROBLEM_MESSAGE,
   RARITIES,
+  checkPlacement,
   dayIndexFor,
+  findFreeSpot,
+  floorPlanFor,
   getItem,
-  getProperty,
   marketMultiplier,
-  placementSchema,
+  moveItemSchema,
+  placeItemSchema,
   sellAllSchema,
   sellItemsSchema,
   stackValue,
+  storeItemSchema,
   type Rarity,
 } from '@game/shared';
 import type { FastifyInstance } from 'fastify';
@@ -138,10 +143,16 @@ export async function economyRoutes(app: FastifyInstance): Promise<void> {
     });
   });
 
-  /** Plaatst een item in je base; alleen geplaatste items leveren inkomen op. */
+  /**
+   * Zet een voorwerp op een echte plek in je woning.
+   *
+   * Geeft de app geen plek mee, dan zoekt de server de eerste vrije plek — zo
+   * blijft de knop "plaats" op het base-scherm werken zonder dat je de kamer
+   * in hoeft.
+   */
   app.post('/base/place', { preHandler: authenticate }, async (request) => {
     const playerId = playerIdOf(request);
-    const body = placementSchema.parse(request.body);
+    const body = placeItemSchema.partial({ x: true, z: true }).parse(request.body);
     const now = new Date();
 
     return prisma.$transaction(async (tx) => {
@@ -150,27 +161,38 @@ export async function economyRoutes(app: FastifyInstance): Promise<void> {
       await settleVault(tx, loaded, now);
 
       const item = getItem(body.itemId);
-      if (!item.incomePerHour && !item.flex) {
-        throw new GameError('Dit item kun je niet plaatsen.', 400, 'not_placeable');
-      }
+      const plan = floorPlanFor(loaded.player.propertyId);
 
-      const property = getProperty(loaded.player.propertyId);
-      const used = loaded.placements.reduce((sum, p) => sum + p.quantity, 0);
-      if (used + body.quantity > property.slots) {
-        throw new GameError(
-          `Je base heeft maar ${property.slots} plekken. Koop een grotere woning.`,
-          400,
-          'no_slots',
+      let spot: { x: number; z: number; rotation: number } | null;
+      if (body.x === undefined || body.z === undefined) {
+        spot = findFreeSpot(plan, loaded.placements, item.id);
+        if (!spot) {
+          throw new GameError(
+            'Er is geen plek meer vrij in je woning. Koop iets groters of berg iets op.',
+            400,
+            'no_space',
+          );
+        }
+      } else {
+        spot = { x: body.x, z: body.z, rotation: body.rotation };
+        const check = checkPlacement(
+          plan,
+          loaded.placements,
+          item.id,
+          spot.x,
+          spot.z,
+          spot.rotation,
         );
+        if (!check.ok) {
+          throw new GameError(PLACEMENT_PROBLEM_MESSAGE[check.problem], 400, check.problem);
+        }
       }
 
-      await removeItem(tx, playerId, item.id, body.quantity);
-      await tx.placement.upsert({
-        where: { playerId_itemId: { playerId, itemId: item.id } },
-        create: { playerId, itemId: item.id, quantity: body.quantity },
-        update: { quantity: { increment: body.quantity } },
+      await removeItem(tx, playerId, item.id, 1);
+      await tx.placement.create({
+        data: { playerId, itemId: item.id, x: spot.x, z: spot.z, rotation: spot.rotation },
       });
-      await trackQuest(tx, playerId, loaded.player.seed, now, 'place_items', body.quantity);
+      await trackQuest(tx, playerId, loaded.player.seed, now, 'place_items', 1);
 
       const refreshed = await loadPlayer(tx, playerId);
       const accrual = await settleVault(tx, refreshed, now);
@@ -178,24 +200,63 @@ export async function economyRoutes(app: FastifyInstance): Promise<void> {
     });
   });
 
-  /** Haalt een item weer uit je base terug in je rugzak. */
-  app.post('/base/unplace', { preHandler: authenticate }, async (request) => {
+  /** Verschuift of draait iets dat al staat. */
+  app.post('/base/move', { preHandler: authenticate }, async (request) => {
     const playerId = playerIdOf(request);
-    const body = placementSchema.parse(request.body);
+    const body = moveItemSchema.parse(request.body);
     const now = new Date();
 
     return prisma.$transaction(async (tx) => {
       const loaded = await loadPlayer(tx, playerId);
+      const current = loaded.placements.find((p) => p.id === body.placementId);
+      if (!current) throw new GameError('Dat staat niet in je woning.', 404, 'not_placed');
+
+      const plan = floorPlanFor(loaded.player.propertyId);
+      const check = checkPlacement(
+        plan,
+        loaded.placements,
+        current.itemId,
+        body.x,
+        body.z,
+        body.rotation,
+        // Zichzelf niet meetellen, anders botst hij met zijn eigen oude plek.
+        current.id,
+      );
+      if (!check.ok) {
+        throw new GameError(PLACEMENT_PROBLEM_MESSAGE[check.problem], 400, check.problem);
+      }
+
+      await tx.placement.update({
+        where: { id: current.id },
+        data: { x: body.x, z: body.z, rotation: body.rotation },
+      });
+
+      const refreshed = await loadPlayer(tx, playerId);
+      const accrual = await settleVault(tx, refreshed, now);
+      return toPlayerStateDto(refreshed, accrual, now);
+    });
+  });
+
+  /** Bergt een voorwerp op: terug in je rugzak. */
+  app.post('/base/store', { preHandler: authenticate }, async (request) => {
+    const playerId = playerIdOf(request);
+    const body = storeItemSchema.parse(request.body);
+    const now = new Date();
+
+    return prisma.$transaction(async (tx) => {
+      const loaded = await loadPlayer(tx, playerId);
+      // Afrekenen vóór het inkomen omlaag gaat.
       await settleVault(tx, loaded, now);
 
-      const affected = await tx.placement.updateMany({
-        where: { playerId, itemId: body.itemId, quantity: { gte: body.quantity } },
-        data: { quantity: { decrement: body.quantity } },
+      const removed = await tx.placement.deleteMany({
+        where: { id: body.placementId, playerId },
       });
-      if (affected.count === 0) {
-        throw new GameError('Dit item staat niet in je base.', 400, 'not_placed');
+      if (removed.count === 0) {
+        throw new GameError('Dat staat niet in je woning.', 404, 'not_placed');
       }
-      await addItem(tx, playerId, body.itemId, body.quantity);
+
+      const current = loaded.placements.find((p) => p.id === body.placementId);
+      if (current) await addItem(tx, playerId, current.itemId, 1);
 
       const refreshed = await loadPlayer(tx, playerId);
       const accrual = await settleVault(tx, refreshed, now);

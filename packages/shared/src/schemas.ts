@@ -39,11 +39,29 @@ export const sellAllSchema = z.object({
 });
 export type SellAllInput = z.infer<typeof sellAllSchema>;
 
-export const placementSchema = z.object({
+/** Een voorwerp in je woning neerzetten, op een echte plek. */
+export const placeItemSchema = z.object({
   itemId: z.string().min(1).max(64),
-  quantity: z.number().int().min(1).max(999),
+  x: z.number().int().min(0).max(31),
+  z: z.number().int().min(0).max(31),
+  rotation: z.number().int().min(0).max(3).default(0),
 });
-export type PlacementInputDto = z.infer<typeof placementSchema>;
+export type PlaceItemInput = z.infer<typeof placeItemSchema>;
+
+/** Iets wat al staat verplaatsen of draaien. */
+export const moveItemSchema = z.object({
+  placementId: z.string().min(1).max(64),
+  x: z.number().int().min(0).max(31),
+  z: z.number().int().min(0).max(31),
+  rotation: z.number().int().min(0).max(3),
+});
+export type MoveItemInput = z.infer<typeof moveItemSchema>;
+
+/** Terug in je rugzak. */
+export const storeItemSchema = z.object({
+  placementId: z.string().min(1).max(64),
+});
+export type StoreItemInput = z.infer<typeof storeItemSchema>;
 
 export const buyUpgradeSchema = z.object({
   upgradeId: z.string().min(1).max(64),
@@ -142,6 +160,14 @@ export interface InventoryEntryDto {
   quantity: number;
 }
 
+export interface PlacedItemDto {
+  id: string;
+  itemId: string;
+  x: number;
+  z: number;
+  rotation: number;
+}
+
 export interface ActiveBoostDto {
   boostId: string;
   /** Servertijd in ms waarop de boost afloopt. */
@@ -198,9 +224,11 @@ export interface PlayerStateDto {
     legacyMultiplier: number;
     sellMultiplier: number;
     xpMultiplier: number;
+    decorationBonus: number;
+    slots: number;
   };
   inventory: InventoryEntryDto[];
-  placements: InventoryEntryDto[];
+  placements: PlacedItemDto[];
   activeBoosts: ActiveBoostDto[];
   /** Servertijd in ms — de client synchroniseert hierop. */
   serverTime: number;

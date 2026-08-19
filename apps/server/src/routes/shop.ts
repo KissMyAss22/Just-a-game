@@ -9,6 +9,7 @@ import {
   getProperty,
   getUpgrade,
   getVehicle,
+  propertySlots,
   upgradeCost,
 } from '@game/shared';
 import type { FastifyInstance } from 'fastify';
@@ -51,7 +52,7 @@ export async function shopRoutes(app: FastifyInstance): Promise<void> {
         tier: property.tier,
         price: property.price,
         incomePerHour: property.incomePerHour,
-        slots: property.slots,
+        slots: propertySlots(property.id),
         vaultCapacity: property.vaultCapacity,
         offlineCapHours: property.offlineCapHours,
         flex: property.flex,

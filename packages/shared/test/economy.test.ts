@@ -153,15 +153,19 @@ describe('computeStats', () => {
   });
 
   it('telt geplaatste items mee voor inkomen en flex', () => {
+    // Elk voorwerp is een eigen rij met een eigen plek; twee lampen zijn
+    // dus twee regels, niet één regel met aantal 2.
     const stats = computeStats({
       ...emptyBase,
+      propertyId: 'townhouse',
       placements: [
-        { itemId: 'lamp', quantity: 2 },
-        { itemId: 'aquarium', quantity: 1 },
+        { id: 'a', itemId: 'lamp', x: 0, z: 0, rotation: 0 },
+        { id: 'b', itemId: 'lamp', x: 1, z: 0, rotation: 0 },
+        { id: 'c', itemId: 'aquarium', x: 2, z: 0, rotation: 0 },
       ],
     });
-    expect(stats.baseIncomePerHour).toBe(5 + 4 * 2 + 28);
-    expect(stats.flexScore).toBe(1 * 2 + 7);
+    expect(stats.baseIncomePerHour).toBe(340 + 4 * 2 + 28);
+    expect(stats.flexScore).toBe(40 + 1 * 2 + 7);
     expect(stats.incomePerHour).toBeGreaterThan(stats.baseIncomePerHour);
   });
 
@@ -170,7 +174,7 @@ describe('computeStats', () => {
       propertyId: 'apartment',
       vehicleId: 'hatchback',
       upgrades: { bookkeeper: 5, backpack: 2, generator: 3, vault: 4, magnet: 2 },
-      placements: [{ itemId: 'painting', quantity: 1 }],
+      placements: [{ id: 'a', itemId: 'painting', x: 0, z: 0, rotation: 0 }],
       activeBoostIds: ['coffee'],
     });
     expect(stats.upgradeMultiplier).toBeCloseTo(1.3, 5);

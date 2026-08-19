@@ -1,5 +1,6 @@
 import { DISTRICTS } from '@game/shared';
 import { disconnectPrisma, prisma } from '../src/lib/prisma.js';
+import { repairAllPlacements } from '../src/services/home.js';
 import { ensureSpawns, spawnCounts } from '../src/services/spawner.js';
 
 /**
@@ -15,6 +16,15 @@ async function main(): Promise<void> {
   const counts = await spawnCounts();
   for (const district of DISTRICTS) {
     console.log(`  ${district.name.padEnd(18)} ${counts[district.id] ?? 0}`);
+  }
+
+  // Na een migratie kan inrichting op een ongeldige plek staan; hier krijgt
+  // alles alsnog een kloppende plek in de kamer.
+  const repair = await repairAllPlacements();
+  if (repair.moved > 0 || repair.returned > 0) {
+    console.log(
+      `Inrichting rechtgezet: ${repair.moved} verplaatst, ${repair.returned} terug in de rugzak`,
+    );
   }
 
   const players = await prisma.player.count();

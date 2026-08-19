@@ -8,6 +8,7 @@ import {
   xpForNextLevel,
   type ActiveBoostDto,
   type Appearance,
+  type PlacedItem,
   type PlayerStats,
   type PlayerStateDto,
 } from '@game/shared';
@@ -18,7 +19,7 @@ import { grant, type Tx } from './ledger.js';
 export interface LoadedPlayer {
   player: Player;
   upgrades: Record<string, number>;
-  placements: { itemId: string; quantity: number }[];
+  placements: PlacedItem[];
   inventory: { itemId: string; quantity: number }[];
   ownedVehicleIds: string[];
   activeBoosts: ActiveBoostDto[];
@@ -44,7 +45,7 @@ export async function loadPlayer(tx: Tx, playerId: string): Promise<LoadedPlayer
     where: { id: playerId },
     include: {
       upgrades: true,
-      placements: true,
+      placements: { orderBy: { id: 'asc' } },
       inventory: { where: { quantity: { gt: 0 } } },
       vehicles: true,
       boosts: { where: { expiresAt: { gt: now } } },
@@ -56,9 +57,13 @@ export async function loadPlayer(tx: Tx, playerId: string): Promise<LoadedPlayer
   const upgrades: Record<string, number> = {};
   for (const upgrade of player.upgrades) upgrades[upgrade.upgradeId] = upgrade.level;
 
-  const placements = player.placements
-    .filter((p) => p.quantity > 0)
-    .map((p) => ({ itemId: p.itemId, quantity: p.quantity }));
+  const placements: PlacedItem[] = player.placements.map((p) => ({
+    id: p.id,
+    itemId: p.itemId,
+    x: p.x,
+    z: p.z,
+    rotation: p.rotation,
+  }));
   const inventory = player.inventory.map((i) => ({ itemId: i.itemId, quantity: i.quantity }));
   const ownedVehicleIds = player.vehicles.map((v) => v.vehicleId);
   if (!ownedVehicleIds.includes(player.vehicleId)) ownedVehicleIds.push(player.vehicleId);
@@ -305,6 +310,8 @@ export function toPlayerStateDto(
       legacyMultiplier: stats.legacyMultiplier,
       sellMultiplier: stats.sellMultiplier,
       xpMultiplier: stats.xpMultiplier,
+      decorationBonus: stats.decorationBonus,
+      slots: stats.slots,
     },
     inventory: loaded.inventory,
     placements: loaded.placements,
