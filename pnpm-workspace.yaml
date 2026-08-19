@@ -1,3 +1,12 @@
 packages:
   - 'apps/*'
   - 'packages/*'
+
+# Deze pakketten mogen hun install-scripts draaien. Sinds pnpm 10.33
+# hoort dit hier en niet meer in package.json.
+onlyBuiltDependencies:
+  - 'esbuild'
+  - '@prisma/client'
+  - 'prisma'
+  - '@prisma/engines'
+  - 'sharp'

@@ -8,7 +8,7 @@
     "start": "tsx src/index.ts",
     "typecheck": "tsc --noEmit",
     "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate deploy && prisma db seed",
+    "db:migrate": "prisma generate && prisma migrate deploy && prisma db seed",
     "db:reset": "prisma migrate reset --force",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",

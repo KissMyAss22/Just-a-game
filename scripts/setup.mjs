@@ -9,7 +9,7 @@
  * Windows en Linux, en is veilig om nog eens uit te voeren: bestaande
  * instellingen worden niet overschreven.
  */
-import { execFileSync } from 'node:child_process';
+import { execSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { networkInterfaces } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -34,12 +34,11 @@ let blocking = 0;
  * De commando's hieronder zijn vaste waarden uit dit bestand, dus er komt
  * nooit invoer van buiten in de shell terecht.
  */
-function run(command, args) {
+function run(command) {
   try {
-    return execFileSync(command, args, {
+    return execSync(command, {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
-      shell: process.platform === 'win32',
     }).trim();
   } catch {
     return null;
@@ -57,7 +56,7 @@ if (major >= 20) {
   blocking++;
 }
 
-const pnpmVersion = run('pnpm', ['--version']);
+const pnpmVersion = run('pnpm --version');
 if (pnpmVersion) {
   ok(`pnpm ${pnpmVersion}`);
 } else {
@@ -66,11 +65,11 @@ if (pnpmVersion) {
   blocking++;
 }
 
-const dockerVersion = run('docker', ['--version']);
+const dockerVersion = run('docker --version');
 if (!dockerVersion) {
   fail('Docker ontbreekt - nodig voor de database (docker.com/products/docker-desktop)');
   blocking++;
-} else if (run('docker', ['info']) === null) {
+} else if (run('docker info') === null) {
   fail('Docker is geinstalleerd maar draait niet - start Docker Desktop en probeer opnieuw');
   blocking++;
 } else {

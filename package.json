@@ -22,14 +22,5 @@
   },
   "devDependencies": {
     "typescript": "~5.9.2"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild",
-      "@prisma/client",
-      "prisma",
-      "@prisma/engines",
-      "sharp"
-    ]
   }
 }
