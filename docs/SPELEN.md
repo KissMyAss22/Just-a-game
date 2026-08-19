@@ -9,9 +9,40 @@ Je hebt drie dingen nodig, en één telefoon.
 | **Docker Desktop** | draait de database | [docker.com](https://www.docker.com/products/docker-desktop) |
 | **Expo Go** | de app op je telefoon | App Store / Play Store |
 
+Node en Docker installeer je gewoon met de installer van hun website; klik
+overal op volgende. Herstart daarna je computer, anders vindt Windows de
+commando's nog niet.
+
 ---
 
-## In het kort
+## Windows: dubbelklikken
+
+Op Windows hoef je geen commando's te typen. In de map staan drie bestanden:
+
+| Bestand | Wanneer |
+|---|---|
+| **INSTALLEER.bat** | een keer, de allereerste keer |
+| **START.bat** | elke keer dat je wilt spelen |
+| **STOP.bat** | als je klaar bent |
+
+Zorg dat **Docker Desktop draait** voordat je begint — je ziet het walvis-icoon
+rechtsonder bij je klok.
+
+`INSTALLEER.bat` haalt alles op en richt de database in; dat duurt de eerste
+keer een paar minuten. Daarna opent `START.bat` twee vensters: één met de
+server en één met de QR-code. Die twee moeten open blijven staan zolang je
+speelt.
+
+Gaat er iets mis, dan blijft het venster open met een melding erin. Loopt het
+vast op Docker, start dan Docker Desktop en probeer het opnieuw.
+
+> Deze bestanden zijn geschreven en nagelopen, maar niet op een echte
+> Windows-machine uitgevoerd — dat kan ik hier niet. Werkt er iets niet, laat
+> de melding zien die in het venster blijft staan.
+
+---
+
+## Handmatig (macOS, Linux, of als je liever typt)
 
 ```bash
 git clone https://github.com/KissMyAss22/Just-a-game.git

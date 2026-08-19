@@ -14,6 +14,11 @@ zelf-gehoste Node-server.
 
 Vereisten: **Node 20+**, **pnpm 10+**, **Docker** en de **Expo Go**-app op je telefoon.
 
+**Op Windows hoef je niets te typen:** dubbelklik op `INSTALLEER.bat`, en daarna
+telkens op `START.bat`. Zorg dat Docker Desktop draait.
+
+Liever zelf typen, of op macOS of Linux:
+
 ```bash
 pnpm setup          # controleert Node, pnpm en Docker en vult je instellingen in
 pnpm install        # eenmalig, duurt een paar minuten

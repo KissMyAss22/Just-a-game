@@ -1,0 +1,6 @@
+# Batch-bestanden moeten CRLF houden, anders struikelt cmd.exe over de labels.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+# Shell-scripts juist altijd LF.
+*.sh text eol=lf
+*.mjs text eol=lf
