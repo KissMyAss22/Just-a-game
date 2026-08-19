@@ -103,6 +103,15 @@ adres is dat `pnpm setup` liet zien.
 Start Docker Desktop en wacht tot het icoon niet meer beweegt. Draai daarna
 `pnpm setup` opnieuw.
 
+### Eerst controleren: welke SDK staat er echt?
+
+Dubbelklik op **CONTROLE.bat**. Die laat zien welke Expo-SDK er geinstalleerd
+is. Staat daar iets anders dan wat `package.json` wil, dan is er na een pull
+niet opnieuw geinstalleerd — draai dan INSTALLEER.bat.
+
+Dit is belangrijk: pullen verandert alleen de *gewenste* versies. Pas na
+INSTALLEER.bat staan ze er ook echt.
+
 ### "Project is incompatible with this version of Expo Go"
 
 Werk Expo Go bij in de App Store of Play Store.
