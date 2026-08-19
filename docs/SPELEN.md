@@ -103,10 +103,23 @@ adres is dat `pnpm setup` liet zien.
 Start Docker Desktop en wacht tot het icoon niet meer beweegt. Draai daarna
 `pnpm setup` opnieuw.
 
-### De QR-code doet niets
+### "Project is incompatible with this version of Expo Go"
 
-Controleer of de Expo Go op je telefoon SDK 57 ondersteunt. Is je Expo Go oud,
-werk hem dan bij in de App Store of Play Store.
+Werk Expo Go bij in de App Store of Play Store.
+
+Staat er al de nieuwste versie? Dan loopt het andersom: het project gebruikt
+een Expo-SDK die nieuwer is dan wat Expo Go aankan. Expo Go in de store loopt
+altijd een tijdje achter op de nieuwste SDK.
+
+Daarom staat dit project bewust op **SDK 56** en niet op de allernieuwste.
+Werk de Expo-pakketten dus niet zomaar bij naar de laatste versie: dan kun je
+het spel niet meer met Expo Go openen, en heb je een eigen development build
+nodig. Zie `apps/mobile/package.json` — daar staat waarom.
+
+### De QR-code doet helemaal niets
+
+Controleer of je telefoon en je computer op hetzelfde wifi-netwerk zitten, en
+doe de test met `http://JOUW-IP:4000/health` hierboven.
 
 ### Poort 4000 of 8081 is al in gebruik
 
