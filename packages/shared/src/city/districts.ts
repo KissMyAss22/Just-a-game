@@ -35,7 +35,13 @@ export interface DistrictDef {
   spawnWeight: number;
   /** Hoeveel seconden een spawn blijft liggen voordat hij verdwijnt. */
   spawnTtlSeconds: number;
-  /** Kansverdeling over zeldzaamheden bij een spawn in dit district. */
+  /**
+   * Kansverdeling over zeldzaamheden bij een spawn in dit district.
+   *
+   * Legendarisch en mythisch blijven overal zeldzaam: van 0,2% in de Oude Stad
+   * tot 8% op het eiland. Stond dit hoger, dan werd oprapen zó lucratief dat
+   * het passieve inkomen — de kern van een idle game — er niet meer toe deed.
+   */
   rarityWeights: Readonly<Record<Rarity, number>>;
 }
 
@@ -56,7 +62,7 @@ export const DISTRICTS: readonly DistrictDef[] = [
     density: 0.45,
     spawnWeight: 0.7,
     spawnTtlSeconds: 900,
-    rarityWeights: { common: 18, uncommon: 26, rare: 28, epic: 18, legendary: 8, mythic: 2 },
+    rarityWeights: { common: 26, uncommon: 30, rare: 26, epic: 14, legendary: 3.5, mythic: 0.5 },
   },
   {
     id: 'downtown',
@@ -84,7 +90,7 @@ export const DISTRICTS: readonly DistrictDef[] = [
     density: 0.32,
     spawnWeight: 0.5,
     spawnTtlSeconds: 1200,
-    rarityWeights: { common: 8, uncommon: 16, rare: 26, epic: 30, legendary: 16, mythic: 4 },
+    rarityWeights: { common: 16, uncommon: 24, rare: 30, epic: 23, legendary: 6, mythic: 1 },
   },
   {
     id: 'nightlife',
@@ -98,7 +104,7 @@ export const DISTRICTS: readonly DistrictDef[] = [
     density: 0.7,
     spawnWeight: 1.3,
     spawnTtlSeconds: 420,
-    rarityWeights: { common: 26, uncommon: 30, rare: 24, epic: 14, legendary: 5, mythic: 1 },
+    rarityWeights: { common: 30, uncommon: 32, rare: 24, epic: 11, legendary: 2.5, mythic: 0.5 },
   },
   {
     id: 'oldTown',
@@ -168,7 +174,7 @@ export const DISTRICTS: readonly DistrictDef[] = [
     density: 0.34,
     spawnWeight: 0.9,
     spawnTtlSeconds: 900,
-    rarityWeights: { common: 14, uncommon: 24, rare: 30, epic: 22, legendary: 9, mythic: 1 },
+    rarityWeights: { common: 22, uncommon: 28, rare: 28, epic: 17, legendary: 4.5, mythic: 0.5 },
   },
   {
     id: 'island',
@@ -182,7 +188,7 @@ export const DISTRICTS: readonly DistrictDef[] = [
     density: 0.22,
     spawnWeight: 0.35,
     spawnTtlSeconds: 1800,
-    rarityWeights: { common: 2, uncommon: 8, rare: 18, epic: 30, legendary: 30, mythic: 12 },
+    rarityWeights: { common: 12, uncommon: 22, rare: 30, epic: 28, legendary: 7, mythic: 1 },
   },
 ] as const;
 

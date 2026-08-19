@@ -16,8 +16,17 @@ export const RARITIES: readonly Rarity[] = [
   'mythic',
 ] as const;
 
-/** Waardevermenigvuldiger per zeldzaamheid. */
-export const RARITY_VALUE_MULTIPLIER: Readonly<Record<Rarity, number>> = {
+/**
+ * Weegfactor voor ervaring per zeldzaamheid.
+ *
+ * Dit heette ooit RARITY_VALUE_MULTIPLIER en werd óók op de verkoopprijs
+ * losgelaten. Omdat `baseValue` in de itemtabel al per tier oploopt, werd de
+ * zeldzaamheid daarmee dubbel verrekend: een legendarische diamant bracht
+ * 126.000 op terwijl een rijtjeshuis 55.000 kost. Eén gelukkige vondst sloeg
+ * dus uren spelen over. De prijs komt nu rechtstreeks uit `baseValue`; deze
+ * factor geldt alleen nog voor XP.
+ */
+export const RARITY_XP_WEIGHT: Readonly<Record<Rarity, number>> = {
   common: 1,
   uncommon: 3,
   rare: 9,

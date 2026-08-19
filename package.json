@@ -16,7 +16,8 @@
     "build:shared": "pnpm --filter @game/shared build",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm --filter @game/shared test",
-    "lint": "pnpm -r --if-present lint"
+    "lint": "pnpm -r --if-present lint",
+    "balance": "pnpm --filter @game/shared balance"
   },
   "devDependencies": {
     "typescript": "~5.9.2"

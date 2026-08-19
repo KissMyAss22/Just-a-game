@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { computeStats } from '../src/economy';
+import { getItem } from '../src/items';
+import { getProperty } from '../src/properties';
 import {
   LEGACY_PERKS,
   REBIRTH,
@@ -163,7 +165,7 @@ describe('erfenis in je statistieken', () => {
       placements: [{ id: 'a', itemId: 'aquarium', x: 0, z: 0, rotation: 0 }],
     });
     const verwacht =
-      (5 + 28) *
+      (getProperty('squat').incomePerHour + (getItem('aquarium').incomePerHour ?? 0)) *
       (1 + stats.flexMultiplier) *
       stats.upgradeMultiplier *
       stats.boostMultiplier *

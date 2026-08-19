@@ -6,14 +6,16 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "scripts": {
-    "typecheck": "tsc --noEmit",
+    "balance": "tsx sim/report.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@types/node": "^22.15.3",
     "typescript": "~5.9.2",
     "vitest": "^3.2.4"
   }

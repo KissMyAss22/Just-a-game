@@ -366,15 +366,25 @@ is en geen wens.
 
 ### Hoe we meten
 
-Een simulatie in `packages/shared` die een virtuele speler tegen de échte
-formules laat spelen: hij raapt items op met een realistisch tempo, verkoopt,
-plaatst wat inkomen oplevert, en koopt steeds de upgrade met de beste
-verhouding tussen prijs en opbrengst. De uitvoer is een tijdlijn.
+`packages/shared/sim/` bevat een virtuele speler die tegen de échte formules
+speelt: hij raapt items op, verkoopt, richt zijn woning in, koopt steeds het
+ding met de beste verhouding tussen extra inkomen en prijs, en doet een rebirth
+zodra het mag.
+
+```bash
+pnpm balance                 # standaardspeler, 30 dagen
+pnpm balance --minutes 20    # iemand die minder speelt
+pnpm balance --no-rebirth    # om de invloed van rebirth te isoleren
+```
 
 Dat kan omdat de economie uit pure functies bestaat (`computeStats`,
-`accrueIncome`, `upgradeCost`, `checkRecipe`, `erfenisFor`). Er is geen server
-en geen database voor nodig, en de simulatie kan daarna als test blijven
-draaien — dan merken we het meteen als een balanswijziging de curve breekt.
+`accrueIncome`, `upgradeCost`, `erfenisFor`). Geen server, geen database.
+
+**De aannames staan bovenaan `sim/simulate.ts` en zijn geen detail.** De
+gesimuleerde speler is efficiënter dan een mens, de marktprijs staat vast op
+1,0 om ruis te vermijden, en hij speelt altijd in het beste district dat mag.
+De simulatie zegt dus niet "zo voelt het spel", maar "zo gedraagt de wiskunde
+zich". Voor het gevoel moet je spelen.
 
 ### Wat we meten
 
@@ -402,6 +412,59 @@ Streefwaarden om tegen af te zetten — geen wetten, wel een meetlat:
   om terug te komen, te weinig om alleen offline te spelen.
 - Actief verzamelen blijft ook laat in het spel merkbaar — zakt het onder een
   tiende van je inkomen, dan is de stad versiering geworden.
+
+### Eerste ronde: wat de simulatie vond
+
+De simulatie draaide voor het eerst en vond binnen één run twee fouten die
+maandenlang onopgemerkt waren gebleven, terwijl alle 108 tests groen stonden.
+
+**1. Zeldzaamheid werd dubbel verrekend.** `baseValue` in de itemtabel loopt al
+op per tier (12 → 34 → 90 → 320 → 1.400), en `sellValue()` vermenigvuldigde dat
+nóg eens met een zeldzaamheidsfactor (1/3/9/27/90). Eén ruwe diamant bracht
+daardoor 126.000 op terwijl een rijtjeshuis 55.000 kost: één gelukkige vondst
+sloeg uren spelen over. De prijs komt nu rechtstreeks uit `baseValue`; de
+factor heet nu `RARITY_XP_WEIGHT` en geldt alleen nog voor ervaring.
+
+**2. Legendarisch was niet zeldzaam.** In De Heuvels was 20% van alle drops
+legendarisch of mythisch, op het privé-eiland 42%. Nu loopt dat van 0,2% in de
+Oude Stad tot 8% op het eiland.
+
+**3. Passief inkomen was te zwak voor een idle game.** Acht uur offline was drie
+minuten spelen waard; 72% van alle inkomsten kwam uit oprapen. Woninginkomen,
+kluisgrootte en meubelinkomen zijn met factor 7 verhoogd. Nu: 24 minuten en
+14% actief. Dat is een gemeten startpunt, geen eindoordeel — de echte toets is
+spelen.
+
+### Wat er nog niet klopt
+
+| Streefwaarde | Nu | Wil |
+|---|---|---|
+| Eerste aankoop | 7m spelen | binnen 2m |
+| Eerste eigen woning | 12m spelen | ✅ binnen 15m |
+| Langste stilte | 2u spelen | onder 20m |
+| Eerste rebirth | 5u41m | 6-10u |
+| 8 uur offline waard | 24m spelen | 30-60m |
+| Aandeel actief inkomen | 14% | ✅ boven 10% |
+
+Twee bevindingen die meer dan een getal vragen:
+
+**De Rugzak-upgrade is bijna waardeloos.** Je kunt overal verkopen, dus je
+inventaris loopt nooit echt vol. De simulatie koopt hem daarom nooit. Wil je
+dat de rugzak ertoe doet, dan moet verkopen aan een plek gebonden worden — een
+echte tocht terug naar je base. Dat is een ontwerpkeuze, geen afstelling.
+
+**Meubilair verdwijnt in het niet bij grote woningen.** Een vol kraakpand met
+doorsnee-meubels levert 57x het inkomen van het kraakpand zelf op; op het
+privé-eiland is datzelfde meubilair nog 1% waard. Woninginkomen groeit ~5x per
+tier, meubilair houdt dat niet bij. Gevolg: waar je het hele spel voor
+verzamelt, doet er aan het eind niet meer toe.
+
+De voorgestelde oplossing is structureel: laat de woning het meubilair
+**vermenigvuldigen** in plaats van er een vast bedrag bij op te tellen. Dan
+blijft verzamelen altijd lonen en versterkt een groter huis wat je hebt
+gevonden. Dat verandert de kern van `computeStats()` en verdient een aparte
+beslissing; het staat als `it.todo` in `test/balance.test.ts` zodat het niet
+wegzakt.
 
 ### Wat we daarna aanpassen
 

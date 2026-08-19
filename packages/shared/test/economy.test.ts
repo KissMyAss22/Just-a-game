@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { getItem } from '../src/items';
+import { getProperty } from '../src/properties';
+import { getVehicle } from '../src/vehicles';
 import {
   BASE_UPGRADES,
   ECONOMY,
@@ -145,11 +148,14 @@ describe('computeStats', () => {
   };
 
   it('geeft de startwaarden voor een nieuwe speler', () => {
+    // Bewust afgeleid uit de definities: anders breekt elke balanswijziging
+    // deze test zonder dat er iets kapot is.
+    const squat = getProperty('squat');
     const stats = computeStats(emptyBase);
-    expect(stats.baseIncomePerHour).toBe(5);
-    expect(stats.incomePerHour).toBe(5);
+    expect(stats.baseIncomePerHour).toBe(squat.incomePerHour);
+    expect(stats.incomePerHour).toBe(squat.incomePerHour);
     expect(stats.inventorySlots).toBe(ECONOMY.baseInventorySlots);
-    expect(stats.offlineCapHours).toBe(4);
+    expect(stats.offlineCapHours).toBe(squat.offlineCapHours);
   });
 
   it('telt geplaatste items mee voor inkomen en flex', () => {
@@ -164,8 +170,13 @@ describe('computeStats', () => {
         { id: 'c', itemId: 'aquarium', x: 2, z: 0, rotation: 0 },
       ],
     });
-    expect(stats.baseIncomePerHour).toBe(340 + 4 * 2 + 28);
-    expect(stats.flexScore).toBe(40 + 1 * 2 + 7);
+    const townhouse = getProperty('townhouse');
+    const lamp = getItem('lamp');
+    const aquarium = getItem('aquarium');
+    expect(stats.baseIncomePerHour).toBe(
+      townhouse.incomePerHour + (lamp.incomePerHour ?? 0) * 2 + (aquarium.incomePerHour ?? 0),
+    );
+    expect(stats.flexScore).toBe(townhouse.flex + (lamp.flex ?? 0) * 2 + (aquarium.flex ?? 0));
     expect(stats.incomePerHour).toBeGreaterThan(stats.baseIncomePerHour);
   });
 
@@ -179,9 +190,13 @@ describe('computeStats', () => {
     });
     expect(stats.upgradeMultiplier).toBeCloseTo(1.3, 5);
     expect(stats.boostMultiplier).toBeCloseTo(1.25, 5);
-    expect(stats.inventorySlots).toBe(ECONOMY.baseInventorySlots + 6 + 8);
-    expect(stats.offlineCapHours).toBe(8 + 3);
-    expect(stats.vaultCapacity).toBe(Math.floor(7_000 * 2));
+    const apartment = getProperty('apartment');
+    expect(stats.inventorySlots).toBe(
+      ECONOMY.baseInventorySlots + getVehicle('hatchback').carryBonus + 8,
+    );
+    expect(stats.offlineCapHours).toBe(apartment.offlineCapHours + 3);
+    // Kluis-upgrade level 4 = +100%.
+    expect(stats.vaultCapacity).toBe(Math.floor(apartment.vaultCapacity * 2));
     expect(stats.pickupRadius).toBeCloseTo(ECONOMY.basePickupRadius + 1.2, 5);
     expect(stats.moveSpeed).toBeCloseTo(ECONOMY.baseMoveSpeed * 2.1, 5);
   });

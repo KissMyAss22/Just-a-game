@@ -2,7 +2,7 @@ import { decorationBonus, floorPlanFor, type PlacedItem } from './home';
 import { getItem } from './items';
 import { getProperty } from './properties';
 import { legacyBonuses } from './rebirth';
-import { RARITY_VALUE_MULTIPLIER, type ItemDef, BOOSTS_BY_ID } from './types';
+import { RARITY_XP_WEIGHT, type ItemDef, BOOSTS_BY_ID } from './types';
 import { getVehicle } from './vehicles';
 
 /**
@@ -65,7 +65,7 @@ export function levelFromTotalXp(totalXp: number): LevelProgress {
 
 /** XP die je krijgt voor het oppakken van een item. */
 export function xpForItem(item: ItemDef): number {
-  return Math.max(1, Math.round(RARITY_VALUE_MULTIPLIER[item.rarity] * 2));
+  return Math.max(1, Math.round(RARITY_XP_WEIGHT[item.rarity] * 2));
 }
 
 // ---------------------------------------------------------------------------
@@ -148,7 +148,9 @@ export const BASE_UPGRADES: readonly BaseUpgradeDef[] = [
     id: 'backpack',
     name: 'Rugzak',
     description: '+4 inventarisplekken',
-    baseCost: 600,
+    // Bewust de goedkoopste: dit hoort je eerste aankoop te zijn, binnen
+    // een paar minuten na de start.
+    baseCost: 250,
     maxLevel: 12,
     effect: 'inventory',
     perLevel: 4,
@@ -427,12 +429,11 @@ export function accrueIncome(input: AccrualInput): AccrualResult {
   };
 }
 
-/** Verkoopwaarde van een stapel items. */
+/** Verkoopwaarde van een stapel items; zie sellValue voor waarom er geen
+ *  extra zeldzaamheidsfactor overheen gaat. */
 export function stackValue(itemId: string, quantity: number, market = 1): number {
   const item = getItem(itemId);
-  return Math.round(
-    item.baseValue * RARITY_VALUE_MULTIPLIER[item.rarity] * market * Math.max(0, quantity),
-  );
+  return Math.round(item.baseValue * market * Math.max(0, quantity));
 }
 
 /** Kort, leesbaar getal voor de UI: 1.2K, 3.4M, 8.9B. */

@@ -90,6 +90,7 @@ mag voorspellen, maar nooit beslissen.
 | `pnpm --filter @game/server db:dev` | Nieuwe migratie maken na een schemawijziging |
 | `pnpm db:studio` | Prisma Studio: bekijk de database in je browser |
 | `pnpm test` | Draait de tests op de economie-formules |
+| `pnpm balance` | Simuleert een speler en toont de progressiecurve |
 | `pnpm typecheck` | TypeScript-check over de hele workspace |
 
 ---
@@ -103,7 +104,8 @@ mag voorspellen, maar nooit beslissen.
 | 2 | Boosts, manager, craften, personage met naam en uiterlijk | ✅ |
 | 2b | Rebirth met erfenis en permanente voordelen | ✅ |
 | 2c | Base-indeling: spullen op echte plekken in je woning | ✅ |
-| 2d | Balansronde met simulatie | 🚧 |
+| 2d | Balansronde: simulatie gebouwd, eerste ronde gedaan | ✅ |
+| 2e | Meubilair laat in het spel relevant houden | 🚧 |
 | 3 | Alle districten, streaming, rijdbare voertuigen | ⬜ |
 | 4 | Multiplayer, chat, profielen, leaderboards | ⬜ |
 | 5 | Season pass live-ops, quests, events | ⬜ |
