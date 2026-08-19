@@ -173,30 +173,120 @@ export function lotAnchor(cx: number, cz: number): { anchorX: number; anchorZ: n
   const lx = cx % CITY.blockSize;
   const lz = cz % CITY.blockSize;
   if (lx === 0 || lz === 0) return null; // weg
-  if (lx === CITY.blockSize - 1 || lz === CITY.blockSize - 1) return null; // steeg
 
   const anchorX = cx - ((lx - 1) % 2);
   const anchorZ = cz - ((lz - 1) % 2);
 
-  if (
-    isWaterCell(anchorX, anchorZ) ||
-    isWaterCell(anchorX + 1, anchorZ) ||
-    isWaterCell(anchorX, anchorZ + 1) ||
-    isWaterCell(anchorX + 1, anchorZ + 1)
-  ) {
-    return null;
+  const size = lotSize(anchorX, anchorZ);
+  for (let dz = 0; dz < size.cellsZ; dz++) {
+    for (let dx = 0; dx < size.cellsX; dx++) {
+      if (isWaterCell(anchorX + dx, anchorZ + dz)) return null;
+    }
   }
   return { anchorX, anchorZ };
 }
 
-/** Middelpunt van een perceel van 2x2 cellen, in wereldcoordinaten. */
-export function lotCenter(anchorX: number, anchorZ: number): { x: number; z: number } {
-  const half = CITY.gridSize / 2;
+/**
+ * Hoeveel cellen dit perceel beslaat.
+ *
+ * Een bouwblok is zeven cellen breed: drie percelen van twee cellen en één
+ * smal perceel van één cel tegen de volgende straat aan. Dat laatste perceel
+ * is er bewust: zonder die rij zou elke straat maar aan één kant bebouwd zijn,
+ * met aan de overkant een lege strook.
+ */
+export function lotSize(anchorX: number, anchorZ: number): { cellsX: number; cellsZ: number } {
+  const last = CITY.blockSize - 1;
   return {
-    x: (anchorX - half) * CITY.cellSize + CITY.cellSize,
-    z: (anchorZ - half) * CITY.cellSize + CITY.cellSize,
+    cellsX: anchorX % CITY.blockSize === last ? 1 : 2,
+    cellsZ: anchorZ % CITY.blockSize === last ? 1 : 2,
   };
 }
+
+/** Middelpunt van een perceel in wereldcoordinaten. */
+export function lotCenter(anchorX: number, anchorZ: number): { x: number; z: number } {
+  const half = CITY.gridSize / 2;
+  const size = lotSize(anchorX, anchorZ);
+  return {
+    x: (anchorX - half) * CITY.cellSize + (size.cellsX * CITY.cellSize) / 2,
+    z: (anchorZ - half) * CITY.cellSize + (size.cellsZ * CITY.cellSize) / 2,
+  };
+}
+
+/**
+ * Hoe een perceel aan de straat ligt.
+ *
+ * Binnen een bouwblok ligt de weg aan de west- en de noordkant; de andere twee
+ * zijden grenzen aan de steeg. Percelen aan een straat vormen samen de
+ * gevelwand van dat blok — dat is wat een stad een stad maakt in plaats van een
+ * verzameling losse dozen.
+ */
+export interface LotFrontage {
+  west: boolean;
+  east: boolean;
+  north: boolean;
+  south: boolean;
+  /** Ligt dit perceel aan minstens één straat? */
+  street: boolean;
+  /** Ligt het op een hoek, dus aan twee straten? */
+  corner: boolean;
+}
+
+export function lotFrontage(anchorX: number, anchorZ: number): LotFrontage {
+  const last = CITY.blockSize - 1;
+  const west = anchorX % CITY.blockSize === 1;
+  const east = anchorX % CITY.blockSize === last;
+  const north = anchorZ % CITY.blockSize === 1;
+  const south = anchorZ % CITY.blockSize === last;
+  return {
+    west,
+    east,
+    north,
+    south,
+    street: west || east || north || south,
+    corner: (west || east) && (north || south),
+  };
+}
+
+/**
+ * Bepaalt voor één as hoe diep het pand is en waar het staat.
+ *
+ * Drie gevallen: het pand staat met zijn gevel aan de straat (dan telt de
+ * diepte vanaf de rooilijn), het maakt deel uit van een rij die langs déze as
+ * loopt (dan vult het de volle perceelbreedte, zodat het zijn buren raakt), of
+ * het staat achteraf op het binnenterrein en is vrijstaand.
+ */
+function axisExtent(
+  span: number,
+  center: number,
+  frontLow: boolean,
+  frontHigh: boolean,
+  alongStreet: boolean,
+  corner: boolean,
+  depthScale: number,
+  jitter: number,
+): { size: number; center: number } {
+  if (frontLow || frontHigh) {
+    // Op een hoek vult het pand het perceel tot achteren, zodat het aansluit
+    // op de rij die erachter doorloopt.
+    const size = corner
+      ? span - BUILDING_LINE_SETBACK
+      : Math.min(span - BUILDING_LINE_SETBACK, span * depthScale + 1.5);
+    const offset = span / 2 - BUILDING_LINE_SETBACK - size / 2;
+    return { size, center: frontLow ? center - offset : center + offset };
+  }
+  if (alongStreet) {
+    return { size: span + PARTY_WALL_OVERLAP, center };
+  }
+  return { size: span * (0.52 + jitter * 0.26), center: center + (jitter - 0.5) * 1.4 };
+}
+
+/** Hoe ver de gevel van de perceelgrens af staat: de breedte van de stoep. */
+const BUILDING_LINE_SETBACK = 0.6;
+/**
+ * Buren raken elkaar met een minieme overlap. Precies tegen elkaar aan geeft
+ * twee vlakken op exact dezelfde plek, en dat kan gaan flikkeren.
+ */
+const PARTY_WALL_OVERLAP = 0.04;
 
 export function buildingAtCell(cx: number, cz: number): BuildingLot | null {
   const anchor = lotAnchor(cx, cz);
@@ -204,7 +294,13 @@ export function buildingAtCell(cx: number, cz: number): BuildingLot | null {
   const { anchorX, anchorZ } = anchor;
 
   const district = districtAt(anchorX, anchorZ);
-  if (valueAt(CITY.seed, anchorX, anchorZ) >= district.density) return null;
+  const frontage = lotFrontage(anchorX, anchorZ);
+  // Aan de straat staat bijna altijd iets, anders valt de gevelwand uit elkaar.
+  // Achter op het blok juist zelden: daar horen tuinen en binnenterreinen.
+  const density = frontage.street
+    ? Math.min(0.95, district.density + 0.22)
+    : district.density * 0.4;
+  if (valueAt(CITY.seed, anchorX, anchorZ) >= density) return null;
 
   let floors = randInt(
     valueAt(CITY.seed + 1, anchorX, anchorZ),
@@ -216,19 +312,47 @@ export function buildingAtCell(cx: number, cz: number): BuildingLot | null {
   if (valueAt(CITY.seed + 10, anchorX, anchorZ) > 0.94) {
     floors = Math.round(floors * 1.7) + 1;
   }
-  // Breedte en diepte los van elkaar, plus een kleine verspringing binnen het
-  // perceel: dat haalt de rechte rooilijn eruit zonder de stoep te raken.
-  const scaleX = 0.70 + valueAt(CITY.seed + 2, anchorX, anchorZ) * 0.22;
-  const scaleZ = 0.70 + valueAt(CITY.seed + 7, anchorX, anchorZ) * 0.22;
-  const shiftX = (valueAt(CITY.seed + 8, anchorX, anchorZ) - 0.5) * 1.6;
-  const shiftZ = (valueAt(CITY.seed + 9, anchorX, anchorZ) - 0.5) * 1.6;
+  // Hoekpanden zijn van oudsher wat groter; achter op het blok staan alleen
+  // lage bijgebouwen.
+  if (frontage.west && frontage.north) floors += 1;
+  if (!frontage.street) floors = Math.min(floors, 2);
+
   const paletteIndex = randInt(
     valueAt(CITY.seed + 3, anchorX, anchorZ),
     0,
     district.palette.length - 1,
   );
-  const lotSpan = CITY.cellSize * 2;
+  const size = lotSize(anchorX, anchorZ);
+  const spanX = size.cellsX * CITY.cellSize;
+  const spanZ = size.cellsZ * CITY.cellSize;
   const center = lotCenter(anchorX, anchorZ);
+
+  const depthScale = 0.58 + valueAt(CITY.seed + 2, anchorX, anchorZ) * 0.24;
+  const axisX = axisExtent(
+    spanX,
+    center.x,
+    frontage.west,
+    frontage.east,
+    frontage.north || frontage.south,
+    frontage.corner,
+    depthScale,
+    valueAt(CITY.seed + 8, anchorX, anchorZ),
+  );
+  const axisZ = axisExtent(
+    spanZ,
+    center.z,
+    frontage.north,
+    frontage.south,
+    frontage.west || frontage.east,
+    frontage.corner,
+    depthScale,
+    valueAt(CITY.seed + 9, anchorX, anchorZ),
+  );
+  const width = axisX.size;
+  const depth = axisZ.size;
+  const centerX = axisX.center;
+  const centerZ = axisZ.center;
+
   const color = district.palette[paletteIndex] ?? '#888888';
   const style: BuildingStyle = floors <= 3 ? 'house' : floors <= 8 ? 'block' : 'tower';
   const seed = valueAt(CITY.seed + 4, anchorX, anchorZ);
@@ -242,10 +366,10 @@ export function buildingAtCell(cx: number, cz: number): BuildingLot | null {
   return {
     anchorX,
     anchorZ,
-    centerX: center.x + shiftX,
-    centerZ: center.z + shiftZ,
-    width: lotSpan * scaleX,
-    depth: lotSpan * scaleZ,
+    centerX,
+    centerZ,
+    width,
+    depth,
     height: floors * CITY.floorHeight,
     floors,
     color,
@@ -386,7 +510,13 @@ export function buildChunk(chunkX: number, chunkZ: number): ChunkContent {
       const seed = valueAt(CITY.seed + 6, anchor.anchorX, anchor.anchorZ);
       if (seed < GREEN_SHARE) {
         const { x, z } = lotCenter(anchor.anchorX, anchor.anchorZ);
-        green.push({ x, z, size: CITY.cellSize * 2 * 0.92, seed });
+        const span = lotSize(anchor.anchorX, anchor.anchorZ);
+        green.push({
+          x,
+          z,
+          size: Math.min(span.cellsX, span.cellsZ) * CITY.cellSize * 0.92,
+          seed,
+        });
       }
     }
   }

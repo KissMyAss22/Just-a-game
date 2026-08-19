@@ -12,6 +12,7 @@ import {
   findSpawnPoint,
   isWalkable,
   lotCenter,
+  lotSize,
   resolveMovement,
   spawnPosition,
   worldToCell,
@@ -211,16 +212,26 @@ describe('gebouwvormen', () => {
 
   it('laat panden binnen hun eigen perceel staan', () => {
     const chunk = buildChunk(4, 4);
-    const halfLot = CITY.cellSize; // perceel is 2 cellen breed
     for (const lot of chunk.buildings) {
       const center = lotCenter(lot.anchorX, lot.anchorZ);
+      const span = lotSize(lot.anchorX, lot.anchorZ);
       const overhangX = Math.abs(lot.centerX - center.x) + lot.width / 2;
       const overhangZ = Math.abs(lot.centerZ - center.z) + lot.depth / 2;
-      // Een klein beetje over de perceelgrens mag: dat valt op de stoep, niet
-      // op het rijdek. Het rijdek begint pas 1,4 m verder.
-      expect(overhangX).toBeLessThan(halfLot + 1.2);
-      expect(overhangZ).toBeLessThan(halfLot + 1.2);
+      // Buren raken elkaar met een minieme overlap; verder mag er niets over
+      // de perceelgrens steken, want daarachter begint de stoep.
+      expect(overhangX).toBeLessThanOrEqual((span.cellsX * CITY.cellSize) / 2 + 0.05);
+      expect(overhangZ).toBeLessThanOrEqual((span.cellsZ * CITY.cellSize) / 2 + 0.05);
     }
+  });
+
+  it('bebouwt beide kanten van elke straat', () => {
+    // Zonder de smalle perceelrij tegen de volgende straat aan zou elke straat
+    // maar aan één kant een gevelwand hebben.
+    const chunk = buildChunk(4, 4);
+    const westkant = chunk.buildings.filter((b) => b.anchorX % CITY.blockSize === 1);
+    const oostkant = chunk.buildings.filter((b) => b.anchorX % CITY.blockSize === CITY.blockSize - 1);
+    expect(westkant.length).toBeGreaterThan(0);
+    expect(oostkant.length).toBeGreaterThan(0);
   });
 
   it('zet groen alleen op onbebouwde percelen', () => {

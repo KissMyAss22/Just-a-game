@@ -12,7 +12,14 @@ import * as THREE from 'three';
 import { buildChunkObject, disposeChunkObject } from './chunkMesh';
 import { createPropField, type PropField } from './props';
 import { QUALITY, type QualityLevel } from './quality';
-import { DAY_PALETTE, createEnvironment, createSkyDome, type SkyDome } from './sky';
+import { NIGHT_UNIFORM } from './materials';
+import {
+  createEnvironment,
+  createSkyDome,
+  currentHour,
+  lightingAt,
+  type SkyDome,
+} from './sky';
 
 /**
  * De hele buitenwereld in één object: lucht, licht, straten en meubilair.
@@ -39,6 +46,12 @@ function chunkContent(chunkX: number, chunkZ: number): ChunkContent {
 const VIEW_RANGE = 1;
 /** Zoveel meter mag de speler lopen voordat het meubilair opnieuw wordt gezet. */
 const PROP_REFRESH_DISTANCE = 25;
+/**
+ * Hoeveel het uur mag verschuiven voordat de omgevingstextuur opnieuw wordt
+ * gemaakt. Die stap is te duur om elke frame te doen, en een kwartier verschil
+ * in weerspiegeling ziet niemand.
+ */
+const ENVIRONMENT_STEP_HOURS = 0.25;
 
 export interface World {
   root: THREE.Group;
@@ -51,20 +64,35 @@ export function createWorld(
   renderer: THREE.WebGLRenderer,
   scene: THREE.Scene,
   level: QualityLevel,
+  /**
+   * Waar de tijd vandaan komt. Standaard de klok van het toestel; de
+   * renderproef zet er een vast uur in om elk moment van de dag te kunnen
+   * bekijken zonder tot vanavond te wachten.
+   */
+  clock: () => number = currentHour,
 ): World {
   const settings = QUALITY[level];
   const root = new THREE.Group();
 
-  const environment = createEnvironment(renderer, DAY_PALETTE);
+  let lighting = lightingAt(clock());
+  let environment = createEnvironment(renderer, lighting.palette);
+  let environmentHour = clock();
   if (environment) scene.environment = environment;
-  scene.fog = new THREE.Fog(new THREE.Color(DAY_PALETTE.haze), settings.fogNear, settings.fogFar);
 
-  const sky: SkyDome = createSkyDome(DAY_PALETTE);
+  const fog = new THREE.Fog(
+    new THREE.Color(lighting.palette.haze),
+    settings.fogNear,
+    settings.fogFar,
+  );
+  scene.fog = fog;
+
+  const sky: SkyDome = createSkyDome(lighting.palette);
+  sky.setLighting(lighting);
   root.add(sky.mesh);
 
   const sun = new THREE.DirectionalLight(
-    new THREE.Color(DAY_PALETTE.sunLight),
-    DAY_PALETTE.sunIntensity,
+    new THREE.Color(lighting.palette.sunLight),
+    lighting.palette.sunIntensity,
   );
   sun.castShadow = settings.shadows;
   sun.shadow.mapSize.set(settings.shadowMapSize, settings.shadowMapSize);
@@ -80,13 +108,12 @@ export function createWorld(
   root.add(sun);
   root.add(sun.target);
 
-  root.add(
-    new THREE.HemisphereLight(
-      new THREE.Color(DAY_PALETTE.skyLight),
-      new THREE.Color(DAY_PALETTE.groundLight),
-      DAY_PALETTE.skyIntensity,
-    ),
+  const ambient = new THREE.HemisphereLight(
+    new THREE.Color(lighting.palette.skyLight),
+    new THREE.Color(lighting.palette.groundLight),
+    lighting.palette.skyIntensity,
   );
+  root.add(ambient);
 
   const chunkQuality = { castShadow: settings.shadows, receiveShadow: settings.shadows };
   const loaded = new Map<string, THREE.Group>();
@@ -137,7 +164,29 @@ export function createWorld(
     root,
     sun,
     update(camera, elapsed, playerX, playerZ) {
+      const hour = clock();
+      lighting = lightingAt(hour);
+      sky.setLighting(lighting);
       sky.update(camera, elapsed);
+
+      NIGHT_UNIFORM.value = lighting.night;
+      props.setNight(lighting.night);
+      sun.color.set(lighting.palette.sunLight);
+      sun.intensity = lighting.palette.sunIntensity;
+      ambient.color.set(lighting.palette.skyLight);
+      ambient.groundColor.set(lighting.palette.groundLight);
+      ambient.intensity = lighting.palette.skyIntensity;
+      fog.color.set(lighting.palette.haze);
+
+      if (Math.abs(hour - environmentHour) > ENVIRONMENT_STEP_HOURS) {
+        environmentHour = hour;
+        const next = createEnvironment(renderer, lighting.palette);
+        if (next) {
+          scene.environment = next;
+          environment?.dispose();
+          environment = next;
+        }
+      }
 
       const chunk = chunkAtWorld(playerX, playerZ);
       if (chunk.chunkX !== lastChunk.chunkX || chunk.chunkZ !== lastChunk.chunkZ) {
@@ -156,10 +205,11 @@ export function createWorld(
       // anders staat de schaduw ergens in een andere wijk.
       sun.target.position.set(playerX, 0, playerZ);
       sun.target.updateMatrixWorld();
+      const direction = lighting.palette.sunDirection;
       sun.position.set(
-        playerX + DAY_PALETTE.sunDirection.x * 150,
-        DAY_PALETTE.sunDirection.y * 150,
-        playerZ + DAY_PALETTE.sunDirection.z * 150,
+        playerX + direction.x * 150,
+        direction.y * 150,
+        playerZ + direction.z * 150,
       );
     },
     dispose() {

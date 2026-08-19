@@ -2,17 +2,19 @@
  * Bouwt dezelfde stad als de app, maar dan in een gewone browser.
  *
  * Waarom dit bestaat: de gevels, het wegdek en het water zijn shaders. Een
- * typefout daarin merk je niet bij het typecheken en niet in een unittest —
+ * typefout daarin merk je niet bij het typechecken en niet in een unittest —
  * pas op de telefoon, als zwart scherm. Met deze scene draait exact dezelfde
  * code in een echte WebGL-context, zodat een fout hier al opvalt.
+ *
+ * De vier beelden staan op verschillende uren, zodat ook de dag- en
+ * nachtcyclus te beoordelen is zonder tot vanavond te wachten.
  */
-import { buildChunk, chunksAround, streetPropsIn, treesOnLot, spawnPosition } from '@game/shared';
+import { spawnPosition } from '@game/shared';
 import * as THREE from 'three';
-import { buildChunkObject } from '../../apps/mobile/src/game3d/city/chunkMesh';
 import { createCharacter } from '../../apps/mobile/src/game3d/city/character';
 import { createLootField } from '../../apps/mobile/src/game3d/city/loot';
-import { createPropField } from '../../apps/mobile/src/game3d/city/props';
-import { DAY_PALETTE, createEnvironment, createSkyDome } from '../../apps/mobile/src/game3d/city/sky';
+import { QUALITY } from '../../apps/mobile/src/game3d/city/quality';
+import { createWorld } from '../../apps/mobile/src/game3d/city/world';
 
 declare global {
   interface Window {
@@ -27,7 +29,6 @@ window.__preview = { errors, info: '' };
 const nativeError = console.error.bind(console);
 console.error = (...args: unknown[]) => {
   const text = args.map((a) => String(a)).join(' ');
-  // Alleen de kern: naam, type en de eerste echte foutregel van de shader.
   const lines = text.split('\n').filter((line) => line.trim().length > 0);
   errors.push(lines.slice(0, 6).join(' // ').slice(0, 600));
   nativeError(...args);
@@ -41,89 +42,25 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-
-// three's eigen melding is summier; deze haak geeft de echte regel uit de
+// De melding van three is summier; deze haak geeft de echte regel uit de
 // GLSL-compiler, inclusief regelnummer.
 renderer.debug.onShaderError = (gl, _program, _vertex, fragment) => {
-  const log = gl.getShaderInfoLog(fragment) ?? '';
-  errors.push(`GLSL: ${log.replace(/\u0000/g, '').split('\n').slice(0, 4).join(' | ')}`);
+  const log = (gl.getShaderInfoLog(fragment) ?? '').replace(/[^\x20-\x7e\n]/g, '');
+  errors.push(`GLSL: ${log.split('\n').slice(0, 4).join(' | ')}`);
 };
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(52, canvas.width / canvas.height, 0.5, 600);
-
-const environment = createEnvironment(renderer, DAY_PALETTE);
-if (environment) scene.environment = environment;
-
-const sky = createSkyDome(DAY_PALETTE);
-scene.add(sky.mesh);
-
-const sun = new THREE.DirectionalLight(
-  new THREE.Color(DAY_PALETTE.sunLight),
-  DAY_PALETTE.sunIntensity,
-);
-sun.position.copy(DAY_PALETTE.sunDirection).multiplyScalar(120);
-sun.castShadow = true;
-sun.shadow.mapSize.set(1024, 1024);
-sun.shadow.camera.left = -70;
-sun.shadow.camera.right = 70;
-sun.shadow.camera.top = 70;
-sun.shadow.camera.bottom = -70;
-sun.shadow.camera.near = 20;
-sun.shadow.camera.far = 320;
-sun.shadow.bias = -0.0012;
-scene.add(sun);
-scene.add(sun.target);
-
-scene.add(
-  new THREE.HemisphereLight(
-    new THREE.Color(DAY_PALETTE.skyLight),
-    new THREE.Color(DAY_PALETTE.groundLight),
-    DAY_PALETTE.skyIntensity,
-  ),
-);
-
-scene.fog = new THREE.Fog(new THREE.Color(DAY_PALETTE.haze), 90, 460);
+const settings = QUALITY.hoog;
+const camera = new THREE.PerspectiveCamera(52, 1, 0.4, settings.far);
 
 const start = spawnPosition();
-const player = new THREE.Vector3(start.x + 6, 0, start.z + 6);
+const player = { x: start.x + 6, z: start.z + 6 };
 
-const green: { x: number; z: number; size: number }[] = [];
-const inventory: string[] = [];
-const gebieden = [...chunksAround(player.x, player.z, 1), ...chunksAround(40, -60, 1)];
-const gezien = new Set<string>();
-for (const { chunkX, chunkZ } of gebieden.filter((c) => {
-  const key = `${c.chunkX}:${c.chunkZ}`;
-  if (gezien.has(key)) return false;
-  gezien.add(key);
-  return true;
-})) {
-  const content = buildChunk(chunkX, chunkZ);
-  const object = buildChunkObject(content, { castShadow: true, receiveShadow: true });
-  scene.add(object);
-  green.push(...content.green);
-  if (inventory.length === 0) {
-    for (const child of object.children) {
-      const mesh = child as THREE.InstancedMesh;
-      const sphere = mesh.boundingSphere ?? mesh.geometry?.boundingSphere;
-      inventory.push(
-        `${(mesh.material as THREE.Material & { color?: THREE.Color })?.color?.getHexString() ?? '?'}` +
-          `x${mesh.count ?? 1} straal=${sphere?.radius.toFixed(1) ?? 'geen'}` +
-          ` y=${sphere?.center.y.toFixed(2) ?? '?'}`,
-      );
-    }
-  }
-}
+// Precies de wereld die de app ook opbouwt, met een klok die wij bepalen.
+let hour = 13;
+const world = createWorld(renderer, scene, 'hoog', () => hour);
+scene.add(world.root);
 
-const props = createPropField(true);
-const rect = 150;
-const all = streetPropsIn(player.x - rect, player.z - rect, player.x + rect, player.z + rect);
-for (const lot of green) all.push(...treesOnLot(lot.x, lot.z, lot.size));
-props.update(all, player.x, player.z);
-scene.add(props.group);
-
-// Het personage en wat loot, zodat ook die shaders hier omvallen in plaats van
-// pas op de telefoon.
 const character = createCharacter({ skin: '#c89066', outfit: '#2f6f5e', accent: '#e0b64a' });
 character.group.position.set(player.x, 0, player.z);
 character.group.rotation.y = Math.PI * 0.05;
@@ -146,46 +83,48 @@ loot.update(
 );
 scene.add(loot.group);
 
-sun.target.position.set(player.x, 0, player.z);
-sun.target.updateMatrixWorld();
+interface View {
+  name: string;
+  hour: number;
+  height: number;
+  place: (c: THREE.PerspectiveCamera) => void;
+}
 
-/**
- * Drie beelden onder elkaar in hetzelfde plaatje: het spelbeeld, een overzicht
- * van bovenaf om te zien of alles op de grond staat, en een close-up van een
- * gevel. Zo is één schermafdruk genoeg om te beoordelen wat er veranderd is.
- */
-const views: { name: string; height: number; place: (c: THREE.PerspectiveCamera) => void }[] = [
+const views: View[] = [
   {
-    name: 'spelbeeld',
-    height: 600,
+    name: 'ochtend',
+    hour: 8.5,
+    height: 460,
     place: (c) => {
       c.position.set(player.x + 3.2, 2.6, player.z - 6.2);
       c.lookAt(player.x, 1.15, player.z);
     },
   },
   {
-    name: 'overzicht',
-    height: 400,
+    name: 'middag',
+    hour: 13,
+    height: 380,
     place: (c) => {
       c.position.set(player.x + 60, 70, player.z + 80);
       c.lookAt(player.x, 0, player.z);
     },
   },
   {
-    name: 'centrum',
-    height: 300,
+    name: 'schemer',
+    hour: 20.4,
+    height: 330,
     place: (c) => {
-      // Het Centrum heeft vliesgevels; die wil je apart kunnen bekijken.
       c.position.set(60, 26, 40);
       c.lookAt(20, 34, -70);
     },
   },
   {
-    name: 'straatniveau',
-    height: 300,
+    name: 'nacht',
+    hour: 23,
+    height: 330,
     place: (c) => {
-      c.position.set(player.x + 2, 1.7, player.z + 3);
-      c.lookAt(player.x - 20, 8, player.z - 30);
+      c.position.set(player.x + 9, 4.5, player.z + 12);
+      c.lookAt(player.x, 1.6, player.z);
     },
   },
 ];
@@ -194,10 +133,11 @@ renderer.setScissorTest(true);
 let offset = canvas.height;
 for (const view of views) {
   offset -= view.height;
+  hour = view.hour;
   camera.aspect = canvas.width / view.height;
   camera.updateProjectionMatrix();
   view.place(camera);
-  sky.update(camera, 12);
+  world.update(camera, 12, player.x, player.z);
   renderer.setViewport(0, offset, canvas.width, view.height);
   renderer.setScissor(0, offset, canvas.width, view.height);
   try {
@@ -217,17 +157,12 @@ while (glError !== gl.NO_ERROR) {
 const overlay = document.getElementById('overlay');
 if (overlay) {
   overlay.textContent = [
-    `tekenopdrachten ${renderer.info.render.calls} | driehoeken ${renderer.info.render.triangles}`,
-    `omgeving ${environment ? 'ja' : 'nee'} | programmas ${renderer.info.programs?.length ?? 0}`,
-    `chunkonderdelen: ${inventory.join(' / ')}`,
+    `tekenopdrachten ${renderer.info.render.calls} | driehoeken ${renderer.info.render.triangles}` +
+      ` | programmas ${renderer.info.programs?.length ?? 0}`,
+    `uren van boven naar beneden: ${views.map((v) => `${v.name} ${v.hour}`).join(' / ')}`,
     errors.length ? `FOUTEN: ${errors.join(' | ')}` : 'geen fouten',
   ].join('\n');
 }
 
-window.__preview.info = JSON.stringify({
-  calls: renderer.info.render.calls,
-  triangles: renderer.info.render.triangles,
-  programs: renderer.info.programs?.length ?? 0,
-  environment: Boolean(environment),
-});
-document.title = errors.length ? `FOUT: ${errors.join(' | ')}` : 'ok';
+window.__preview.info = JSON.stringify({ calls: renderer.info.render.calls, errors: errors.length });
+document.title = errors.length ? `FOUT: ${errors[0]}` : 'ok';

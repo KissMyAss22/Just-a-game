@@ -11,6 +11,13 @@ import { sharedNoise } from './noise';
  * niets extra's. Zo blijft de stad honderden panden groot en toch vloeiend.
  */
 
+/**
+ * Hoe donker het buiten is, 0..1. Eén object dat door alle materialen wordt
+ * gedeeld: zo hoeft er bij het wisselen van de tijd niets doorgegeven te
+ * worden aan tientallen shaders afzonderlijk.
+ */
+export const NIGHT_UNIFORM = { value: 0 };
+
 /** Zet een getal om in een GLSL-float, zodat 64 niet als int wordt gelezen. */
 const f = (n: number): string => (Number.isInteger(n) ? `${n}.0` : `${n}`);
 
@@ -255,6 +262,7 @@ export function createFacadeMaterial(): THREE.MeshStandardMaterial {
 
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uNoise = { value: sharedNoise() };
+    shader.uniforms.uNight = NIGHT_UNIFORM;
 
     shader.vertexShader = shader.vertexShader
       .replace(
@@ -284,6 +292,7 @@ varying vec3 vObjNormal;
 varying vec3 vSize;
 varying vec4 vInfo;
 uniform sampler2D uNoise;
+uniform float uNight;
 ${GLSL_HELPERS}`,
     );
 
@@ -388,12 +397,14 @@ ${GLSL_HELPERS}`,
     * step(colRange.x - 0.04, fx) * (1.0 - step(colRange.y + 0.04, fx));
 
   // Overdag brandt er weinig licht; een gevel vol verlichte ruiten leest als
-  // een spreadsheet in plaats van als een gebouw.
-  float lit = step(0.88, hash21(vec2(columnIndex + vInfo.x * 91.0, floorIndex)));
+  // een spreadsheet in plaats van als een gebouw. 's Avonds gaat het grootste
+  // deel aan — maar nooit alles, want dan verdwijnt de structuur weer.
+  float litChance = mix(0.90, 0.34, uNight);
+  float lit = step(litChance, hash21(vec2(columnIndex + vInfo.x * 91.0, floorIndex)));
   // Hoger in het gebouw vangt de ruit meer lucht en wordt hij lichter.
   float skyward = clamp(height / 42.0, 0.0, 1.0);
   vec3 glassColor = mix(vec3(0.075, 0.095, 0.125), vec3(0.14, 0.19, 0.25), skyward);
-  glassColor = mix(glassColor, vec3(0.30, 0.25, 0.16), lit);
+  glassColor = mix(glassColor, mix(vec3(0.30, 0.25, 0.16), vec3(0.55, 0.42, 0.24), uNight), lit);
 
   vec3 frameColor = mix(vec3(0.86, 0.85, 0.82), vec3(0.16, 0.17, 0.19), isCurtain);
 
@@ -416,7 +427,10 @@ ${GLSL_HELPERS}`,
 
   diffuseColor.rgb = mix(surface, roofColor, roof);
 
-  totalEmissiveRadiance += vec3(1.0, 0.80, 0.50) * paneAmount * lit * 0.22;
+  // De pui op de begane grond straalt minder dan een woonkamer erboven;
+  // anders verblindt elke winkelruit je zodra het donker wordt.
+  float glowStrength = (0.22 + uNight * 0.95) * mix(1.0, 0.55, ground);
+  totalEmissiveRadiance += vec3(1.0, 0.80, 0.50) * paneAmount * lit * glowStrength;
   roughnessFactor = mix(mix(mix(0.86, 0.94, isBrick), 0.22, paneAmount), 0.93, roof);
   metalnessFactor = mix(mix(0.0, mix(0.52, 0.68, isCurtain), paneAmount), 0.0, roof);
 

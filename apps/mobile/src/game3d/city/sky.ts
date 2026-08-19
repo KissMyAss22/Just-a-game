@@ -27,27 +27,137 @@ export interface SkyPalette {
   skyIntensity: number;
 }
 
+interface SkyKeyframe extends Omit<SkyPalette, 'sunDirection'> {
+  hour: number;
+  /** 0 = klaarlichte dag, 1 = midden in de nacht. */
+  night: number;
+}
+
 /**
- * Laat in de middag: de zon staat laag genoeg voor lange schaduwen, maar hoog
- * genoeg om de straat nog te raken. Dat is het uur waarop een stad er het best
- * uitziet, en het geeft meteen diepte aan vlakke gevels.
+ * De stand van het licht op zeven momenten van de dag; daartussen wordt
+ * vloeiend gemengd.
+ *
+ * De klok van het toestel bepaalt welk moment je ziet. Dat is gratis inhoud:
+ * wie 's avonds speelt krijgt een andere stad dan wie 's ochtends speelt, en
+ * bij een spel waar je toch al de hele dag af en toe binnenvalt past dat.
+ * De nacht wordt bewust nooit helemaal zwart — straatverlichting, verlichte
+ * ramen en een flinke scheut maanlicht houden de stad leesbaar.
  */
-export const DAY_PALETTE: SkyPalette = {
-  zenith: '#2f63a6',
-  horizon: '#a8c3d8',
-  haze: '#d8cdba',
-  ground: '#31302d',
-  sun: '#ffd9a0',
-  sunDirection: new THREE.Vector3(0.55, 0.46, 0.70).normalize(),
-  sunLight: '#fff0d8',
-  sunIntensity: 3.1,
-  skyLight: '#b9cfe4',
-  groundLight: '#544c40',
-  // Laag gehouden: de omgevingstextuur levert het meeste omgevingslicht al.
-  // Stapelen we die twee, dan slaat de schaduw dicht van kleur in plaats van
-  // donkerder te worden, en wordt alles blauw.
-  skyIntensity: 0.35,
-};
+const KEYFRAMES: SkyKeyframe[] = [
+  {
+    hour: 0,
+    zenith: '#05070f', horizon: '#0e1524', haze: '#141d2e', ground: '#0a0b0e', sun: '#cfd8ff',
+    sunLight: '#9db0dc', sunIntensity: 0.62,
+    skyLight: '#46587e', groundLight: '#1c1f27', skyIntensity: 0.85,
+    night: 1,
+  },
+  {
+    hour: 5.6,
+    zenith: '#1d3b6b', horizon: '#c9805f', haze: '#d49a78', ground: '#1b1a1c', sun: '#ffb27a',
+    sunLight: '#ffc79a', sunIntensity: 1.3,
+    skyLight: '#6f88b5', groundLight: '#3a3128', skyIntensity: 0.5,
+    night: 0.42,
+  },
+  {
+    hour: 8.5,
+    zenith: '#2b5fa0', horizon: '#b6cbdd', haze: '#d6d6cf', ground: '#2c2b29', sun: '#ffe0b0',
+    sunLight: '#fff0dc', sunIntensity: 2.7,
+    skyLight: '#a9c4e0', groundLight: '#4d463a', skyIntensity: 0.38,
+    night: 0.04,
+  },
+  {
+    hour: 13,
+    zenith: '#2f63a6', horizon: '#a8c3d8', haze: '#d8cdba', ground: '#31302d', sun: '#ffd9a0',
+    sunLight: '#fffaf0', sunIntensity: 3.3,
+    skyLight: '#b9cfe4', groundLight: '#544c40', skyIntensity: 0.35,
+    night: 0,
+  },
+  {
+    hour: 18.5,
+    zenith: '#2a5a9c', horizon: '#dfb187', haze: '#e6c39a', ground: '#2e2b26', sun: '#ffcf90',
+    sunLight: '#ffd9a8', sunIntensity: 2.5,
+    skyLight: '#a8bcd6', groundLight: '#57452f', skyIntensity: 0.38,
+    night: 0.05,
+  },
+  {
+    hour: 20.8,
+    zenith: '#16294f', horizon: '#c2704f', haze: '#9b7264', ground: '#1a1917', sun: '#ff9b5e',
+    sunLight: '#e0906a', sunIntensity: 0.95,
+    skyLight: '#4a5f88', groundLight: '#2c2620', skyIntensity: 0.45,
+    night: 0.55,
+  },
+  {
+    hour: 24,
+    zenith: '#05070f', horizon: '#0e1524', haze: '#141d2e', ground: '#0a0b0e', sun: '#cfd8ff',
+    sunLight: '#9db0dc', sunIntensity: 0.62,
+    skyLight: '#46587e', groundLight: '#1c1f27', skyIntensity: 0.85,
+    night: 1,
+  },
+];
+
+const mixColor = (a: string, b: string, t: number): string =>
+  `#${new THREE.Color(a).lerp(new THREE.Color(b), t).getHexString()}`;
+
+/**
+ * Waar de zon staat op dit uur. Onder de horizon nemen we de maan over: die
+ * staat aan de andere kant en geeft veel minder, koeler licht.
+ */
+export function sunDirectionAt(hour: number): THREE.Vector3 {
+  const t = (hour - 6) / 14; // 0 bij zonsopkomst, 1 bij zonsondergang
+  const elevation = Math.sin(Math.PI * t);
+  const x = Math.cos(Math.PI * t) * 0.85;
+  const z = 0.5;
+  if (elevation > 0.06) return new THREE.Vector3(x, elevation, z).normalize();
+  return new THREE.Vector3(-x * 0.7, 0.5, -z * 0.7).normalize();
+}
+
+export interface Lighting {
+  palette: SkyPalette;
+  /** 0 = dag, 1 = nacht. Stuurt verlichte ramen en lantaarns aan. */
+  night: number;
+}
+
+/** Mengt de keyframes tot de stand van het licht op dit uur. */
+export function lightingAt(hour: number): Lighting {
+  const clock = ((hour % 24) + 24) % 24;
+  let from = KEYFRAMES[0]!;
+  let to = KEYFRAMES[KEYFRAMES.length - 1]!;
+  for (let i = 0; i < KEYFRAMES.length - 1; i++) {
+    if (clock >= KEYFRAMES[i]!.hour && clock <= KEYFRAMES[i + 1]!.hour) {
+      from = KEYFRAMES[i]!;
+      to = KEYFRAMES[i + 1]!;
+      break;
+    }
+  }
+  const span = to.hour - from.hour;
+  const t = span <= 0 ? 0 : (clock - from.hour) / span;
+  const lerp = (a: number, b: number) => a + (b - a) * t;
+
+  return {
+    night: lerp(from.night, to.night),
+    palette: {
+      zenith: mixColor(from.zenith, to.zenith, t),
+      horizon: mixColor(from.horizon, to.horizon, t),
+      haze: mixColor(from.haze, to.haze, t),
+      ground: mixColor(from.ground, to.ground, t),
+      sun: mixColor(from.sun, to.sun, t),
+      sunDirection: sunDirectionAt(clock),
+      sunLight: mixColor(from.sunLight, to.sunLight, t),
+      sunIntensity: lerp(from.sunIntensity, to.sunIntensity),
+      skyLight: mixColor(from.skyLight, to.skyLight, t),
+      groundLight: mixColor(from.groundLight, to.groundLight, t),
+      skyIntensity: lerp(from.skyIntensity, to.skyIntensity),
+    },
+  };
+}
+
+/** Het uur van de dag volgens de klok van het toestel, als kommagetal. */
+export function currentHour(now = new Date()): number {
+  return now.getHours() + now.getMinutes() / 60 + now.getSeconds() / 3600;
+}
+
+/** Laat in de middag: het uur waarop een stad er het best uitziet. */
+export const DAY_PALETTE: SkyPalette = lightingAt(16).palette;
 
 const VERTEX = /* glsl */ `
 varying vec3 vDir;
@@ -65,6 +175,7 @@ uniform vec3 uGround;
 uniform vec3 uSun;
 uniform vec3 uSunDir;
 uniform float uTime;
+uniform float uNight;
 uniform sampler2D uNoise;
 varying vec3 vDir;
 
@@ -81,6 +192,14 @@ void main() {
   float sun = max(dot(dir, uSunDir), 0.0);
   color += uSun * pow(sun, 1200.0) * 6.0;
   color += uSun * pow(sun, 14.0) * 0.30;
+
+  // Sterren: alleen 's nachts, en niet vlak boven de horizon waar de stad
+  // toch al te veel licht geeft.
+  if (uNight > 0.01 && h > 0.02) {
+    float speck = texture2D(uNoise, dir.xz * 1.9 + dir.y * 0.37).r;
+    float stars = smoothstep(0.90, 0.995, speck) * uNight * smoothstep(0.02, 0.30, h);
+    color += vec3(0.86, 0.90, 1.0) * stars * 1.1;
+  }
 
   // Wolken: de ruistextuur op een denkbeeldig vlak boven de stad, wat
   // meeschuivend. Alleen boven de horizon, en zwakker naar de rand toe.
@@ -104,6 +223,8 @@ export interface SkyDome {
   mesh: THREE.Mesh;
   /** Elke frame aanroepen: houdt de lucht om de camera heen en laat wolken lopen. */
   update: (camera: THREE.Camera, elapsed: number) => void;
+  /** Zet de lucht op een ander moment van de dag. */
+  setLighting: (lighting: Lighting) => void;
   dispose: () => void;
 }
 
@@ -116,6 +237,7 @@ export function createSkyDome(palette: SkyPalette = DAY_PALETTE): SkyDome {
     uSun: { value: new THREE.Color(palette.sun) },
     uSunDir: { value: palette.sunDirection.clone() },
     uTime: { value: 0 },
+    uNight: { value: 0 },
     uNoise: { value: sharedNoise() },
   };
 
@@ -138,6 +260,15 @@ export function createSkyDome(palette: SkyPalette = DAY_PALETTE): SkyDome {
     update(camera, elapsed) {
       mesh.position.copy(camera.position);
       uniforms.uTime.value = elapsed;
+    },
+    setLighting({ palette: next, night }) {
+      uniforms.uZenith.value.set(next.zenith);
+      uniforms.uHorizon.value.set(next.horizon);
+      uniforms.uHaze.value.set(next.haze);
+      uniforms.uGround.value.set(next.ground);
+      uniforms.uSun.value.set(next.sun);
+      uniforms.uSunDir.value.copy(next.sunDirection);
+      uniforms.uNight.value = night;
     },
     dispose() {
       mesh.geometry.dispose();

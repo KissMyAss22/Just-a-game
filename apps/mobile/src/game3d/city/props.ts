@@ -110,6 +110,48 @@ function carGeometry(): THREE.BufferGeometry {
   return mergeParts(parts);
 }
 
+/**
+ * De lamp zelf en de lichtplas eronder, als losse geometrie op dezelfde
+ * plek als de paal. Ze krijgen dezelfde matrices als de lantaarns en worden
+ * met optellende menging getekend, dus overdag zijn ze op nul te zetten
+ * zonder dat er iets van overblijft.
+ */
+function lampGlowGeometry(): THREE.BufferGeometry {
+  const geometry = new THREE.SphereGeometry(0.30, 8, 6);
+  geometry.scale(1, 0.55, 1.5);
+  geometry.translate(0, 5.24, 1.32);
+  return geometry;
+}
+
+function lampPoolGeometry(): THREE.BufferGeometry {
+  const geometry = new THREE.PlaneGeometry(9, 9);
+  geometry.rotateX(-Math.PI / 2);
+  geometry.translate(0, 0.03, 1.3);
+  return geometry;
+}
+
+/** Zachte ronde lichtvlek; hetzelfde verloop als de contactschaduw, maar licht. */
+function poolTexture(): THREE.DataTexture {
+  const size = 64;
+  const data = new Uint8Array(size * size * 4);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const dx = (x + 0.5) / size - 0.5;
+      const dy = (y + 0.5) / size - 0.5;
+      const radius = Math.min(1, Math.sqrt(dx * dx + dy * dy) * 2);
+      const value = (1 - radius) ** 2.6;
+      const index = (y * size + x) * 4;
+      data[index] = 255;
+      data[index + 1] = 236;
+      data[index + 2] = 196;
+      data[index + 3] = Math.round(value * 255);
+    }
+  }
+  const texture = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
+  texture.needsUpdate = true;
+  return texture;
+}
+
 const CAR_COLORS = [
   '#c8ccd2',
   '#2b3038',
@@ -144,6 +186,8 @@ export interface PropField {
   group: THREE.Group;
   /** Vult de instanced meshes met alles binnen bereik van de speler. */
   update: (props: StreetProp[], playerX: number, playerZ: number) => void;
+  /** 0 = dag, 1 = nacht: bepaalt of de lantaarns branden. */
+  setNight: (amount: number) => void;
   dispose: () => void;
 }
 
@@ -153,6 +197,32 @@ export function createPropField(castShadow: boolean, rangeScale = 1): PropField 
   const glossy = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.24, metalness: 0.5 });
   const dummy = new THREE.Object3D();
   const color = new THREE.Color();
+
+  const glowMaterial = new THREE.MeshBasicMaterial({
+    color: new THREE.Color('#ffe6b4'),
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+  const poolMap = poolTexture();
+  const poolMaterial = new THREE.MeshBasicMaterial({
+    map: poolMap,
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+  const lampCapacity = SETUP.lamp.capacity;
+  const lampGlow = new THREE.InstancedMesh(lampGlowGeometry(), glowMaterial, lampCapacity);
+  const lampPool = new THREE.InstancedMesh(lampPoolGeometry(), poolMaterial, lampCapacity);
+  for (const mesh of [lampGlow, lampPool]) {
+    mesh.count = 0;
+    mesh.frustumCulled = false;
+    mesh.visible = false;
+    mesh.renderOrder = 4;
+    group.add(mesh);
+  }
 
   const meshes = new Map<PropKind, THREE.InstancedMesh>();
   for (const [kind, setup] of Object.entries(SETUP) as [PropKind, KindSetup][]) {
@@ -196,6 +266,10 @@ export function createPropField(castShadow: boolean, rangeScale = 1): PropField 
         dummy.scale.setScalar(prop.scale);
         dummy.updateMatrix();
         mesh.setMatrixAt(index, dummy.matrix);
+        if (prop.kind === 'lamp') {
+          lampGlow.setMatrixAt(index, dummy.matrix);
+          lampPool.setMatrixAt(index, dummy.matrix);
+        }
 
         if (setup.tinted) {
           const paint = CAR_COLORS[Math.floor(prop.variant * CAR_COLORS.length) % CAR_COLORS.length]!;
@@ -209,9 +283,29 @@ export function createPropField(castShadow: boolean, rangeScale = 1): PropField 
         mesh.instanceMatrix.needsUpdate = true;
         if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
       }
+
+      const lamps = counters.get('lamp') ?? 0;
+      lampGlow.count = lamps;
+      lampPool.count = lamps;
+      lampGlow.instanceMatrix.needsUpdate = true;
+      lampPool.instanceMatrix.needsUpdate = true;
+    },
+    setNight(amount) {
+      // Onder een kwart nacht branden ze nog niet; dan is het licht toch niet
+      // te zien en scheelt het twee tekenopdrachten.
+      const glow = Math.max(0, (amount - 0.25) / 0.75);
+      glowMaterial.opacity = glow;
+      poolMaterial.opacity = glow * 0.95;
+      lampGlow.visible = glow > 0.01;
+      lampPool.visible = glow > 0.01;
     },
     dispose() {
       for (const mesh of meshes.values()) mesh.geometry.dispose();
+      lampGlow.geometry.dispose();
+      lampPool.geometry.dispose();
+      glowMaterial.dispose();
+      poolMaterial.dispose();
+      poolMap.dispose();
       matte.dispose();
       glossy.dispose();
     },

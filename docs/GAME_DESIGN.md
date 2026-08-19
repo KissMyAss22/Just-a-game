@@ -37,9 +37,19 @@ inkomen → verder de stad in.**
 ## 3. De stad
 
 128 × 128 cellen van 8 meter = **1.024 × 1.024 meter**. Wegen liggen op elk
-achtvoud, dus straten om de 64 meter. Tussen de wegen liggen percelen van
-2 × 2 cellen (16 × 16 m) met één gebouw per perceel — ongeveer negen panden per
-huizenblok.
+achtvoud, dus straten om de 64 meter.
+
+Een bouwblok is zeven cellen breed: drie percelen van 2 × 2 cellen (16 × 16 m)
+en één smal perceel van één cel tegen de volgende straat aan. Dat smalle
+perceel is er bewust — zonder die rij zou elke straat maar aan één kant een
+gevelwand hebben, met aan de overkant een lege strook.
+
+**Panden aan een straat staan in een rij.** Ze vullen hun perceel van buur tot
+buur en staan op één rooilijn, zodat ze een aaneengesloten gevelwand vormen;
+alleen de diepte en de hoogte verschillen per pand. Hoekpanden vullen het hele
+hoekperceel. Achter op het blok is het juist open: daar staat maar zelden iets,
+en dan laag — dat worden de binnenterreinen en tuinen. Losse dozen met gaten
+ertussen zien er nu eenmaal uit als een maquette, niet als een stad.
 
 Alles wordt afgeleid uit `CITY.seed` met een deterministische generator
 (`mulberry32`), dus de stad ziet er op elk toestel en op de server exact
@@ -93,6 +103,36 @@ verandert alleen als je een chunk verder loopt; zou dit uit componenten
 bestaan, dan zou React zestig keer per seconde een boom vergelijken die
 vrijwel nooit verandert.
 
+### Dag en nacht
+
+De klok van het toestel bepaalt het licht. Zeven momenten liggen vast — nacht,
+dageraad, ochtend, middag, gouden uur, schemer, nacht — en daartussen wordt
+vloeiend gemengd: luchtkleur, zonstand, zonkleur, mist en omgevingslicht. Onder
+de horizon neemt de maan het over: veel zwakker en koeler, maar wel gewoon met
+schaduw.
+
+Dat is gratis inhoud. Wie 's avonds speelt krijgt een andere stad dan wie
+'s ochtends speelt, en bij een spel waar je toch al de hele dag af en toe
+binnenvalt past dat precies.
+
+Wat er 's avonds verandert:
+
+- **Ramen gaan aan.** Overdag brandt er in ongeveer één op de tien ruiten licht,
+  's nachts in twee op de drie. Nooit in alle — dan verdwijnt de structuur van
+  de gevel weer. De pui op de begane grond straalt zwakker dan een woonkamer
+  erboven, anders verblindt elke winkelruit je.
+- **De lantaarns branden**, met een lichtplas op de stoep. Onder een kwart nacht
+  staan ze uit; dan is het licht toch niet te zien en scheelt het twee
+  tekenopdrachten.
+- **Sterren** boven de horizon, sterker naarmate het later wordt.
+
+De nacht wordt bewust nooit helemaal zwart: er blijft flink wat maanlicht en
+hemellicht staan, want een spel waarin je niets ziet is geen spel.
+
+De omgevingstextuur wordt hooguit elk kwartier speeltijd opnieuw gemaakt. Die
+stap is te duur om elke frame te doen, en een kwartier verschil in
+weerspiegeling ziet niemand.
+
 ### Beeldkwaliteit in drie standen
 
 Een telefoon van vier jaar oud en een nieuwe iPhone zitten een factor tien uit
@@ -110,10 +150,17 @@ chunkopbouw in een headless Chromium, meldt compilatiefouten mét regelnummer en
 zet het resultaat in `.preview/stad.png`. Zo is een visuele wijziging te
 beoordelen zonder telefoon.
 
-Dat betaalde zich meteen terug: de eerste versie van het wegdek en de stoep
-gebruikte een variabele `patch`, wat een gereserveerd woord is in GLSL. De
-shader compileerde niet en de straat werd domweg niet getekend — precies het
-soort fout dat je op een telefoon alleen als "er klopt iets niet" ziet.
+De proef rendert vier momenten onder elkaar — ochtend, middag, schemer en nacht
+— zodat ook de dag- en nachtcyclus te beoordelen is zonder tot vanavond te
+wachten. Hij bouwt de wereld op met dezelfde `createWorld` als de app; alleen
+de klok komt ergens anders vandaan.
+
+Dat betaalde zich twee keer terug. De eerste versie van het wegdek en de stoep
+gebruikte een variabele `patch`, wat een gereserveerd woord is in GLSL: de
+shader compileerde niet en de straat werd domweg niet getekend. En de eerste
+versie van de dag-nachtcyclus liet alle vier de beelden op de echte kloktijd
+zien in plaats van op het ingestelde uur — meteen zichtbaar, want alles was
+nacht.
 
 ---
 
