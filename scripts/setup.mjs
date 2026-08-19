@@ -23,11 +23,23 @@ const fail = (m) => console.log(`  [FOUT] ${m}`);
 
 let blocking = 0;
 
+/**
+ * Draait een commando en geeft de uitvoer terug, of null als het niet bestaat.
+ *
+ * Op Windows is `shell: true` geen luxe maar noodzaak: pnpm is daar een
+ * `pnpm.cmd` en geen `.exe`, en execFileSync kan een .cmd niet rechtstreeks
+ * starten. Zonder dit meldde het script "pnpm ontbreekt" terwijl pnpm er wel
+ * degelijk stond - Docker werd wel gevonden, want dat is een echte .exe.
+ *
+ * De commando's hieronder zijn vaste waarden uit dit bestand, dus er komt
+ * nooit invoer van buiten in de shell terecht.
+ */
 function run(command, args) {
   try {
     return execFileSync(command, args, {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
+      shell: process.platform === 'win32',
     }).trim();
   } catch {
     return null;
@@ -50,6 +62,7 @@ if (pnpmVersion) {
   ok(`pnpm ${pnpmVersion}`);
 } else {
   fail('pnpm ontbreekt - installeer met: npm install -g pnpm');
+  warn('net geinstalleerd? sluit dit venster en start het opnieuw');
   blocking++;
 }
 

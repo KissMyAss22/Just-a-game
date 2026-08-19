@@ -94,10 +94,13 @@ exit /b 1
 
 :SETUP_MISLUKT
 echo.
-echo   [FOUT] Er ontbreekt nog iets. Zie de melding hierboven.
+echo   [FOUT] Er ontbreekt nog iets. Kijk hierboven welke regel [FOUT] zegt.
 echo.
-echo   Draait Docker Desktop? Start dat programma en wacht tot het
-echo   icoon rechtsonder stil staat. Probeer dit bestand daarna opnieuw.
+echo   Staat er iets over Docker? Start Docker Desktop en wacht tot het
+echo   icoon rechtsonder bij je klok stil staat.
+echo.
+echo   Staat er iets over pnpm, terwijl die net is geinstalleerd?
+echo   Sluit dit venster en dubbelklik opnieuw op INSTALLEER.bat.
 echo.
 pause
 exit /b 1
