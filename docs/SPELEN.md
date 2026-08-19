@@ -17,7 +17,7 @@ commando's nog niet.
 
 ## Windows: dubbelklikken
 
-Op Windows hoef je geen commando's te typen. In de map staan drie bestanden:
+Op Windows hoef je geen commando's te typen. In de map staan deze bestanden:
 
 | Bestand | Wanneer |
 |---|---|
@@ -25,7 +25,7 @@ Op Windows hoef je geen commando's te typen. In de map staan drie bestanden:
 | **START.bat** | elke keer dat je wilt spelen |
 | **STOP.bat** | als je klaar bent |
 | **CONTROLE.bat** | om te zien welke Expo-SDK er echt staat |
-| **SCHOON-INSTALLEREN.bat** | als de Expo-versie is gewijzigd of iets blijft haperen |
+| **SCHOON-INSTALLEREN.bat** | als er iets blijft haperen dat je niet kunt plaatsen |
 
 Zorg dat **Docker Desktop draait** voordat je begint — je ziet het walvis-icoon
 rechtsonder bij je klok.
@@ -105,34 +105,36 @@ adres is dat `pnpm setup` liet zien.
 Start Docker Desktop en wacht tot het icoon niet meer beweegt. Draai daarna
 `pnpm setup` opnieuw.
 
-### Eerst controleren: welke SDK staat er echt?
-
-Dubbelklik op **CONTROLE.bat**. Die laat zien welke Expo-SDK er geinstalleerd
-is. Staat daar iets anders dan wat `package.json` wil, dan is er na een pull
-niet opnieuw geinstalleerd — draai dan INSTALLEER.bat.
-
-Dit is belangrijk: pullen verandert alleen de *gewenste* versies. Pas na
-INSTALLEER.bat staan ze er ook echt.
-
 ### "Project is incompatible with this version of Expo Go"
 
-Werk Expo Go bij in de App Store of Play Store.
+Deze melding betekent bijna altijd: het project vraagt een nieuwere Expo-SDK
+dan jouw Expo Go aankan. Expo Go in de App Store loopt altijd een tijdje achter
+op de nieuwste SDK, dus "ik heb de laatste versie" lost het niet op.
 
-Staat er al de nieuwste versie? Dan loopt het andersom: het project gebruikt
-een Expo-SDK die nieuwer is dan wat Expo Go aankan. Expo Go in de store loopt
-altijd een tijdje achter op de nieuwste SDK.
+Er zijn twee oorzaken, en de eerste is veruit de meest voorkomende.
+
+**1. Je hebt gepulld, maar niet opnieuw geinstalleerd.**
+
+Pullen verandert alleen *welke* versies het project wil. De pakketten die er
+echt staan blijven ongewijzigd tot je opnieuw installeert. Draait het project
+dus op SDK 54 terwijl er nog SDK 56 in `node_modules` staat, dan serveert Metro
+gewoon SDK 56 en klaagt Expo Go.
+
+START.bat controleert dit nu zelf voordat hij begint. Ziet hij een verschil,
+dan ruimt hij de oude pakketten op en haalt ze opnieuw op. Je hoeft er niets
+voor te doen behalve wachten. Wil je alleen kijken zonder te starten: dubbelklik
+op **CONTROLE.bat**.
+
+**2. Jouw Expo Go ondersteunt een oudere SDK dan het project.**
+
+Open Expo Go op je telefoon en kijk bij de versie-informatie: daar staat
+"supported SDK". Staat daar een lager nummer dan wat CONTROLE.bat toont, geef
+dat nummer dan door — dan zet ik het project naar die SDK.
 
 Daarom staat dit project bewust op **SDK 54** en niet op de allernieuwste.
-Welke SDK jouw Expo Go aankan, zie je in de app zelf: open Expo Go en kijk bij
-de versie-informatie, daar staat "supported SDK".
-
-Werk de Expo-pakketten dus niet zomaar bij naar de laatste versie: dan kun je
-het spel niet meer met Expo Go openen, en heb je een eigen development build
-nodig. Zie `apps/mobile/package.json` — daar staat waarom.
-
-Verander je toch van SDK, draai dan **SCHOON-INSTALLEREN.bat**. Een gewone
-installatie laat oude pakketten van de vorige SDK staan, en dan krijg je
-fouten die nergens op slaan.
+Werk de Expo-pakketten dus niet zomaar bij: dan kun je het spel niet meer met
+Expo Go openen en heb je een eigen development build nodig. Zie
+`apps/mobile/package.json` - daar staat waarom.
 
 ### De QR-code doet helemaal niets
 

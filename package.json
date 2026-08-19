@@ -16,6 +16,7 @@
     "dev:mobile": "pnpm --filter @game/mobile start",
     "dev:server": "pnpm --filter @game/server dev",
     "lint": "pnpm -r --if-present lint",
+    "sdk:check": "node scripts/sdk-check.mjs",
     "setup": "node scripts/setup.mjs",
     "test": "pnpm --filter @game/shared test",
     "typecheck": "pnpm -r typecheck"
