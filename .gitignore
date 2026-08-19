@@ -41,3 +41,7 @@ yarn-error.*
 .vscode/*
 !.vscode/extensions.json
 coverage/
+
+# Renderproef van de stad (scripts/render-preview.mjs)
+.preview/
+scripts/preview/bundle.js

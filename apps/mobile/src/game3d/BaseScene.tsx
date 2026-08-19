@@ -9,10 +9,11 @@ import {
   type PlacedItem,
 } from '@game/shared';
 import { Canvas, useFrame, useThree } from '@react-three/fiber/native';
-import { useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { rarityColor } from '../ui/theme';
 import { getItem } from '@game/shared';
+import { DAY_PALETTE, createEnvironment } from './city/sky';
 
 /** Hoogte van de muurtjes: hoog genoeg om een kamer te zijn, laag genoeg om
  *  overheen te kijken vanuit elke hoek. */
@@ -90,17 +91,17 @@ function Walls({ plan }: { plan: FloorPlan }) {
   return (
     <group>
       {/* Achter- en zijmuren zijn doorlopend. */}
-      <mesh position={[0, WALL_HEIGHT / 2, -depth / 2]}>
+      <mesh position={[0, WALL_HEIGHT / 2, -depth / 2]} receiveShadow castShadow>
         <boxGeometry args={[width + WALL_THICKNESS, WALL_HEIGHT, WALL_THICKNESS]} />
-        <meshLambertMaterial color={plan.wallColor} />
+        <meshStandardMaterial color={plan.wallColor} roughness={0.9} metalness={0} />
       </mesh>
-      <mesh position={[-width / 2, WALL_HEIGHT / 2, 0]}>
+      <mesh position={[-width / 2, WALL_HEIGHT / 2, 0]} receiveShadow castShadow>
         <boxGeometry args={[WALL_THICKNESS, WALL_HEIGHT, depth]} />
-        <meshLambertMaterial color={plan.wallColor} />
+        <meshStandardMaterial color={plan.wallColor} roughness={0.9} metalness={0} />
       </mesh>
-      <mesh position={[width / 2, WALL_HEIGHT / 2, 0]}>
+      <mesh position={[width / 2, WALL_HEIGHT / 2, 0]} receiveShadow castShadow>
         <boxGeometry args={[WALL_THICKNESS, WALL_HEIGHT, depth]} />
-        <meshLambertMaterial color={plan.wallColor} />
+        <meshStandardMaterial color={plan.wallColor} roughness={0.9} metalness={0} />
       </mesh>
 
       {/* De voormuur heeft een gat waar de deur zit. */}
@@ -109,9 +110,9 @@ function Walls({ plan }: { plan: FloorPlan }) {
         if (segment <= 0.01) return null;
         const center = doorWorld.x + side * (HOME_CELL_SIZE / 2 + segment / 2);
         return (
-          <mesh key={side} position={[center, WALL_HEIGHT / 2, depth / 2]}>
+          <mesh key={side} position={[center, WALL_HEIGHT / 2, depth / 2]} receiveShadow castShadow>
             <boxGeometry args={[segment, WALL_HEIGHT, WALL_THICKNESS]} />
-            <meshLambertMaterial color={plan.wallColor} />
+            <meshStandardMaterial color={plan.wallColor} roughness={0.9} metalness={0} />
           </mesh>
         );
       })}
@@ -127,33 +128,52 @@ interface FloorProps {
   highlightValid: boolean;
 }
 
+const TILE_GEOMETRY = new THREE.BoxGeometry(1, 1, 1);
+const tileDummy = new THREE.Object3D();
+const tileColor = new THREE.Color();
+
+/**
+ * De vloer is één instanced mesh. Een aparte mesh per tegel gaf bij een groot
+ * huis tientallen tekenopdrachten voor iets wat vrijwel nooit verandert.
+ */
 function Floor({ plan, highlight, highlightValid }: FloorProps) {
-  const door = doorCell(plan);
-  const tiles = [];
+  const ref = useRef<THREE.InstancedMesh>(null);
+  const count = plan.width * plan.depth;
+  const door = useMemo(() => doorCell(plan), [plan]);
 
-  for (let z = 0; z < plan.depth; z++) {
-    for (let x = 0; x < plan.width; x++) {
-      const world = homeCellToWorld(plan, x, z);
-      const isDoor = x === door.x && z === door.z;
-      const isHighlight = highlight?.x === x && highlight?.z === z;
-      const color = isHighlight
-        ? highlightValid
-          ? '#4dd4ac'
-          : '#ff6b6b'
-        : isDoor
-          ? '#2a2f3a'
-          : plan.floorColor;
-
-      tiles.push(
-        <mesh key={`${x}:${z}`} position={[world.x, isHighlight ? 0.03 : 0, world.z]}>
-          <boxGeometry args={[HOME_CELL_SIZE * 0.96, 0.06, HOME_CELL_SIZE * 0.96]} />
-          <meshLambertMaterial color={color} />
-        </mesh>,
-      );
+  useLayoutEffect(() => {
+    const mesh = ref.current;
+    if (!mesh) return;
+    let index = 0;
+    for (let z = 0; z < plan.depth; z++) {
+      for (let x = 0; x < plan.width; x++) {
+        const world = homeCellToWorld(plan, x, z);
+        const isDoor = x === door.x && z === door.z;
+        const isHighlight = highlight?.x === x && highlight?.z === z;
+        tileDummy.position.set(world.x, isHighlight ? 0.03 : 0, world.z);
+        tileDummy.scale.set(HOME_CELL_SIZE * 0.97, 0.06, HOME_CELL_SIZE * 0.97);
+        tileDummy.rotation.set(0, 0, 0);
+        tileDummy.updateMatrix();
+        mesh.setMatrixAt(index, tileDummy.matrix);
+        mesh.setColorAt(
+          index,
+          tileColor.set(
+            isHighlight ? (highlightValid ? '#4dd4ac' : '#ff6b6b') : isDoor ? '#2a2f3a' : plan.floorColor,
+          ),
+        );
+        index++;
+      }
     }
-  }
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    mesh.computeBoundingSphere();
+  }, [plan, door, highlight?.x, highlight?.z, highlightValid, count]);
 
-  return <group>{tiles}</group>;
+  return (
+    <instancedMesh ref={ref} args={[TILE_GEOMETRY, undefined, count]} receiveShadow>
+      <meshStandardMaterial vertexColors roughness={0.72} metalness={0.02} />
+    </instancedMesh>
+  );
 }
 
 function Furniture({
@@ -174,10 +194,12 @@ function Furniture({
         const selected = placed.id === selectedId;
         return (
           <group key={placed.id} position={[box.x, 0, box.z]}>
-            <mesh position={[0, height / 2 + 0.06, 0]}>
+            <mesh position={[0, height / 2 + 0.06, 0]} castShadow receiveShadow>
               <boxGeometry args={[box.width * 0.82, height, box.depth * 0.82]} />
-              <meshLambertMaterial
+              <meshStandardMaterial
                 color={rarityColor[item.rarity] ?? '#9ca3af'}
+                roughness={0.45}
+                metalness={0.15}
                 emissive={selected ? '#4dd4ac' : '#000000'}
                 emissiveIntensity={selected ? 0.45 : 0}
               />
@@ -196,6 +218,25 @@ function Furniture({
   );
 }
 
+/**
+ * Dezelfde omgevingstextuur als buiten. Zonder omgeving zien de materialen in
+ * huis er wezenlijk anders uit dan in de stad, en dat valt meteen op als je
+ * heen en weer loopt.
+ */
+function Environment() {
+  const { gl, scene } = useThree();
+  useEffect(() => {
+    const texture = createEnvironment(gl, DAY_PALETTE);
+    if (!texture) return;
+    scene.environment = texture;
+    return () => {
+      scene.environment = null;
+      texture.dispose();
+    };
+  }, [gl, scene]);
+  return null;
+}
+
 export interface BaseSceneProps extends FloorProps {
   placements: readonly PlacedItem[];
   selectedId: string | null;
@@ -210,15 +251,30 @@ export function BaseScene({
 }: BaseSceneProps) {
   return (
     <Canvas
-      gl={{ antialias: false }}
+      gl={{ antialias: true }}
+      shadows={{ type: THREE.PCFSoftShadowMap }}
       camera={{ fov: 45, near: 0.1, far: 120, position: [0, 8, 10] }}
       onCreated={({ gl }) => {
+        gl.toneMapping = THREE.ACESFilmicToneMapping;
+        gl.toneMappingExposure = 1.0;
         gl.setClearColor('#0b1020');
       }}
     >
-      <ambientLight intensity={1.25} />
-      <hemisphereLight args={['#cfe0ff', '#1a1f2e', 0.6]} />
-      <directionalLight position={[6, 12, 8]} intensity={1.2} />
+      <Environment />
+      <hemisphereLight args={['#e2ecff', '#2a2620', 0.5]} />
+      <directionalLight
+        position={[7, 13, 6]}
+        intensity={2.2}
+        color="#fff2dd"
+        castShadow
+        shadow-mapSize={[1024, 1024]}
+        shadow-camera-left={-12}
+        shadow-camera-right={12}
+        shadow-camera-top={12}
+        shadow-camera-bottom={-12}
+        shadow-bias={-0.001}
+        shadow-normalBias={0.02}
+      />
       <CameraRig plan={plan} />
       <Floor plan={plan} highlight={highlight} highlightValid={highlightValid} />
       <Walls plan={plan} />

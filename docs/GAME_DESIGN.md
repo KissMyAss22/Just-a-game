@@ -63,12 +63,57 @@ hetzelfde uit. Er wordt nergens `Math.random()` gebruikt voor werelddata.
 Elk uur wordt één district **hot zone**: dubbel zoveel spawns. Dat geeft een
 reden om de stad rond te blijven gaan.
 
-### Renderen
+### Hoe de stad eruitziet
 
-Alleen de 3 × 3 chunks rond de speler staan in de scene (384 m). Gebouwen,
-plantsoenen en water gaan elk als één `InstancedMesh` per chunk naar de GPU —
-honderden objecten, een handvol draw calls. Mist verbergt de rand van het
-geladen gebied. Geen realtime schaduwen; wel een schaduwvlek onder de speler.
+Het uitgangspunt: **detail zit in de shader, niet in de geometrie.** Een gevel
+met duizend ruiten als losse vlakjes legt een telefoon plat. Dezelfde gevel als
+één blok waarop de fragmentshader het ramenpatroon uitrekent kost niets extra.
+Daardoor kan de stad honderden panden groot zijn en toch vloeiend draaien.
+
+Wat er per onderdeel gebeurt:
+
+| Onderdeel | Aanpak |
+|---|---|
+| Wegdek | Eén vlak per chunk. De shader kent de formule van het stratenraster en tekent asfalt, middenstrepen en zebrapaden op de juiste plek. |
+| Stoep | Een verhoogd plateau over het hele bouwblok; alleen het rijdek ligt lager. Daardoor stap je zichtbaar op en van de stoep af. Langs de straat tegels, daarachter een verhard achtererf met een eigen tint per perceel. |
+| Gevels | Vier soorten: stuc, metselwerk, vliesgevel en betonpanelen — per district. De shader tekent verdiepingen, ramen met kozijn en vensterbank, een plint, en op de begane grond een pui. |
+| Ramen | Meestal donker glas dat de lucht weerspiegelt; overdag brandt er maar in enkele licht. Elk raam krijgt een minieme knik in de normaal, anders weerspiegelt een vlakke gevel overal precies dezelfde kleur. |
+| Daken | Bitumen in plaats van gevelkleur, met een dakrand en één tot drie dakopbouwen (liftschacht, installaties). |
+| Straatmeubilair | Lantaarns, bomen, banken, prullenbakken, brandkranen en geparkeerde auto's. Per soort één instanced mesh voor het hele zichtveld. |
+| Lucht | Een bol met een verloop, zon en meeschuivende wolken. Wordt als eerste getekend met de dieptetest uit, zodat de far-plane van de camera kort kan blijven. |
+| Omgevingslicht | Dezelfde lucht wordt omgezet naar een omgevingstextuur. Zonder die textuur heeft glas niets om in te spiegelen en wordt elk raam zwart. |
+| Schaduw | Eén zonlicht met een schaduwcamera die de speler volgt. Plus een donkere aanzet waar een gevel de stoep raakt — echte omgevingsocclusie is op een telefoon te duur, maar die vlek doet visueel bijna hetzelfde werk. |
+
+Alleen de 3 × 3 chunks rond de speler staan in de scene (384 m); straatmeubilair
+wordt binnen ongeveer 150 m getekend. Mist in de kleur van de horizon verbergt
+de rand van het geladen gebied.
+
+De scene wordt **buiten React** opgebouwd (`src/game3d/city/`). De stad
+verandert alleen als je een chunk verder loopt; zou dit uit componenten
+bestaan, dan zou React zestig keer per seconde een boom vergelijken die
+vrijwel nooit verandert.
+
+### Beeldkwaliteit in drie standen
+
+Een telefoon van vier jaar oud en een nieuwe iPhone zitten een factor tien uit
+elkaar. In plaats van te mikken op het midden staat er één knop in het
+profielscherm — **Laag, Normaal, Hoog** — die schaduwen, antialiasing,
+zichtafstand en de hoeveelheid straatmeubilair regelt. De stand wordt op het
+toestel bewaard en niet op de server: het is een eigenschap van de telefoon,
+niet van de speler.
+
+### De renderproef
+
+Shaders vallen niet om bij het typechecken; ze vallen om op het toestel, als
+zwart scherm. `pnpm preview` draait daarom exact dezelfde materialen en
+chunkopbouw in een headless Chromium, meldt compilatiefouten mét regelnummer en
+zet het resultaat in `.preview/stad.png`. Zo is een visuele wijziging te
+beoordelen zonder telefoon.
+
+Dat betaalde zich meteen terug: de eerste versie van het wegdek en de stoep
+gebruikte een variabele `patch`, wat een gereserveerd woord is in GLSL. De
+shader compileerde niet en de straat werd domweg niet getekend — precies het
+soort fout dat je op een telefoon alleen als "er klopt iets niet" ziet.
 
 ---
 

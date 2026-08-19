@@ -15,7 +15,9 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { QUALITY, QUALITY_LEVELS } from '../../src/game3d/city/quality';
 import { useGame } from '../../src/state/useGame';
+import { useSettings } from '../../src/state/useSettings';
 import { Button, Panel, Row, SectionTitle } from '../../src/ui/components';
 import { theme } from '../../src/ui/theme';
 
@@ -53,6 +55,8 @@ function Swatches({
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const quality = useSettings((s) => s.quality);
+  const setQuality = useSettings((s) => s.setQuality);
   const state = useGame((s) => s.state);
   const busy = useGame((s) => s.busy);
   const saveProfile = useGame((s) => s.saveProfile);
@@ -150,6 +154,31 @@ export default function ProfileScreen() {
         />
       </Panel>
 
+      <SectionTitle hint="Werkt meteen">Beeldkwaliteit</SectionTitle>
+      <Panel>
+        <Text style={styles.qualityHint}>{QUALITY[quality].hint}</Text>
+        <View style={styles.qualityRow}>
+          {QUALITY_LEVELS.map((level) => (
+            <Pressable
+              key={level}
+              onPress={() => void setQuality(level)}
+              style={({ pressed }) => [
+                styles.qualityOption,
+                level === quality && styles.qualityOptionActive,
+                pressed && { opacity: 0.7 },
+              ]}
+            >
+              <Text style={[styles.qualityLabel, level === quality && styles.qualityLabelActive]}>
+                {QUALITY[level].label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+        <Text style={styles.qualityNote}>
+          Hapert het spel? Zet hem op Laag. Draait alles vloeiend, probeer Hoog.
+        </Text>
+      </Panel>
+
       <View style={{ height: 16 }} />
       <Button
         label="Opslaan"
@@ -162,6 +191,23 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
+  qualityRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
+  qualityOption: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.color.border,
+    alignItems: 'center',
+  },
+  qualityOptionActive: {
+    borderColor: theme.color.accent,
+    backgroundColor: 'rgba(77, 212, 172, 0.14)',
+  },
+  qualityLabel: { color: theme.color.textDim, fontWeight: '700' },
+  qualityLabelActive: { color: theme.color.accent },
+  qualityHint: { color: theme.color.text, fontSize: 13 },
+  qualityNote: { color: theme.color.textDim, fontSize: 12, marginTop: 10, lineHeight: 17 },
   screen: { flex: 1, backgroundColor: theme.color.bg },
   title: { color: theme.color.text, fontSize: 26, fontWeight: '800' },
   dim: { color: theme.color.textDim, fontSize: 12, marginTop: 4, textAlign: 'center' },

@@ -12,6 +12,16 @@ export type DistrictId =
   | 'hills'
   | 'island';
 
+/** Gevelsoort; de nummers komen één op één in de shader terecht. */
+export type FacadeStyle = 'stuc' | 'metselwerk' | 'vliesgevel' | 'beton';
+
+export const FACADE_CODE: Readonly<Record<FacadeStyle, number>> = {
+  stuc: 0,
+  metselwerk: 1,
+  vliesgevel: 2,
+  beton: 3,
+};
+
 /** Rechthoek in celcoördinaten: [x0, z0, x1, z1), x1/z1 exclusief. */
 export type CellRect = readonly [number, number, number, number];
 
@@ -25,6 +35,13 @@ export interface DistrictDef {
   unlockLevel: number;
   /** Kleurenpalet voor de gegenereerde gebouwen. */
   palette: readonly string[];
+  /**
+   * Hoe de gevels eruitzien. De shader tekent per soort een ander patroon:
+   * metselwerk heeft lagen en stootvoegen, een vliesgevel is glas van vloer
+   * tot plafond, betonpanelen hebben zichtbare naden. Dit is wat een wijk
+   * herkenbaar maakt zodra je hem in loopt.
+   */
+  facade: FacadeStyle;
   /** Kleur van het wegdek/de grond. */
   groundColor: string;
   /** Min/max gebouwhoogte in verdiepingen. */
@@ -56,7 +73,8 @@ export const DISTRICTS: readonly DistrictDef[] = [
     tagline: 'Hangars, tarmac en vracht die niemand mist',
     bounds: [0, 0, 40, 34],
     unlockLevel: 40,
-    palette: ['#94a3b8', '#cbd5e1', '#64748b', '#e2e8f0'],
+    facade: 'beton',
+    palette: ['#8d9299', '#b6bac0', '#6c7178', '#c9ccd0'],
     groundColor: '#3f4756',
     floors: [1, 3],
     density: 0.45,
@@ -70,7 +88,8 @@ export const DISTRICTS: readonly DistrictDef[] = [
     tagline: 'Glas, neon en te veel geld op één vierkante kilometer',
     bounds: [40, 0, 88, 46],
     unlockLevel: 5,
-    palette: ['#1e293b', '#334155', '#0f172a', '#475569', '#1e3a5f'],
+    facade: 'vliesgevel',
+    palette: ['#38414d', '#4a5462', '#2a323c', '#5b6675', '#33475e'],
     groundColor: '#2a2f3a',
     floors: [6, 26],
     density: 0.82,
@@ -84,7 +103,8 @@ export const DISTRICTS: readonly DistrictDef[] = [
     tagline: 'Villa’s met uitzicht en hekken met camera’s',
     bounds: [88, 0, 128, 44],
     unlockLevel: 50,
-    palette: ['#f1f5f9', '#e7e5e4', '#d6d3d1', '#fef3c7'],
+    facade: 'stuc',
+    palette: ['#dcdcd6', '#cfc9c1', '#bdb7ae', '#e0d6bc'],
     groundColor: '#4a5240',
     floors: [2, 4],
     density: 0.32,
@@ -98,7 +118,8 @@ export const DISTRICTS: readonly DistrictDef[] = [
     tagline: 'Clubs, neon en losse briefjes op de stoep',
     bounds: [0, 34, 40, 62],
     unlockLevel: 30,
-    palette: ['#4c1d95', '#831843', '#1e1b4b', '#701a75'],
+    facade: 'beton',
+    palette: ['#3d2a52', '#5a2740', '#252340', '#4a2650'],
     groundColor: '#241b2e',
     floors: [2, 8],
     density: 0.7,
@@ -112,7 +133,8 @@ export const DISTRICTS: readonly DistrictDef[] = [
     tagline: 'Waar je begint: smalle straten en veel rommel',
     bounds: [40, 46, 88, 84],
     unlockLevel: 1,
-    palette: ['#a16207', '#b45309', '#92400e', '#c2410c', '#78350f'],
+    facade: 'metselwerk',
+    palette: ['#9c6b4f', '#8a5a44', '#b08a63', '#7d4a3a', '#c2a583'],
     groundColor: '#3d3630',
     floors: [2, 5],
     density: 0.68,
@@ -126,7 +148,8 @@ export const DISTRICTS: readonly DistrictDef[] = [
     tagline: 'Rijtjeshuizen, garages en verrassend goed meubilair',
     bounds: [88, 44, 128, 92],
     unlockLevel: 18,
-    palette: ['#bfdbfe', '#fde68a', '#fecaca', '#d9f99d', '#e9d5ff'],
+    facade: 'metselwerk',
+    palette: ['#c3cdd6', '#d8ccae', '#cfb5b0', '#c2cbb0', '#c8bcc8'],
     groundColor: '#414a3c',
     floors: [1, 3],
     density: 0.5,
@@ -140,7 +163,8 @@ export const DISTRICTS: readonly DistrictDef[] = [
     tagline: 'Fabriekshallen, schroot en alles wat je kunt smelten',
     bounds: [0, 62, 40, 96],
     unlockLevel: 15,
-    palette: ['#57534e', '#78716c', '#44403c', '#7f1d1d'],
+    facade: 'beton',
+    palette: ['#6a655f', '#837d75', '#514d48', '#7a4a44'],
     groundColor: '#33322e',
     floors: [1, 4],
     density: 0.6,
@@ -154,7 +178,8 @@ export const DISTRICTS: readonly DistrictDef[] = [
     tagline: 'Containers, kranen en ladingen zonder eigenaar',
     bounds: [40, 84, 88, 128],
     unlockLevel: 10,
-    palette: ['#0e7490', '#b91c1c', '#1d4ed8', '#15803d', '#a16207'],
+    facade: 'beton',
+    palette: ['#2c7186', '#9a3b34', '#3a5c93', '#3d7a52', '#96794a'],
     groundColor: '#2f3538',
     floors: [1, 5],
     density: 0.55,
@@ -168,7 +193,8 @@ export const DISTRICTS: readonly DistrictDef[] = [
     tagline: 'Boten, terrassen en mensen die nooit lijken te werken',
     bounds: [88, 92, 128, 128],
     unlockLevel: 25,
-    palette: ['#f8fafc', '#e0f2fe', '#fef9c3', '#ccfbf1'],
+    facade: 'stuc',
+    palette: ['#e4e6e6', '#cfdde4', '#e2ddc4', '#cbdcd6'],
     groundColor: '#3a4448',
     floors: [1, 4],
     density: 0.34,
@@ -182,7 +208,8 @@ export const DISTRICTS: readonly DistrictDef[] = [
     tagline: 'Alleen bereikbaar met een boot die je nog niet hebt',
     bounds: [0, 96, 40, 128],
     unlockLevel: 60,
-    palette: ['#fef3c7', '#fed7aa', '#fecdd3'],
+    facade: 'stuc',
+    palette: ['#e6dcc0', '#e0c9ac', '#dcc2c0'],
     groundColor: '#5a6b3f',
     floors: [1, 3],
     density: 0.22,

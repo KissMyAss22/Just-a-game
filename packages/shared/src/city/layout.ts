@@ -1,5 +1,12 @@
 import { randInt, valueAt } from '../rng';
-import { DISTRICTS, DISTRICTS_BY_ID, type DistrictDef, type DistrictId } from './districts';
+import {
+  DISTRICTS,
+  DISTRICTS_BY_ID,
+  FACADE_CODE,
+  type DistrictDef,
+  type DistrictId,
+  type FacadeStyle,
+} from './districts';
 
 /**
  * De stad is *data*, geen 3D-model.
@@ -32,6 +39,9 @@ export const SPAWN_CELL = { x: 64, z: 64 } as const;
 
 export type CellType = 'road' | 'building' | 'park' | 'water';
 
+/** Welk deel van de onbebouwde percelen groen wordt in plaats van bestrating. */
+const GREEN_SHARE = 0.42;
+
 export interface BuildingLot {
   /** Ankercel linksboven van het perceel. */
   anchorX: number;
@@ -46,7 +56,39 @@ export interface BuildingLot {
   height: number;
   floors: number;
   color: string;
+  /** Iets donkerder dan de gevel; voor het dak en de dakrand. */
+  roofColor: string;
+  /** Bepaalt de vorm: een huis, een blok of een toren met terugsprong. */
+  style: BuildingStyle;
+  /**
+   * Op welke hoogtefractie de toren smaller wordt (0 = geen terugsprong).
+   * Alleen hoge panden krijgen dit; het breekt de skyline van het Centrum.
+   */
+  setback: number;
+  /** 0..1, stabiel per perceel. De gevelshader varieert hierop. */
+  seed: number;
+  /** Gevelsoort van dit pand, overgenomen van het district. */
+  facade: FacadeStyle;
+  /** Dezelfde gevelsoort als getal, zoals de shader hem verwacht. */
+  facadeCode: number;
+  /** Aantal dakopbouwen (liftschacht, installaties) op het dak. */
+  roofUnits: number;
   district: DistrictId;
+}
+
+export type BuildingStyle = 'house' | 'block' | 'tower';
+
+/** Maakt een hexkleur donkerder (amount 0..1). Voor daken en dakranden. */
+export function darken(hex: string, amount: number): string {
+  const value = hex.replace('#', '');
+  const full = value.length === 3 ? value.split('').map((c) => c + c).join('') : value;
+  const num = Number.parseInt(full, 16);
+  if (Number.isNaN(num)) return hex;
+  const f = Math.max(0, 1 - amount);
+  const r = Math.round(((num >> 16) & 255) * f);
+  const g = Math.round(((num >> 8) & 255) * f);
+  const b = Math.round((num & 255) * f);
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -125,7 +167,7 @@ export function isWaterCell(cx: number, cz: number): boolean {
  * Percelen zijn 2x2 cellen (16x16 m); de laatste cel van elk blok blijft
  * steeg/binnenplaats.
  */
-export function buildingAtCell(cx: number, cz: number): BuildingLot | null {
+export function lotAnchor(cx: number, cz: number): { anchorX: number; anchorZ: number } | null {
   if (!isInsideCity(cx, cz)) return null;
 
   const lx = cx % CITY.blockSize;
@@ -144,34 +186,76 @@ export function buildingAtCell(cx: number, cz: number): BuildingLot | null {
   ) {
     return null;
   }
+  return { anchorX, anchorZ };
+}
+
+/** Middelpunt van een perceel van 2x2 cellen, in wereldcoordinaten. */
+export function lotCenter(anchorX: number, anchorZ: number): { x: number; z: number } {
+  const half = CITY.gridSize / 2;
+  return {
+    x: (anchorX - half) * CITY.cellSize + CITY.cellSize,
+    z: (anchorZ - half) * CITY.cellSize + CITY.cellSize,
+  };
+}
+
+export function buildingAtCell(cx: number, cz: number): BuildingLot | null {
+  const anchor = lotAnchor(cx, cz);
+  if (!anchor) return null;
+  const { anchorX, anchorZ } = anchor;
 
   const district = districtAt(anchorX, anchorZ);
   if (valueAt(CITY.seed, anchorX, anchorZ) >= district.density) return null;
 
-  const floors = randInt(
+  let floors = randInt(
     valueAt(CITY.seed + 1, anchorX, anchorZ),
     district.floors[0],
     district.floors[1],
   );
-  const scale = 0.72 + valueAt(CITY.seed + 2, anchorX, anchorZ) * 0.2;
+  // Af en toe een pand dat boven de buurt uitsteekt. Zonder die uitschieters
+  // wordt elke straat even hoog en leest de stad als een raster van dozen.
+  if (valueAt(CITY.seed + 10, anchorX, anchorZ) > 0.94) {
+    floors = Math.round(floors * 1.7) + 1;
+  }
+  // Breedte en diepte los van elkaar, plus een kleine verspringing binnen het
+  // perceel: dat haalt de rechte rooilijn eruit zonder de stoep te raken.
+  const scaleX = 0.70 + valueAt(CITY.seed + 2, anchorX, anchorZ) * 0.22;
+  const scaleZ = 0.70 + valueAt(CITY.seed + 7, anchorX, anchorZ) * 0.22;
+  const shiftX = (valueAt(CITY.seed + 8, anchorX, anchorZ) - 0.5) * 1.6;
+  const shiftZ = (valueAt(CITY.seed + 9, anchorX, anchorZ) - 0.5) * 1.6;
   const paletteIndex = randInt(
     valueAt(CITY.seed + 3, anchorX, anchorZ),
     0,
     district.palette.length - 1,
   );
   const lotSpan = CITY.cellSize * 2;
-  const half = CITY.gridSize / 2;
+  const center = lotCenter(anchorX, anchorZ);
+  const color = district.palette[paletteIndex] ?? '#888888';
+  const style: BuildingStyle = floors <= 3 ? 'house' : floors <= 8 ? 'block' : 'tower';
+  const seed = valueAt(CITY.seed + 4, anchorX, anchorZ);
+  // Alleen echt hoge panden springen terug; anders wordt de skyline onrustig.
+  const setback = floors >= 12 ? 0.42 + valueAt(CITY.seed + 5, anchorX, anchorZ) * 0.22 : 0;
+
+  // Alleen panden met een plat dak van enige omvang krijgen installaties.
+  const roofUnits =
+    floors >= 3 ? randInt(valueAt(CITY.seed + 13, anchorX, anchorZ), 1, 3) : 0;
 
   return {
     anchorX,
     anchorZ,
-    centerX: (anchorX - half) * CITY.cellSize + CITY.cellSize,
-    centerZ: (anchorZ - half) * CITY.cellSize + CITY.cellSize,
-    width: lotSpan * scale,
-    depth: lotSpan * scale,
+    centerX: center.x + shiftX,
+    centerZ: center.z + shiftZ,
+    width: lotSpan * scaleX,
+    depth: lotSpan * scaleZ,
     height: floors * CITY.floorHeight,
     floors,
-    color: district.palette[paletteIndex] ?? '#888888',
+    color,
+    roofColor: darken(color, 0.45),
+    style,
+    setback,
+    seed,
+    facade: district.facade,
+    facadeCode: FACADE_CODE[district.facade],
+    roofUnits,
     district: district.id,
   };
 }
@@ -245,7 +329,12 @@ export interface ChunkContent {
   size: number;
   groundColor: string;
   buildings: BuildingLot[];
-  parks: { x: number; z: number; size: number }[];
+  /**
+   * Onbebouwde percelen die groen zijn. Vroeger werd elke lege cel groen,
+   * waardoor de stad meer op een golfbaan leek dan op een stad; nu is groen
+   * een uitzondering en is de rest gewoon bestrating.
+   */
+  green: { x: number; z: number; size: number; seed: number }[];
   water: { x: number; z: number; size: number }[];
 }
 
@@ -266,7 +355,7 @@ export function buildChunk(chunkX: number, chunkZ: number): ChunkContent {
   const startX = chunkX * CITY.chunkSize;
   const startZ = chunkZ * CITY.chunkSize;
   const buildings: BuildingLot[] = [];
-  const parks: ChunkContent['parks'] = [];
+  const green: ChunkContent['green'] = [];
   const water: ChunkContent['water'] = [];
   const seen = new Set<string>();
   const districtTally = new Map<DistrictId, number>();
@@ -283,16 +372,21 @@ export function buildChunk(chunkX: number, chunkZ: number): ChunkContent {
         water.push({ x, z, size: CITY.cellSize });
         continue;
       }
+      const anchor = lotAnchor(cx, cz);
+      if (!anchor) continue; // weg of steeg: die tekent de wegshader
+      const key = `${anchor.anchorX}:${anchor.anchorZ}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+
       const lot = buildingAtCell(cx, cz);
       if (lot) {
-        const key = `${lot.anchorX}:${lot.anchorZ}`;
-        if (!seen.has(key)) {
-          seen.add(key);
-          buildings.push(lot);
-        }
-      } else if (!isRoadCell(cx, cz)) {
-        const { x, z } = cellToWorld(cx, cz);
-        parks.push({ x, z, size: CITY.cellSize });
+        buildings.push(lot);
+        continue;
+      }
+      const seed = valueAt(CITY.seed + 6, anchor.anchorX, anchor.anchorZ);
+      if (seed < GREEN_SHARE) {
+        const { x, z } = lotCenter(anchor.anchorX, anchor.anchorZ);
+        green.push({ x, z, size: CITY.cellSize * 2 * 0.92, seed });
       }
     }
   }
@@ -317,7 +411,7 @@ export function buildChunk(chunkX: number, chunkZ: number): ChunkContent {
     size: span,
     groundColor: DISTRICTS_BY_ID[dominant].groundColor,
     buildings,
-    parks,
+    green,
     water,
   };
 }

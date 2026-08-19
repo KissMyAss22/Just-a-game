@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { mulberry32 } from '../src/rng';
-import { DISTRICTS } from '../src/city/districts';
+import { DISTRICTS, FACADE_CODE } from '../src/city/districts';
 import {
   CHUNKS_PER_AXIS,
   CITY,
@@ -11,10 +11,19 @@ import {
   districtAt,
   findSpawnPoint,
   isWalkable,
+  lotCenter,
   resolveMovement,
   spawnPosition,
   worldToCell,
 } from '../src/city/layout';
+import {
+  ASPHALT_HALF_WIDTH,
+  SIDEWALK_HEIGHT,
+  groundHeightAt,
+  isAsphalt,
+  streetPropsIn,
+  treesOnLot,
+} from '../src/city/streets';
 
 describe('coördinaten', () => {
   it('is heen en weer consistent', () => {
@@ -138,5 +147,89 @@ describe('spawnpunten', () => {
     const a = findSpawnPoint('oldTown', mulberry32(42));
     const b = findSpawnPoint('oldTown', mulberry32(42));
     expect(a).toEqual(b);
+  });
+});
+
+describe('straatprofiel', () => {
+  it('legt het rijdek op de weg-as en de stoep op het bouwblok', () => {
+    // De as van een straat ligt op x = 64k + 4.
+    expect(isAsphalt(4, 20)).toBe(true);
+    expect(groundHeightAt(4, 20)).toBe(0);
+    // Midden in een bouwblok is geen asfalt.
+    expect(isAsphalt(36, 36)).toBe(false);
+    expect(groundHeightAt(36, 36)).toBe(SIDEWALK_HEIGHT);
+  });
+
+  it('houdt het rijdek smaller dan de wegcel, zodat er stoep overblijft', () => {
+    expect(ASPHALT_HALF_WIDTH).toBeLessThan(CITY.cellSize / 2);
+  });
+
+  it('zet lantaarns op de stoep en nooit in een gebouw', () => {
+    const props = streetPropsIn(-100, -100, 100, 100);
+    const lampen = props.filter((p) => p.kind === 'lamp');
+    expect(lampen.length).toBeGreaterThan(0);
+    for (const lamp of lampen) {
+      expect(isAsphalt(lamp.x, lamp.z)).toBe(false);
+      const { cx, cz } = worldToCell(lamp.x, lamp.z);
+      expect(buildingAtCell(cx, cz)).toBeNull();
+    }
+  });
+
+  it('zet geparkeerde autos op het rijdek', () => {
+    const autos = streetPropsIn(-100, -100, 100, 100).filter((p) => p.kind === 'car');
+    expect(autos.length).toBeGreaterThan(0);
+    for (const auto of autos) expect(isAsphalt(auto.x, auto.z)).toBe(true);
+  });
+
+  it('geeft bij dezelfde rechthoek altijd dezelfde straat', () => {
+    const a = streetPropsIn(0, 0, 128, 128);
+    const b = streetPropsIn(0, 0, 128, 128);
+    expect(a).toEqual(b);
+  });
+
+  it('plant bomen binnen het perceel waar ze bij horen', () => {
+    const bomen = treesOnLot(100, 200, 14.7);
+    expect(bomen.length).toBeGreaterThan(0);
+    for (const boom of bomen) {
+      expect(Math.abs(boom.x - 100)).toBeLessThanOrEqual(14.7 / 2);
+      expect(Math.abs(boom.z - 200)).toBeLessThanOrEqual(14.7 / 2);
+    }
+  });
+});
+
+describe('gebouwvormen', () => {
+  it('geeft elk pand een geldige gevelsoort en een dak dat past bij de hoogte', () => {
+    const chunk = buildChunk(4, 4);
+    for (const lot of chunk.buildings) {
+      expect(Object.values(FACADE_CODE)).toContain(lot.facadeCode);
+      expect(lot.roofColor).toMatch(/^#[0-9a-f]{6}$/i);
+      // Alleen echt hoge panden springen terug.
+      if (lot.setback > 0) expect(lot.floors).toBeGreaterThanOrEqual(12);
+      if (lot.floors < 3) expect(lot.roofUnits).toBe(0);
+    }
+  });
+
+  it('laat panden binnen hun eigen perceel staan', () => {
+    const chunk = buildChunk(4, 4);
+    const halfLot = CITY.cellSize; // perceel is 2 cellen breed
+    for (const lot of chunk.buildings) {
+      const center = lotCenter(lot.anchorX, lot.anchorZ);
+      const overhangX = Math.abs(lot.centerX - center.x) + lot.width / 2;
+      const overhangZ = Math.abs(lot.centerZ - center.z) + lot.depth / 2;
+      // Een klein beetje over de perceelgrens mag: dat valt op de stoep, niet
+      // op het rijdek. Het rijdek begint pas 1,4 m verder.
+      expect(overhangX).toBeLessThan(halfLot + 1.2);
+      expect(overhangZ).toBeLessThan(halfLot + 1.2);
+    }
+  });
+
+  it('zet groen alleen op onbebouwde percelen', () => {
+    const chunk = buildChunk(4, 4);
+    for (const lot of chunk.green) {
+      const { cx, cz } = worldToCell(lot.x, lot.z);
+      expect(buildingAtCell(cx, cz)).toBeNull();
+    }
+    // Groen is een uitzondering, geen regel: vroeger werd elke lege cel groen.
+    expect(chunk.green.length).toBeLessThan(chunk.buildings.length);
   });
 });

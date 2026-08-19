@@ -136,6 +136,13 @@ Werk de Expo-pakketten dus niet zomaar bij: dan kun je het spel niet meer met
 Expo Go openen en heb je een eigen development build nodig. Zie
 `apps/mobile/package.json` - daar staat waarom.
 
+### Het spel hapert of voelt traag
+
+Ga naar **Profiel** en zet **Beeldkwaliteit** op *Laag*. Dat zet schaduwen en
+antialiasing uit en tekent minder straatmeubilair; het scheelt op een ouder
+toestel een flinke slok. Draait alles juist vloeiend, probeer dan *Hoog* voor
+scherpere schaduwen en meer detail.
+
 ### De QR-code doet helemaal niets
 
 Controleer of je telefoon en je computer op hetzelfde wifi-netwerk zitten, en

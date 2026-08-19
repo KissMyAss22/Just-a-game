@@ -1,64 +1,58 @@
-import { chunkAtWorld, chunksAround } from '@game/shared';
-import { Canvas, useFrame } from '@react-three/fiber/native';
-import { useRef, useState } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber/native';
+import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
+import { QUALITY, type QualityLevel } from './city/quality';
+import { createWorld } from './city/world';
 import { playerPosition } from '../state/position';
-import { ChunkView } from './Chunk';
+import { useSettings } from '../state/useSettings';
 import { PlayerRig } from './PlayerRig';
 import { SpawnField } from './SpawnField';
 
-/** Hoeveel chunks rondom de speler in beeld staan (1 = 3x3 = 384 m). */
-const VIEW_RANGE = 1;
-
 /**
- * Laadt alleen de omgeving van de speler in de scene. Zodra hij een chunk
- * verder is, wisselt de set — de rest van de stad bestaat wel als data, maar
- * kost niets aan geheugen of rekenkracht.
+ * De buitenwereld. De scene zelf wordt buiten React opgebouwd (zie
+ * city/world.ts); dit component hangt hem alleen in de canvas en geeft elke
+ * frame de spelerpositie door.
  */
-function CityChunks() {
-  const [visible, setVisible] = useState(() =>
-    chunksAround(playerPosition.x, playerPosition.z, VIEW_RANGE),
-  );
-  const current = useRef(chunkAtWorld(playerPosition.x, playerPosition.z));
+function World({ level }: { level: QualityLevel }) {
+  const { gl, scene, camera } = useThree();
+  const world = useMemo(() => createWorld(gl, scene, level), [gl, scene, level]);
 
-  useFrame(() => {
-    const chunk = chunkAtWorld(playerPosition.x, playerPosition.z);
-    if (chunk.chunkX === current.current.chunkX && chunk.chunkZ === current.current.chunkZ) {
-      return;
-    }
-    current.current = chunk;
-    setVisible(chunksAround(playerPosition.x, playerPosition.z, VIEW_RANGE));
+  useEffect(() => {
+    scene.add(world.root);
+    // Meteen één keer bijwerken, anders staat de speler een frame in het niets.
+    world.update(camera, 0, playerPosition.x, playerPosition.z);
+    return () => {
+      scene.remove(world.root);
+      world.dispose();
+    };
+  }, [scene, camera, world]);
+
+  useFrame((state) => {
+    world.update(state.camera, state.clock.elapsedTime, playerPosition.x, playerPosition.z);
   });
 
-  return (
-    <>
-      {visible.map((chunk) => (
-        <ChunkView
-          key={`${chunk.chunkX}:${chunk.chunkZ}`}
-          chunkX={chunk.chunkX}
-          chunkZ={chunk.chunkZ}
-        />
-      ))}
-    </>
-  );
+  return null;
 }
 
 export function CityScene() {
+  const level = useSettings((s) => s.quality);
+  const settings = QUALITY[level];
+
   return (
     <Canvas
-      gl={{ antialias: false }}
-      camera={{ fov: 55, near: 0.5, far: 340, position: [0, 9, 15] }}
-      onCreated={({ gl, scene }) => {
-        gl.setClearColor('#0b1020');
-        // Mist verbergt de rand van de geladen chunks; je ziet geen abrupte
-        // grens, alleen een stad die in de verte oplost.
-        scene.fog = new THREE.Fog('#0b1020', 80, 300);
+      key={level}
+      gl={{ antialias: settings.antialias, powerPreference: 'high-performance' }}
+      shadows={settings.shadows ? { type: THREE.PCFSoftShadowMap } : false}
+      camera={{ fov: 52, near: 0.4, far: settings.far, position: [0, 9, 15] }}
+      onCreated={({ gl }) => {
+        // ACES haalt de felle plekken terug zonder de rest grauw te maken; dat
+        // is het verschil tussen "gerenderd" en "gefotografeerd".
+        gl.toneMapping = THREE.ACESFilmicToneMapping;
+        gl.toneMappingExposure = 1.05;
+        gl.setClearColor('#9fb6cc');
       }}
     >
-      <ambientLight intensity={1.3} />
-      <hemisphereLight args={['#8fb3ff', '#141a2a', 0.55]} />
-      <directionalLight position={[60, 90, 30]} intensity={1.4} />
-      <CityChunks />
+      <World level={level} />
       <SpawnField />
       <PlayerRig />
     </Canvas>

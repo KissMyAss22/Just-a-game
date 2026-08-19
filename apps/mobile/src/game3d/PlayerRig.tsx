@@ -1,12 +1,20 @@
-import { DEFAULT_APPEARANCE, ECONOMY, appearanceColors, resolveMovement } from '@game/shared';
+import {
+  DEFAULT_APPEARANCE,
+  ECONOMY,
+  appearanceColors,
+  groundHeightAt,
+  resolveMovement,
+} from '@game/shared';
 import { useFrame, useThree } from '@react-three/fiber/native';
-import { useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
+import { createCharacter } from './city/character';
 import { cameraState, moveInput, playerPosition, travelBuffer } from '../state/position';
 import { useGame } from '../state/useGame';
 
 const PLAYER_RADIUS = 0.5;
 const cameraTarget = new THREE.Vector3();
+const lookTarget = new THREE.Vector3();
 
 /**
  * Beweging en camera.
@@ -17,13 +25,25 @@ const cameraTarget = new THREE.Vector3();
  * gebruikt om een gemelde positie te controleren.
  */
 export function PlayerRig() {
-  const { camera } = useThree();
-  const groupRef = useRef<THREE.Group>(null);
+  const { scene, camera } = useThree();
   const facing = useRef(0);
-  // Je eigen personage. In fase 4 krijgen andere spelers dezelfde opbouw,
-  // dus de kleuren komen uit @game/shared en niet uit de UI-thema's.
+  const speedRef = useRef(0);
+
   const appearance = useGame((s) => s.state?.player.appearance) ?? DEFAULT_APPEARANCE;
   const colors = appearanceColors(appearance);
+  const character = useMemo(() => createCharacter(colors), []);
+
+  useEffect(() => {
+    character.setColors(colors);
+  }, [character, colors.skin, colors.outfit, colors.accent]);
+
+  useEffect(() => {
+    scene.add(character.group);
+    return () => {
+      scene.remove(character.group);
+      character.dispose();
+    };
+  }, [scene, character]);
 
   useFrame((_, rawDelta) => {
     const delta = Math.min(rawDelta, 0.05);
@@ -44,6 +64,7 @@ export function PlayerRig() {
       moveZ /= magnitude;
     }
 
+    let travelled = 0;
     if (magnitude > 0.05) {
       const step = speed * delta;
       const next = resolveMovement(
@@ -53,53 +74,34 @@ export function PlayerRig() {
         playerPosition.z + moveZ * step,
         PLAYER_RADIUS,
       );
-      travelBuffer.meters += Math.hypot(next.x - playerPosition.x, next.z - playerPosition.z);
+      travelled = Math.hypot(next.x - playerPosition.x, next.z - playerPosition.z);
+      travelBuffer.meters += travelled;
       playerPosition.x = next.x;
       playerPosition.z = next.z;
       facing.current = Math.atan2(moveX, moveZ);
     }
+    // Zacht afremmen, zodat het looppasje niet midden in een stap bevriest.
+    const wanted = delta > 0 ? travelled / delta : 0;
+    speedRef.current += (wanted - speedRef.current) * Math.min(1, delta * 9);
 
-    const group = groupRef.current;
-    if (group) {
-      group.position.set(playerPosition.x, 0, playerPosition.z);
-      // Zacht meedraaien in plaats van klikken.
-      const diff = ((facing.current - group.rotation.y + Math.PI) % (Math.PI * 2)) - Math.PI;
-      group.rotation.y += diff * Math.min(1, delta * 12);
-    }
+    const group = character.group;
+    group.position.x = playerPosition.x;
+    group.position.z = playerPosition.z;
+    // Zacht meedraaien in plaats van klikken.
+    const diff = ((facing.current - group.rotation.y + Math.PI) % (Math.PI * 2)) - Math.PI;
+    group.rotation.y += diff * Math.min(1, delta * 12);
+    character.update(delta, speedRef.current, playerPosition.x, playerPosition.z);
 
+    const ground = groundHeightAt(playerPosition.x, playerPosition.z);
     cameraTarget.set(
       playerPosition.x + Math.sin(yaw) * cameraState.distance,
-      cameraState.height,
+      ground + cameraState.height,
       playerPosition.z + Math.cos(yaw) * cameraState.distance,
     );
-    camera.position.lerp(cameraTarget, 1 - Math.pow(0.0015, delta));
-    camera.lookAt(playerPosition.x, 1.4, playerPosition.z);
+    camera.position.lerp(cameraTarget, 1 - Math.pow(0.0018, delta));
+    lookTarget.set(playerPosition.x, ground + 1.5, playerPosition.z);
+    camera.lookAt(lookTarget);
   });
 
-  return (
-    <group ref={groupRef}>
-      {/* Schaduwvlek: goedkoper dan een echte schaduw en leest net zo goed. */}
-      <mesh position={[0, 0.08, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[0.7, 16]} />
-        <meshBasicMaterial color="#000000" transparent opacity={0.28} />
-      </mesh>
-      <mesh position={[0, 1.05, 0]}>
-        <capsuleGeometry args={[0.42, 0.9, 4, 10]} />
-        <meshLambertMaterial color={colors.outfit} />
-      </mesh>
-      <mesh position={[0, 1.75, 0]}>
-        <sphereGeometry args={[0.34, 14, 12]} />
-        <meshLambertMaterial color={colors.skin} />
-      </mesh>
-      {/* Pet in je accentkleur; laat ook zien welke kant je op kijkt. */}
-      <mesh position={[0, 1.98, 0.02]}>
-        <cylinderGeometry args={[0.33, 0.35, 0.18, 12]} />
-        <meshLambertMaterial color={colors.accent} />
-      </mesh>
-      <mesh position={[0, 1.93, 0.3]}>
-        <boxGeometry args={[0.44, 0.06, 0.3]} />
-        <meshLambertMaterial color={colors.accent} />
-      </mesh>
-    </group>
-  );
+  return null;
 }

@@ -84,6 +84,7 @@ mag voorspellen, maar nooit beslissen.
 | `pnpm test` | Draait de tests op de economie-formules |
 | `pnpm balance` | Simuleert een speler en toont de progressiecurve |
 | `pnpm typecheck` | TypeScript-check over de hele workspace |
+| `pnpm preview` | Rendert de stad in een headless browser naar `.preview/stad.png` |
 
 ---
 
