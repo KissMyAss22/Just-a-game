@@ -7,17 +7,18 @@
     "node": ">=20"
   },
   "scripts": {
-    "dev:server": "pnpm --filter @game/server dev",
-    "dev:mobile": "pnpm --filter @game/mobile start",
-    "db:up": "docker compose -f infra/docker-compose.yml up -d",
+    "balance": "pnpm --filter @game/shared balance",
+    "build:shared": "pnpm --filter @game/shared build",
     "db:down": "docker compose -f infra/docker-compose.yml down",
     "db:migrate": "pnpm --filter @game/server db:migrate",
     "db:studio": "pnpm --filter @game/server db:studio",
-    "build:shared": "pnpm --filter @game/shared build",
-    "typecheck": "pnpm -r typecheck",
-    "test": "pnpm --filter @game/shared test",
+    "db:up": "docker compose -f infra/docker-compose.yml up -d",
+    "dev:mobile": "pnpm --filter @game/mobile start",
+    "dev:server": "pnpm --filter @game/server dev",
     "lint": "pnpm -r --if-present lint",
-    "balance": "pnpm --filter @game/shared balance"
+    "setup": "node scripts/setup.mjs",
+    "test": "pnpm --filter @game/shared test",
+    "typecheck": "pnpm -r typecheck"
   },
   "devDependencies": {
     "typescript": "~5.9.2"

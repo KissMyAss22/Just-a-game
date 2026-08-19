@@ -1,3 +1,3 @@
 /// <reference types="expo/types" />
 
-// Dit bestand wordt door Expo gegenereerd en hoort in versiebeheer.
+// NOTE: This file should not be edited and should be in your git ignore

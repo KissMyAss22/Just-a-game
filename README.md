@@ -15,47 +15,33 @@ zelf-gehoste Node-server.
 Vereisten: **Node 20+**, **pnpm 10+**, **Docker** en de **Expo Go**-app op je telefoon.
 
 ```bash
-# 1. dependencies
-pnpm install
-
-# 2. database + redis starten (Docker)
-pnpm db:up
-
-# 3. instellingen van de server
-cp apps/server/.env.example apps/server/.env
-
-# 4. databaseschema aanmaken en de stad vullen met items
-pnpm db:migrate
-
-# 5. server starten (luistert op 0.0.0.0:4000, dus ook bereikbaar vanaf je telefoon)
-pnpm dev:server
-
-# 6. in een tweede terminal: de app starten
-pnpm dev:mobile
+pnpm setup          # controleert Node, pnpm en Docker en vult je instellingen in
+pnpm install        # eenmalig, duurt een paar minuten
+pnpm db:up          # database starten
+pnpm db:migrate     # tabellen aanmaken en de stad vullen met items
+pnpm dev:server     # de server - laat dit venster open staan
 ```
+
+En in een **tweede** terminalvenster:
+
+```bash
+pnpm dev:mobile     # toont een QR-code, scan die met Expo Go
+```
+
+**Uitgebreide handleiding met oplossingen als er iets misgaat:
+[`docs/SPELEN.md`](docs/SPELEN.md).**
 
 Scan de QR-code met Expo Go. Zorg dat je telefoon op **hetzelfde wifi-netwerk**
 zit als je computer.
 
 ### De app naar jouw server laten wijzen
 
-De app moet weten waar jouw computer staat. Zoek je LAN-IP op:
+`pnpm setup` zoekt zelf het IP-adres van je computer op en zet dat in
+`apps/mobile/.env`. Verhuis je naar een ander wifi-netwerk, draai hem dan
+opnieuw.
 
-```bash
-# macOS / Linux
-ipconfig getifaddr en0 || hostname -I
-# Windows
-ipconfig
-```
-
-Maak dan `apps/mobile/.env` aan (kopieer `.env.example`):
-
-```
-EXPO_PUBLIC_API_URL=http://192.168.1.42:4000
-```
-
-Laat je dit leeg, dan probeert de app het IP van de Metro-bundler te gebruiken —
-dat werkt in de meeste gevallen automatisch.
+Komt je telefoon er niet bij, dan is het bijna altijd de firewall, een VPN of
+gasten-wifi. `docs/SPELEN.md` loopt dat stap voor stap na.
 
 ---
 
@@ -85,6 +71,7 @@ mag voorspellen, maar nooit beslissen.
 |---|---|
 | `pnpm dev:server` | Start de API + game-server met hot reload |
 | `pnpm dev:mobile` | Start de Expo dev-server |
+| `pnpm setup` | Controleert je computer en vult de instellingen in |
 | `pnpm db:up` / `pnpm db:down` | Start/stop Postgres + Redis |
 | `pnpm db:migrate` | Voert migraties uit en vult de stad met items |
 | `pnpm --filter @game/server db:dev` | Nieuwe migratie maken na een schemawijziging |
