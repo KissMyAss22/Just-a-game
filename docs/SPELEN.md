@@ -24,6 +24,8 @@ Op Windows hoef je geen commando's te typen. In de map staan drie bestanden:
 | **INSTALLEER.bat** | een keer, de allereerste keer |
 | **START.bat** | elke keer dat je wilt spelen |
 | **STOP.bat** | als je klaar bent |
+| **CONTROLE.bat** | om te zien welke Expo-SDK er echt staat |
+| **SCHOON-INSTALLEREN.bat** | als de Expo-versie is gewijzigd of iets blijft haperen |
 
 Zorg dat **Docker Desktop draait** voordat je begint — je ziet het walvis-icoon
 rechtsonder bij je klok.
@@ -120,10 +122,17 @@ Staat er al de nieuwste versie? Dan loopt het andersom: het project gebruikt
 een Expo-SDK die nieuwer is dan wat Expo Go aankan. Expo Go in de store loopt
 altijd een tijdje achter op de nieuwste SDK.
 
-Daarom staat dit project bewust op **SDK 56** en niet op de allernieuwste.
+Daarom staat dit project bewust op **SDK 54** en niet op de allernieuwste.
+Welke SDK jouw Expo Go aankan, zie je in de app zelf: open Expo Go en kijk bij
+de versie-informatie, daar staat "supported SDK".
+
 Werk de Expo-pakketten dus niet zomaar bij naar de laatste versie: dan kun je
 het spel niet meer met Expo Go openen, en heb je een eigen development build
 nodig. Zie `apps/mobile/package.json` — daar staat waarom.
+
+Verander je toch van SDK, draai dan **SCHOON-INSTALLEREN.bat**. Een gewone
+installatie laat oude pakketten van de vorige SDK staan, en dan krijg je
+fouten die nergens op slaan.
 
 ### De QR-code doet helemaal niets
 

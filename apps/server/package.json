@@ -4,16 +4,17 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "start": "tsx src/index.ts",
-    "typecheck": "tsc --noEmit",
+    "db:dev": "prisma migrate dev",
     "db:generate": "prisma generate",
     "db:migrate": "prisma generate && prisma migrate deploy && prisma db seed",
-    "db:reset": "prisma migrate reset --force",
     "db:push": "prisma db push",
+    "db:reset": "prisma migrate reset --force",
     "db:studio": "prisma studio",
+    "dev": "tsx watch src/index.ts",
+    "postinstall": "prisma generate",
     "seed": "tsx prisma/seed.ts",
-    "db:dev": "prisma migrate dev"
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
