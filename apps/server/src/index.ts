@@ -8,6 +8,7 @@ import { GameError } from './lib/errors.js';
 import { disconnectPrisma, prisma } from './lib/prisma.js';
 import { authRoutes } from './routes/auth.js';
 import { craftRoutes } from './routes/craft.js';
+import { devRoutes } from './routes/dev.js';
 import { economyRoutes } from './routes/economy.js';
 import { profileRoutes } from './routes/profile.js';
 import { realtimeRoutes } from './realtime/city.js';
@@ -63,6 +64,9 @@ async function main(): Promise<void> {
   await app.register(craftRoutes);
   await app.register(profileRoutes);
   await app.register(rebirthRoutes);
+  // Testgereedschap. De routes bestaan altijd, maar weigeren dienst zonder
+  // DEV_TOOLS=1 — zo kan de app netjes melden dát het uitstaat.
+  await app.register(devRoutes);
   // De gedeelde wereld draait in hetzelfde proces als de REST-API: één
   // commando om te starten, en dezelfde poort voor de telefoon.
   await app.register(realtimeRoutes);

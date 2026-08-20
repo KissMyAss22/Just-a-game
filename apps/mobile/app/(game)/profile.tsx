@@ -225,6 +225,17 @@ export default function ProfileScreen() {
           Let op: je server moet hiervoor met DEV_TOOLS=1 draaien. Zonder dat duwt de
           snelheidscontrole je gewoon weer terug — die staat er niet voor niets.
         </Text>
+
+        <View style={{ height: 14 }} />
+        <Button
+          label="Meer testgereedschap →"
+          tone="ghost"
+          onPress={() => router.push('/(game)/dev')}
+        />
+        <Text style={styles.qualityNote}>
+          Items toveren, geld en level zetten, naar een wijk springen, de klok van de stad
+          vastzetten en een fps-meter.
+        </Text>
       </Panel>
 
       <View style={{ height: 16 }} />

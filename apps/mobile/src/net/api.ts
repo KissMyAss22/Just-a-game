@@ -428,3 +428,51 @@ export const claimTier = (tier: number, track: 'free' | 'premium') =>
   request<{ tier: number; track: string }>('/season/claim', { body: { tier, track } });
 export const unlockPremium = () =>
   request<{ premium: boolean }>('/season/premium', { body: {} });
+
+// --- ontwikkelgereedschap --------------------------------------------------
+//
+// Deze endpoints bestaan alleen als de server met DEV_TOOLS=1 draait. Staat
+// dat uit, dan geven ze netjes 403 met code `dev_tools_off`, zodat het
+// dev-scherm kan uitleggen wat er moet gebeuren in plaats van te blijven
+// hangen.
+
+export const fetchDevStatus = () =>
+  request<{ enabled: boolean; serverTime: number }>('/dev');
+
+export const fetchDevOptions = () =>
+  request<{
+    districts: { id: string; name: string; unlockLevel: number }[];
+    properties: { id: string; name: string; tier: number }[];
+  }>('/dev/options');
+
+/** Zonder itemId krijg je van elk item evenveel. */
+export const devGiveItems = (quantity: number, itemId?: string) =>
+  request<{ given: number; kinds: number; state: PlayerStateDto }>('/dev/items', {
+    body: { quantity, ...(itemId ? { itemId } : {}) },
+  });
+
+export const devCurrency = (amounts: { cash?: number; gems?: number; erfenis?: number }) =>
+  request<PlayerStateDto>('/dev/currency', { body: amounts });
+
+export const devLevel = (level: number) =>
+  request<PlayerStateDto>('/dev/level', { body: { level } });
+
+export const devUnlock = (input: { vehicles?: boolean; propertyId?: string }) =>
+  request<PlayerStateDto>('/dev/unlock', { body: input });
+
+export const devTeleport = (target: { districtId?: string; x?: number; z?: number }) =>
+  request<{ x: number; z: number; serverTime: number }>('/dev/teleport', { body: target });
+
+export const devTimeSkip = (hours: number) =>
+  request<{
+    hours: number;
+    earned: number;
+    cappedByTime: boolean;
+    state: PlayerStateDto;
+  }>('/dev/timeskip', { body: { hours } });
+
+export const devSpawn = (x: number, z: number, count = 12) =>
+  request<{ created: number; serverTime: number }>('/dev/spawn', { body: { x, z, count } });
+
+export const devReset = () =>
+  request<PlayerStateDto>('/dev/reset', { body: { confirm: true } });

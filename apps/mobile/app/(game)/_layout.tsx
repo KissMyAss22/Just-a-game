@@ -59,6 +59,8 @@ export default function GameLayout() {
       <Tabs.Screen name="profile" options={{ href: null }} />
       <Tabs.Screen name="rebirth" options={{ href: null }} />
       <Tabs.Screen name="interior" options={{ href: null }} />
+      {/* Testgereedschap; bereikbaar via Opties op het profielscherm. */}
+      <Tabs.Screen name="dev" options={{ href: null }} />
     </Tabs>
   );
 }

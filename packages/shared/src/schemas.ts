@@ -283,3 +283,84 @@ export interface SeasonStateDto {
   }[];
   serverTime: number;
 }
+
+// ---------------------------------------------------------------------------
+// Ontwikkelgereedschap
+//
+// Deze payloads horen bij de /dev-endpoints. Die zitten achter DEV_TOOLS=1 en
+// weigeren dienst in productie, maar de invoer wordt hier net zo streng
+// gevalideerd als de rest: een testknop die de server om zeep helpt is nog
+// steeds een kapotte server.
+// ---------------------------------------------------------------------------
+
+/** Items in je rugzak toveren. Zonder itemId krijg je van álles. */
+export const devGiveItemsSchema = z.object({
+  itemId: z.string().min(1).max(64).optional(),
+  quantity: z.number().int().min(1).max(999).default(1),
+});
+export type DevGiveItemsInput = z.infer<typeof devGiveItemsSchema>;
+
+/** Valuta bijschrijven. Telt niet mee voor je levenslange opbrengst. */
+export const devCurrencySchema = z
+  .object({
+    cash: z.number().int().min(0).max(1_000_000_000).default(0),
+    gems: z.number().int().min(0).max(1_000_000).default(0),
+    erfenis: z.number().int().min(0).max(1_000_000).default(0),
+  })
+  .refine((value) => value.cash > 0 || value.gems > 0 || value.erfenis > 0, {
+    message: 'Geef minstens één bedrag op.',
+  });
+export type DevCurrencyInput = z.infer<typeof devCurrencySchema>;
+
+/** Direct naar een level springen, om te zien wat daar ontgrendelt. */
+export const devLevelSchema = z.object({
+  level: z.number().int().min(1).max(100),
+});
+export type DevLevelInput = z.infer<typeof devLevelSchema>;
+
+/** Alle voertuigen erbij, en eventueel meteen een andere woning. */
+export const devUnlockSchema = z.object({
+  vehicles: z.boolean().default(true),
+  propertyId: z.string().min(1).max(64).optional(),
+});
+export type DevUnlockInput = z.infer<typeof devUnlockSchema>;
+
+/** Verspringen zonder dat de snelheidscontrole erover valt. */
+export const devTeleportSchema = z
+  .object({
+    x: z.number().finite().optional(),
+    z: z.number().finite().optional(),
+    districtId: z.string().min(1).max(32).optional(),
+  })
+  .refine((value) => value.districtId !== undefined || (value.x !== undefined && value.z !== undefined), {
+    message: 'Geef een wijk of een x/z op.',
+  });
+export type DevTeleportInput = z.infer<typeof devTeleportSchema>;
+
+/**
+ * De klok van je kluis vooruitzetten.
+ *
+ * Niet de echte servertijd — die blijft heilig. Dit zet alleen het moment
+ * waarop voor het laatst is afgerekend naar het verleden, waarna de gewone
+ * inkomstenberekening zijn werk doet. Zo test je offline-inkomen zonder een
+ * nacht te wachten, én test je meteen de echte formule.
+ */
+export const devTimeSkipSchema = z.object({
+  hours: z.number().min(0.25).max(72),
+});
+export type DevTimeSkipInput = z.infer<typeof devTimeSkipSchema>;
+
+/** Items naast je neerleggen, zodat je het oprapen kunt testen. */
+export const devSpawnSchema = z.object({
+  x: z.number().finite(),
+  z: z.number().finite(),
+  count: z.number().int().min(1).max(40).default(12),
+  radius: z.number().min(3).max(80).default(18),
+});
+export type DevSpawnInput = z.infer<typeof devSpawnSchema>;
+
+/** Terug naar nul, om het spel als nieuwe speler te bekijken. */
+export const devResetSchema = z.object({
+  confirm: z.literal(true),
+});
+export type DevResetInput = z.infer<typeof devResetSchema>;

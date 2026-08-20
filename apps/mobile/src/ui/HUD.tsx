@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { onCrowdChange, realtime } from '../net/presence';
+import { renderStats } from '../state/devWorld';
 import { driveState, flyInput, playerPosition } from '../state/position';
 import { driving, useDriving } from '../state/useDriving';
 import { useSettings } from '../state/useSettings';
@@ -122,6 +123,36 @@ function FlyControls({ bottom }: { bottom: number }) {
   );
 }
 
+/**
+ * De meter uit het testgereedschap: hoe zwaar is dit beeld, en waar sta ik?
+ *
+ * Twee keer per seconde. Vaker heeft geen zin — je leest het toch niet — en
+ * elke keer is een hertekening van de HUD.
+ */
+function DebugPanel({ top }: { top: number }) {
+  const [snapshot, setSnapshot] = useState(() => ({ ...renderStats, x: 0, z: 0 }));
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSnapshot({ ...renderStats, x: playerPosition.x, z: playerPosition.z });
+    }, 500);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <View style={[styles.debugPanel, { top }]} pointerEvents="none">
+      <Text style={styles.debugText}>{Math.round(snapshot.fps)} fps</Text>
+      <Text style={styles.debugText}>
+        {snapshot.calls} calls · {Math.round(snapshot.triangles / 1000)}k tri
+      </Text>
+      <Text style={styles.debugText}>{snapshot.programs} shaders</Text>
+      <Text style={styles.debugText}>
+        x {Math.round(snapshot.x)} · z {Math.round(snapshot.z)}
+      </Text>
+    </View>
+  );
+}
+
 /** In- en uitstappen. Alleen zichtbaar als je iets hebt om in te stappen. */
 function DriveButton({ vehicleId, bottom }: { vehicleId: string; bottom: number }) {
   const active = useDriving((s) => s.active);
@@ -156,6 +187,7 @@ export function HUD() {
   const isDriving = useDriving((s) => s.active);
   const flying = useSettings((s) => s.fly);
   const walkBoost = useSettings((s) => s.walkBoost);
+  const debugOverlay = useSettings((s) => s.debugOverlay);
 
   if (!state) return null;
   const { player, stats } = state;
@@ -268,6 +300,8 @@ export function HUD() {
         </View>
       ) : null}
 
+      {debugOverlay ? <DebugPanel top={insets.top + 120} /> : null}
+
       {/* Meldingen */}
       <View style={[styles.toasts, { bottom: insets.bottom + 250 }]} pointerEvents="none">
         {toasts.map((toast) => (
@@ -319,6 +353,22 @@ const styles = StyleSheet.create({
     borderColor: theme.color.xp,
   },
   devBadgeText: { color: theme.color.text, fontSize: 11, fontWeight: '700' },
+  debugPanel: {
+    position: 'absolute',
+    left: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: theme.radius.sm,
+    backgroundColor: 'rgba(6, 10, 22, 0.72)',
+    borderWidth: 1,
+    borderColor: theme.color.border,
+  },
+  debugText: {
+    color: theme.color.textDim,
+    fontSize: 11,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+  },
   driveButton: {
     position: 'absolute',
     right: 16,

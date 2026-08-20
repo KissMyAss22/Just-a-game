@@ -4,6 +4,8 @@ import * as THREE from 'three';
 import { QUALITY, type QualityLevel } from './city/quality';
 import { createWorld } from './city/world';
 import { playerPosition } from '../state/position';
+import { renderStats, worldClock } from '../state/devWorld';
+import { currentHour } from './city/sky';
 import { useSettings } from '../state/useSettings';
 import { Crowd } from './Crowd';
 import { PlayerRig } from './PlayerRig';
@@ -16,7 +18,12 @@ import { SpawnField } from './SpawnField';
  */
 function World({ level }: { level: QualityLevel }) {
   const { gl, scene, camera } = useThree();
-  const world = useMemo(() => createWorld(gl, scene, level), [gl, scene, level]);
+  // De klok wordt elke frame opnieuw gelezen, dus een vast uur uit het
+  // testgereedschap slaat meteen aan zonder de wereld opnieuw op te bouwen.
+  const world = useMemo(
+    () => createWorld(gl, scene, level, () => worldClock.hour ?? currentHour()),
+    [gl, scene, level],
+  );
 
   useEffect(() => {
     scene.add(world.root);
@@ -28,8 +35,20 @@ function World({ level }: { level: QualityLevel }) {
     };
   }, [scene, camera, world]);
 
-  useFrame((state) => {
+  useFrame((state, delta) => {
     world.update(state.camera, state.clock.elapsedTime, playerPosition.x, playerPosition.z);
+
+    // Meetwaarden voor de debug-overlay. Dit kost niets zolang niemand kijkt:
+    // het zijn vier getallen uit tellers die three toch al bijhoudt.
+    const info = state.gl.info;
+    renderStats.calls = info.render.calls;
+    renderStats.triangles = info.render.triangles;
+    renderStats.programs = info.programs?.length ?? 0;
+    if (delta > 0) {
+      // Voortschrijdend gemiddelde: een losse frame zegt niets, en een teller
+      // die staat te knipperen is niet af te lezen.
+      renderStats.fps = renderStats.fps * 0.9 + (1 / delta) * 0.1;
+    }
   });
 
   return null;
