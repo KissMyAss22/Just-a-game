@@ -249,3 +249,22 @@ In je rugzak zelf kun je spullen alleen **weggooien**. Dat klinkt onhandig maar 
 bedoeling: zo is de stad een plek waar je naartoe gaat in plaats van een decor waar je
 doorheen loopt. Raakt je rugzak boven de tachtig procent, dan verschijnt vanzelf een pijl
 naar de dichtstbijzijnde winkel.
+
+## De telefoon
+
+Onderin staat één knop: je telefoon. Daar zit alles in.
+
+| App | Wat het doet |
+|---|---|
+| 🌆 Stad | Terug naar het spel |
+| 🗺️ Kaart | De hele stad, met de winkels, andere spelers en wat er om je heen ligt |
+| 👥 In de buurt | Wie er binnen 170 meter loopt, met afstand en voertuig |
+| 🏠 Base · 🪚 Werkbank · 🛒 Winkel · 🎟️ Seizoen · ⚙️ Opties | De schermen die eerst tabbladen waren |
+
+Op de kaart of in de lijst kun je een **pandjeshuis of een speler aantikken**: er verschijnt
+dan een pijl in beeld die aangeeft welke kant je op moet en hoe ver het nog is. Nog een keer
+tikken zet hem weer uit.
+
+**Praten met elkaar kan nog niet.** Spraak vraagt om techniek die niet in Expo Go past — daar
+is een eigen ontwikkelbuild voor nodig. Chat en spraak komen samen, want die vragen ook om
+filteren, blokkeren en rapporteren, en dat hoort er in één keer bij.
