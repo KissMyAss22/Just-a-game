@@ -9,7 +9,7 @@
  * De vier beelden staan op verschillende uren, zodat ook de dag- en
  * nachtcyclus te beoordelen is zonder tot vanavond te wachten.
  */
-import { getVehicle, shopSpots, spawnPosition } from '@game/shared';
+import { getVehicle, homeAddress, shopSpots, spawnPosition } from '@game/shared';
 import * as THREE from 'three';
 import { createCharacter } from '../../apps/mobile/src/game3d/city/character';
 import { createCrowd } from '../../apps/mobile/src/game3d/city/crowd';
@@ -17,6 +17,7 @@ import { ingestSnapshot } from '../../apps/mobile/src/net/presence';
 import { createLootField } from '../../apps/mobile/src/game3d/city/loot';
 import { QUALITY } from '../../apps/mobile/src/game3d/city/quality';
 import { createVehicle } from '../../apps/mobile/src/game3d/city/vehicle';
+import { createDoorways } from '../../apps/mobile/src/game3d/city/doorway';
 import { createShopfronts } from '../../apps/mobile/src/game3d/city/shopfront';
 import { createWorld } from '../../apps/mobile/src/game3d/city/world';
 
@@ -106,6 +107,19 @@ ingestSnapshot({
 const shops = createShopfronts(true);
 shops.update(0.016);
 scene.add(shops.group);
+
+// Voordeuren: één waar je woont, één met een Te Koop-bord ernaast. Of dat op
+// de stoep past en niet in de gevel verdwijnt zie je alleen door te kijken.
+const woonadres = homeAddress('squat', 12345)!;
+const koopadres = homeAddress('studio', 12345)!;
+const doorways = createDoorways(
+  [
+    { address: woonadres, owned: true },
+    { address: koopadres, owned: false },
+  ],
+  true,
+);
+scene.add(doorways.group);
 
 const loot = createLootField((rarity) =>
   rarity === 'legendary' ? '#fbbf24' : rarity === 'rare' ? '#38bdf8' : '#4ade80',
@@ -202,6 +216,37 @@ const views: View[] = [
         shop.z + Math.cos(shop.rotY) * 6.5 + 1.2,
       );
       c.lookAt(shop.x, 1.5, shop.z);
+    },
+  },
+  {
+    name: 'je eigen voordeur',
+    hour: 13,
+    height: 380,
+    fov: 40,
+    focus: [woonadres.x, woonadres.z],
+    place: (c) => {
+      // Schuin van voren vanaf de straat, zoals je er zelf op af loopt.
+      c.position.set(
+        woonadres.x + Math.sin(woonadres.rotY) * 6 + 2,
+        2.4,
+        woonadres.z + Math.cos(woonadres.rotY) * 6 + 1,
+      );
+      c.lookAt(woonadres.x, 1.4, woonadres.z);
+    },
+  },
+  {
+    name: 'te koop',
+    hour: 13,
+    height: 380,
+    fov: 40,
+    focus: [koopadres.x, koopadres.z],
+    place: (c) => {
+      c.position.set(
+        koopadres.x + Math.sin(koopadres.rotY) * 8 + 3.5,
+        2.8,
+        koopadres.z + Math.cos(koopadres.rotY) * 8 + 2.2,
+      );
+      c.lookAt(koopadres.x + 0.5, 1.3, koopadres.z);
     },
   },
   {

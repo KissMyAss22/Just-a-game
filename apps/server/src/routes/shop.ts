@@ -11,6 +11,9 @@ import {
   getVehicle,
   propertySlots,
   upgradeCost,
+  DOOR_REACH_TOLERANCE,
+  atDoor,
+  homeAddress,
 } from '@game/shared';
 import type { FastifyInstance } from 'fastify';
 import { authenticate, playerIdOf } from '../lib/auth.js';
@@ -45,7 +48,9 @@ export async function shopRoutes(app: FastifyInstance): Promise<void> {
           affordable: price !== null && cash >= price,
         };
       }),
-      properties: PROPERTIES.map((property) => ({
+      properties: PROPERTIES.map((property) => {
+        const address = homeAddress(property.id, loaded.player.seed);
+        return {
         id: property.id,
         name: property.name,
         icon: property.icon,
@@ -61,7 +66,13 @@ export async function shopRoutes(app: FastifyInstance): Promise<void> {
         current: loaded.player.propertyId === property.id,
         affordable: cash >= property.price,
         unlocked: level >= property.requiredLevel,
-      })),
+        // Waar dit pand staat, zodat de app je erheen kan wijzen.
+        street: address?.street ?? null,
+        x: address?.x ?? null,
+        z: address?.z ?? null,
+        unit: address?.unit ?? '',
+        };
+      }),
       vehicles: VEHICLES.map((vehicle) => ({
         id: vehicle.id,
         name: vehicle.name,
@@ -134,6 +145,21 @@ export async function shopRoutes(app: FastifyInstance): Promise<void> {
           `Hiervoor heb je level ${target.requiredLevel} nodig.`,
           400,
           'level_too_low',
+        );
+      }
+
+      // Een huis koop je bij de deur. Net als bij de pandjeshuizen wordt daarvoor
+      // de positie gebruikt die de server zélf bijhoudt via /player/position —
+      // die is al door de snelheidscontrole gegaan. Je kunt dus niet beweren dat
+      // je ervoor staat; je moet er echt naartoe.
+      if (!atDoor(target.id, loaded.player.seed, loaded.player.x, loaded.player.z, DOOR_REACH_TOLERANCE)) {
+        const address = homeAddress(target.id, loaded.player.seed);
+        throw new GameError(
+          address
+            ? `Je moet er zelf voor staan. ${target.name} staat aan de ${address.street}.`
+            : 'Je moet voor de deur staan om te kopen.',
+          400,
+          'not_at_door',
         );
       }
 

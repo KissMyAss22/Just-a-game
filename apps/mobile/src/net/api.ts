@@ -256,6 +256,11 @@ export interface ShopResponse {
     current: boolean;
     unlocked: boolean;
     price: number;
+    /** Waar dit pand staat; null als er geen adres voor te vinden was. */
+    street: string | null;
+    x: number | null;
+    z: number | null;
+    unit: string;
   })[];
   vehicles: (ShopEntry & {
     tier: number;

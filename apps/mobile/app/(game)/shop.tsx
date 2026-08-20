@@ -3,6 +3,8 @@ import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import * as api from '../../src/net/api';
+import { useRouter } from 'expo-router';
+import { navigationTarget, playerPosition } from '../../src/state/position';
 import { useGame } from '../../src/state/useGame';
 import { Button, Panel, Row, Screen, SectionTitle } from '../../src/ui/components';
 import { theme } from '../../src/ui/theme';
@@ -10,6 +12,7 @@ import { theme } from '../../src/ui/theme';
 type Tab = 'upgrades' | 'properties' | 'vehicles' | 'boosts';
 
 export default function ShopScreen() {
+  const router = useRouter();
   const applyState = useGame((s) => s.applyState);
   const toast = useGame((s) => s.toast);
   const buyBoost = useGame((s) => s.buyBoost);
@@ -113,34 +116,68 @@ export default function ShopScreen() {
 
       {tab === 'properties' ? (
         <>
-          <SectionTitle hint="meer plekken, grotere kluis">Woningen</SectionTitle>
-          {shop.properties.map((property) => (
-            <Panel key={property.id} style={styles.card}>
-              <Row>
-                <Text style={styles.icon}>{property.icon}</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.name}>{property.name}</Text>
-                  <Text style={styles.dim}>
-                    {formatMoney(property.incomePerHour)}/u · {property.slots} plekken · lvl{' '}
-                    {property.requiredLevel}
-                  </Text>
-                </View>
-                {property.current ? (
-                  <Text style={styles.badge}>Huidig</Text>
-                ) : property.owned ? (
-                  <Text style={styles.dim}>gehad</Text>
-                ) : (
-                  <Button
-                    label={!property.unlocked ? `lvl ${property.requiredLevel}` : formatMoney(property.price)}
-                    compact
-                    disabled={!property.affordable || !property.unlocked}
-                    loading={pending === property.id}
-                    onPress={() => void buy(property.id, () => api.buyProperty(property.id))}
-                  />
-                )}
-              </Row>
-            </Panel>
-          ))}
+          <SectionTitle hint="loop erheen om te kopen">Te koop</SectionTitle>
+          <Text style={styles.dim}>
+            Woningen staan in de stad. Kies er een uit, loop naar het adres en koop hem bij de
+            deur — daar staat een bord met de prijs.
+          </Text>
+          <View style={{ height: 10 }} />
+          {shop.properties.map((property) => {
+            const distance =
+              property.x !== null && property.z !== null
+                ? Math.hypot(property.x - playerPosition.x, property.z - playerPosition.z)
+                : null;
+            // Het eiland ligt los in zee en er is nog geen boot; dat kun je
+            // beter hier zeggen dan iemand er tevergeefs heen laten lopen.
+            const unreachable = property.id === 'island_estate';
+            return (
+              <Panel key={property.id} style={styles.card}>
+                <Row>
+                  <Text style={styles.icon}>{property.icon}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.name}>
+                      {property.name}
+                      {property.unit ? <Text style={styles.dim}>  nr {property.unit}</Text> : null}
+                    </Text>
+                    <Text style={styles.dim}>
+                      {formatMoney(property.incomePerHour)}/u · {property.slots} plekken · lvl{' '}
+                      {property.requiredLevel}
+                    </Text>
+                    {property.street ? (
+                      <Text style={styles.dim}>
+                        {property.street}
+                        {distance !== null ? ` · ${Math.round(distance)} m` : ''}
+                        {unreachable ? ' · bereikbaar per boot' : ''}
+                      </Text>
+                    ) : null}
+                  </View>
+                  {property.current ? (
+                    <Text style={styles.badge}>Huidig</Text>
+                  ) : property.owned ? (
+                    <Text style={styles.dim}>gehad</Text>
+                  ) : !property.unlocked ? (
+                    <Text style={styles.dim}>lvl {property.requiredLevel}</Text>
+                  ) : (
+                    <Button
+                      label={formatMoney(property.price)}
+                      compact
+                      tone="ghost"
+                      disabled={property.x === null || unreachable}
+                      onPress={() => {
+                        if (property.x === null || property.z === null) return;
+                        navigationTarget.current = {
+                          x: property.x,
+                          z: property.z,
+                          label: property.name,
+                        };
+                        router.navigate('/(game)/city');
+                      }}
+                    />
+                  )}
+                </Row>
+              </Panel>
+            );
+          })}
         </>
       ) : null}
 

@@ -9,6 +9,7 @@ import { currentHour } from './city/sky';
 import { useSettings } from '../state/useSettings';
 import { Crowd } from './Crowd';
 import { PlayerRig } from './PlayerRig';
+import { Homes } from './Homes';
 import { Shops } from './Shops';
 import { SpawnField } from './SpawnField';
 
@@ -80,6 +81,7 @@ export function CityScene() {
       <SpawnField />
       <Crowd />
       <Shops level={level} />
+      <Homes level={level} />
       <PlayerRig />
     </Canvas>
   );

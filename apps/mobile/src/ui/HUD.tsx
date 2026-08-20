@@ -1,15 +1,20 @@
 import {
   BOOSTS_BY_ID,
+  DOOR_REACH,
   SHOP_REACH,
   districtAtWorld,
   formatDuration,
   formatMoney,
   getVehicle,
+  formatMoney as money,
+  getProperty,
   nearestShop,
+  relevantAddresses,
   toKmh,
 } from '@game/shared';
+import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { onCrowdChange, realtime } from '../net/presence';
 import { renderStats } from '../state/devWorld';
@@ -146,6 +151,46 @@ function useShop() {
 }
 
 /**
+ * Sta je voor een voordeur — je eigen, of een pand dat te koop staat?
+ *
+ * Zelfde ritme als de winkelpeiling: vier keer per seconde is ruim genoeg om
+ * een knop te laten verschijnen, en het scheelt de HUD een hertekening per
+ * frame.
+ */
+function useDoor(propertyId: string | undefined, seed: number | undefined) {
+  const [door, setDoor] = useState<{ propertyId: string; owned: boolean; street: string } | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (!propertyId || seed === undefined) return;
+    const timer = setInterval(() => {
+      let best: { propertyId: string; owned: boolean; street: string; distance: number } | null =
+        null;
+      for (const entry of relevantAddresses(propertyId, seed)) {
+        const distance = Math.hypot(
+          entry.address.x - playerPosition.x,
+          entry.address.z - playerPosition.z,
+        );
+        if (distance > DOOR_REACH) continue;
+        if (!best || distance < best.distance) {
+          best = {
+            propertyId: entry.address.propertyId,
+            owned: entry.owned,
+            street: entry.address.street,
+            distance,
+          };
+        }
+      }
+      setDoor(best ? { propertyId: best.propertyId, owned: best.owned, street: best.street } : null);
+    }, 250);
+    return () => clearInterval(timer);
+  }, [propertyId, seed]);
+
+  return door;
+}
+
+/**
  * De navigatiewijzer: een pijl naar je bestemming, met de afstand erbij.
  *
  * De pijl draait mee met de camera, want "die kant op" heeft alleen betekenis
@@ -257,6 +302,9 @@ export function HUD() {
   const debugOverlay = useSettings((s) => s.debugOverlay);
   const { near: shop, atShop } = useShop();
   const [shopOpen, setShopOpen] = useState(false);
+  const router = useRouter();
+  const door = useDoor(state?.player.propertyId, state?.player.seed);
+  const buyProperty = useGame((s) => s.buyProperty);
 
   const carriedNow = state
     ? state.inventory.reduce((sum, entry) => sum + entry.quantity, 0)
@@ -389,6 +437,38 @@ export function HUD() {
       ) : null}
       {shopOpen && shop ? (
         <ShopSheet name={shop.spot.name} onClose={() => setShopOpen(false)} />
+      ) : null}
+
+      {/* Voordeur: naar binnen bij je eigen huis, kopen bij een pand met een bord. */}
+      {door && !atShop ? (
+        <Pressable
+          onPress={() => {
+            if (door.owned) {
+              router.push('/(game)/interior');
+              return;
+            }
+            const target = getProperty(door.propertyId);
+            Alert.alert(
+              `${target.name} kopen?`,
+              `${money(target.price)} · ${door.street}\n\nJe verhuist met je spullen mee; je oude woning komt leeg te staan.`,
+              [
+                { text: 'Nog even niet', style: 'cancel' },
+                { text: 'Kopen', onPress: () => void buyProperty(door.propertyId) },
+              ],
+            );
+          }}
+          style={({ pressed }) => [
+            styles.shopButton,
+            { bottom: insets.bottom + 240 },
+            !door.owned && { backgroundColor: theme.color.cash },
+            pressed && { opacity: 0.75 },
+          ]}
+        >
+          <Text style={styles.shopIcon}>{door.owned ? '🚪' : '🏷️'}</Text>
+          <Text style={styles.shopLabel}>
+            {door.owned ? 'Naar binnen' : `Kopen · ${money(getProperty(door.propertyId).price)}`}
+          </Text>
+        </Pressable>
       ) : null}
 
       {/* Voertuig */}

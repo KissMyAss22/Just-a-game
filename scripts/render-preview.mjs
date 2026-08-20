@@ -129,7 +129,7 @@ function shoot(page, file, width, height) {
 }
 
 console.log('Renderen...');
-shoot('index.html', 'stad.png', 900, 2310);
+shoot('index.html', 'stad.png', 900, 3070);
 shoot('items.html', 'items.png', 1100, 900);
 shoot('map.html', 'kaart.png', 660, 800);
 shoot('home.html', 'woning.png', 820, 1220);

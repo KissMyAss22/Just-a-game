@@ -284,3 +284,34 @@ De kamers zijn met deze ronde flink groter geworden — een cel is van 1,2 naar 
 gegaan. Je krot is nu 4 bij 4 meter, een appartement 6 bij 6, een villa 10 bij 10 en het
 privé-landgoed 16 bij 12. Het **aantal plekken is niet veranderd**, dus je inkomen blijft
 precies hetzelfde; het is dezelfde woning, alleen op ware grootte.
+
+## Je huis staat in de stad
+
+Elke woning is een echt pand met een adres. Je eigen voordeur herken je aan het lampje
+erboven; loop ernaartoe en er verschijnt **Naar binnen**.
+
+| Woning | Waar |
+|---|---|
+| Kraakpand | Achterstraat, Oude Stad |
+| Studio | Havenflat, Oude Stad |
+| Appartement | Parkflat, Centrum |
+| Rijtjeshuis | Lindelaan, Buitenwijk |
+| Loft | Pakhuiskade, Industrieterrein |
+| Villa | Hoogzicht, De Heuvels |
+| Penthouse | Toren aan het Plein, Centrum |
+| Landhuis | Parklaan, De Heuvels |
+| Privé-eiland | Privé-eiland |
+
+**Studio's en appartementen zitten in een flat.** Eén gebouw, en jouw appartement is er één
+van — je huisnummer staat op de deur. **Een huis of villa is van jou alleen:** welk pand dat
+is hangt aan je spelerseed, dus jouw villa staat op een andere plek dan die van iemand
+anders.
+
+**Kopen doe je bij de deur.** Panden die binnen bereik liggen krijgen een Te Koop-bord met
+de prijs. Open **Winkel → Woningen** om te zien wat er te koop staat en hoe ver het is; de
+knop met de prijs zet de navigatiepijl erheen. Ter plekke koop je hem.
+
+Je verhuist: je spullen gaan mee en je oude pand komt weer leeg te staan.
+
+Het privé-eiland ligt los in zee en er is nog geen boot, dus daar kun je voorlopig niet
+komen. Dat staat er ook bij in het scherm.

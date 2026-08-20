@@ -205,6 +205,12 @@ export interface PlayerStateDto {
   player: {
     id: string;
     displayName: string;
+    /**
+     * Je vaste seed. Bepaalt onder meer welke quests je krijgt en — sinds je
+     * woning een pand in de stad is — welk huis van jou is. Geen geheim: alles
+     * wat eruit volgt zie je toch al.
+     */
+    seed: number;
     level: number;
     xp: number;
     xpIntoLevel: number;

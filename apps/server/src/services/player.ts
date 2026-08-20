@@ -266,6 +266,7 @@ export function toPlayerStateDto(
     player: {
       id: player.id,
       displayName: player.displayName,
+      seed: player.seed,
       level: progress.level,
       xp: player.xp,
       xpIntoLevel: progress.xpIntoLevel,

@@ -47,6 +47,8 @@ interface GameStore {
   craft: (recipeId: string, times?: number) => Promise<boolean>;
   buyBoost: (boostId: string) => Promise<boolean>;
   saveProfile: (input: { displayName?: string; appearance?: Appearance }) => Promise<boolean>;
+  /** Een woning kopen. Kan alleen als je voor de deur staat. */
+  buyProperty: (propertyId: string) => Promise<boolean>;
   rebirth: () => Promise<boolean>;
   buyLegacyPerk: (perkId: string) => Promise<boolean>;
   applyState: (state: PlayerStateDto) => void;
@@ -220,6 +222,24 @@ export const useGame = create<GameStore>((set, get) => ({
       get().toast(`${quantity}x ${getItem(itemId).name} weggegooid`);
     } catch (error) {
       get().toast(error instanceof Error ? error.message : 'Mislukt');
+    } finally {
+      set({ busy: false });
+    }
+  },
+
+  async buyProperty(propertyId) {
+    if (get().busy) return false;
+    set({ busy: true });
+    try {
+      // De server toetst of je voor de deur staat aan de hand van zijn eigen
+      // kopie van je positie; die eerst bijwerken. Zie sellItem.
+      await get().pushPosition(true);
+      get().applyState(await api.buyProperty(propertyId));
+      get().toast('Verhuisd', 'Je spullen zijn mee', 'legendary');
+      return true;
+    } catch (error) {
+      get().toast(error instanceof Error ? error.message : 'Mislukt');
+      return false;
     } finally {
       set({ busy: false });
     }

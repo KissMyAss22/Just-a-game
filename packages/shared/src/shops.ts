@@ -1,6 +1,5 @@
 import type { DistrictId } from './city/districts';
-import { cellToWorld, districtAt, isInsideCity, isWalkable } from './city/layout';
-import { LAMP_OFFSET, distanceToRoadAxis, nearestRoadAxis } from './city/streets';
+import { frontageSpots } from './city/frontage';
 
 /**
  * De pandjeshuizen: de enige plek waar je spullen kunt verkopen.
@@ -59,105 +58,25 @@ export interface ShopSpot {
 }
 
 /**
- * Zoekt de plek van een winkel: in ringen naar buiten vanaf de voorkeurscel,
- * tot er een stukje stoep is waar een verkoper past.
+ * Zoekt de plek van een winkel: een stukje stoep voor een pand, in de bedoelde
+ * wijk, zo dicht mogelijk bij de voorkeurscel.
  *
- * Bewust zoeken en niet uitrekenen. De eerste versie berekende de stoepplek
- * uit het perceel en zijn gevelkant, en dat viel om op hoekpanden: die zijn
- * L-vormig, en de vleugel zet precies die stoep dicht. Uitproberen of een punt
- * begaanbaar is, is hier korter én betrouwbaarder dan alle vormen naspelen —
- * en het blijft kloppen als de stadsgenerator weer verandert.
+ * Het zoekwerk zelf staat in `city/frontage.ts`, want de voordeuren van
+ * woningen hebben precies hetzelfde nodig. Hier blijft alleen over wélke plek
+ * we willen.
  */
 export function shopSpot(shop: PawnShopDef): ShopSpot | null {
-  for (let ring = 0; ring <= 14; ring++) {
-    const found: { spot: ShopSpot; wall: boolean; offCentre: number }[] = [];
-
-    for (const [dx, dz] of ringCells(ring)) {
-      const cx = shop.preferred.cx + dx;
-      const cz = shop.preferred.cz + dz;
-      if (!isInsideCity(cx, cz)) continue;
-      // Binnen de bedoelde wijk blijven, anders schuift een winkel bij een
-      // volgende wijziging zomaar naar de buurwijk.
-      if (districtAt(cx, cz).id !== shop.district) continue;
-
-      const center = cellToWorld(cx, cz);
-      for (const [ox, oz] of SAMPLES) {
-        const x = center.x + ox;
-        const z = center.z + oz;
-        // In de stoepband blijven: vanaf de stoeprand tot aan de gevel. De
-        // ondergrens is geen luxe — precies op 3,0 staat hij half op de
-        // stoeprand.
-        const fromAxis = Math.min(distanceToRoadAxis(x), distanceToRoadAxis(z));
-        if (fromAxis < PAVEMENT_NEAR || fromAxis > PAVEMENT_FAR) continue;
-        // Dezelfde straal als de speler zelf. Past hij er, dan past de
-        // verkoper er ook.
-        if (!isWalkable(x, z, 0.45)) continue;
-
-        found.push({
-          spot: { id: shop.id, name: shop.name, district: shop.district, x, z, rotY: facingRoad(x, z) },
-          wall: hasWallBehind(x, z),
-          offCentre: Math.abs(fromAxis - LAMP_OFFSET),
-        });
-      }
-    }
-
-    if (found.length === 0) continue;
-    // Liefst met een pand in de rug — dan leest het als een winkelpui in
-    // plaats van een kraam midden op de stoep — en zo dicht mogelijk bij het
-    // midden van de stoep.
-    found.sort((a, b) => Number(b.wall) - Number(a.wall) || a.offCentre - b.offCentre);
-    return found[0]!.spot;
-  }
-  return null;
-}
-
-/** De stoepband waarin de verkoper mag staan, in meters uit het hart van de weg. */
-const PAVEMENT_NEAR = 3.4;
-const PAVEMENT_FAR = 4.5;
-
-/**
- * Waar we binnen een cel kijken: een raster van negen punten.
- *
- * Een cel is acht meter en de stoep anderhalve meter breed, dus met alleen het
- * midden van de cel mis je hem gegarandeerd.
- */
-const SAMPLES: readonly [number, number][] = (() => {
-  const out: [number, number][] = [];
-  for (let ox = -3.6; ox <= 3.6; ox += 0.4) {
-    for (let oz = -3.6; oz <= 3.6; oz += 0.4) out.push([ox, oz]);
-  }
-  return out;
-})();
-
-/** De draaiing waarmee de verkoper de straat op kijkt. */
-function facingRoad(x: number, z: number): number {
-  const alongZ = distanceToRoadAxis(x) <= distanceToRoadAxis(z);
-  if (alongZ) {
-    // Noord-zuidstraat: sta je ten oosten van de as, dan kijk je naar het westen.
-    return x > nearestRoadAxis(x) ? -Math.PI / 2 : Math.PI / 2;
-  }
-  return z > nearestRoadAxis(z) ? Math.PI : 0;
-}
-
-/** Staat er binnen twee meter achter dit punt een gevel om een bord aan te hangen? */
-function hasWallBehind(x: number, z: number): boolean {
-  const behind = facingRoad(x, z) + Math.PI;
-  const bx = x + Math.sin(behind) * 1.6;
-  const bz = z + Math.cos(behind) * 1.6;
-  return !isWalkable(bx, bz, 0.3);
-}
-
-/** De cellen op precies deze ring rond de oorsprong, in een vaste volgorde. */
-function ringCells(ring: number): [number, number][] {
-  if (ring === 0) return [[0, 0]];
-  const out: [number, number][] = [];
-  for (let d = -ring; d <= ring; d++) {
-    out.push([d, -ring], [d, ring]);
-  }
-  for (let d = -ring + 1; d <= ring - 1; d++) {
-    out.push([-ring, d], [ring, d]);
-  }
-  return out;
+  const spots = frontageSpots({ preferred: shop.preferred, district: shop.district });
+  const best = spots[0];
+  if (!best) return null;
+  return {
+    id: shop.id,
+    name: shop.name,
+    district: shop.district,
+    x: best.x,
+    z: best.z,
+    rotY: best.rotY,
+  };
 }
 
 let cached: ShopSpot[] | null = null;

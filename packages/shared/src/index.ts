@@ -16,3 +16,4 @@ export * from './city/districts';
 export * from './city/layout';
 export * from './city/streets';
 export * from './shops';
+export * from './addresses';
