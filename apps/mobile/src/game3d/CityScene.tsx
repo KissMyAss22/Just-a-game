@@ -43,7 +43,10 @@ export function CityScene() {
     <Canvas
       key={level}
       gl={{ antialias: settings.antialias, powerPreference: 'high-performance' }}
-      shadows={settings.shadows ? { type: THREE.PCFSoftShadowMap } : false}
+      // PCFSoftShadowMap bestaat niet meer op elk toestel; three valt dan met
+      // een waarschuwing per shader terug op PCFShadowMap. Dan vragen we die
+      // meteen zelf, in plaats van de logs vol te laten lopen.
+      shadows={settings.shadows ? { type: THREE.PCFShadowMap } : false}
       camera={{ fov: 52, near: 0.4, far: settings.far, position: [0, 9, 15] }}
       onCreated={({ gl }) => {
         // ACES haalt de felle plekken terug zonder de rest grauw te maken; dat

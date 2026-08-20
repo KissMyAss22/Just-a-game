@@ -7,7 +7,7 @@ import {
   isPlaceable,
   rotatedFootprint,
 } from '@game/shared';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -33,9 +33,13 @@ export default function InteriorScreen() {
   const place = useGame((s) => s.place);
   const moveItem = useGame((s) => s.moveItem);
   const storeItem = useGame((s) => s.storeItem);
+  const swapItem = useGame((s) => s.swapItem);
 
   const [cursor, setCursor] = useState<{ x: number; z: number } | null>(null);
-  const [pendingItemId, setPendingItemId] = useState<string | null>(null);
+  // Kom je hier vanuit het basescherm omdat je woning vol is, dan houd je dat
+  // voorwerp meteen vast — je hoeft het niet nog eens uit de rugzak te zoeken.
+  const { pak } = useLocalSearchParams<{ pak?: string }>();
+  const [pendingItemId, setPendingItemId] = useState<string | null>(pak ?? null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [rotation, setRotation] = useState(0);
   const startYaw = useRef(homeCameraState.yaw);
@@ -71,8 +75,9 @@ export default function InteriorScreen() {
       const hit = placementAt(cell.x, cell.z);
       if (hit) {
         setSelectedId(hit.id);
-        setPendingItemId(null);
-        setRotation(hit.rotation);
+        // Houd je iets vast, dan blijft dat staan: dan wil je wisselen, niet
+        // je keuze kwijtraken door per ongeluk op een kast te tikken.
+        if (!pendingItemId) setRotation(hit.rotation);
       }
       setCursor(cell);
     });
@@ -107,6 +112,19 @@ export default function InteriorScreen() {
 
   const inTray = state.inventory.filter((entry) => isPlaceable(getItem(entry.itemId)));
   const selected = placements.find((p) => p.id === selectedId) ?? null;
+  // Wisselen kan zodra je iets vasthoudt én op iets staat dat er al staat.
+  const swapTarget = pendingItemId && selected && selected.itemId !== pendingItemId ? selected : null;
+  const swapFits = swapTarget
+    ? checkPlacement(
+        plan,
+        placements,
+        pendingItemId!,
+        swapTarget.x,
+        swapTarget.z,
+        swapTarget.rotation,
+        swapTarget.id,
+      ).ok
+    : false;
 
   const confirm = async () => {
     if (!cursor || !movingItemId) return;
@@ -157,12 +175,22 @@ export default function InteriorScreen() {
               {getItem(movingItemId).icon} {getItem(movingItemId).name}
               {pendingItemId ? ' neerzetten' : ' verplaatsen'}
             </Text>
-            <Text style={[styles.dim, !canConfirm && { color: theme.color.danger }]}>
-              {canConfirm
-                ? `Vak ${cursor.x + 1},${cursor.z + 1} is vrij`
-                : check && !check.ok
-                  ? PLACEMENT_PROBLEM_MESSAGE[check.problem]
-                  : ''}
+            <Text
+              style={[
+                styles.dim,
+                !canConfirm && !swapTarget && { color: theme.color.danger },
+                swapTarget && !swapFits && { color: theme.color.danger },
+              ]}
+            >
+              {swapTarget
+                ? swapFits
+                  ? `${getItem(swapTarget.itemId).name} gaat terug in je rugzak`
+                  : 'Dat past hier niet in plaats van wat er staat'
+                : canConfirm
+                  ? `Vak ${cursor.x + 1},${cursor.z + 1} is vrij`
+                  : check && !check.ok
+                    ? PLACEMENT_PROBLEM_MESSAGE[check.problem]
+                    : ''}
             </Text>
             <Row style={{ marginTop: 8 }}>
               <Button
@@ -171,7 +199,7 @@ export default function InteriorScreen() {
                 tone="ghost"
                 onPress={() => setRotation((r) => (r + 1) % 4)}
               />
-              {selected ? (
+              {selected && !pendingItemId ? (
                 <Button
                   label="Opbergen"
                   compact
@@ -186,19 +214,36 @@ export default function InteriorScreen() {
                 />
               ) : null}
               <View style={{ flex: 1 }} />
-              <Button
-                label={pendingItemId ? 'Zet neer' : 'Verplaats'}
-                compact
-                disabled={!canConfirm}
-                loading={busy}
-                onPress={() => void confirm()}
-              />
+              {swapTarget ? (
+                <Button
+                  label="Wisselen"
+                  compact
+                  disabled={!swapFits}
+                  loading={busy}
+                  onPress={async () => {
+                    if (await swapItem(swapTarget.id, pendingItemId!)) {
+                      setPendingItemId(null);
+                      setSelectedId(null);
+                      setCursor(null);
+                    }
+                  }}
+                />
+              ) : (
+                <Button
+                  label={pendingItemId ? 'Zet neer' : 'Verplaats'}
+                  compact
+                  disabled={!canConfirm}
+                  loading={busy}
+                  onPress={() => void confirm()}
+                />
+              )}
             </Row>
           </>
         ) : (
           <Text style={styles.dim}>
-            Kies hieronder iets uit je rugzak, of tik op een meubel om het te verplaatsen. Sleep om
-            de kamer rond te draaien.
+            Kies hieronder iets uit je rugzak, of tik op een meubel om het te verplaatsen. Is je
+            woning vol? Pak iets uit je rugzak en tik op wat er staat om te wisselen. Sleep om de
+            kamer rond te draaien.
           </Text>
         )}
       </View>

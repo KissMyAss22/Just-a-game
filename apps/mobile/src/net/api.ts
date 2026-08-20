@@ -226,6 +226,9 @@ export const moveItem = (placementId: string, x: number, z: number, rotation: nu
 export const storeItem = (placementId: string) =>
   request<PlayerStateDto>('/base/store', { body: { placementId } });
 
+export const swapItem = (placementId: string, itemId: string) =>
+  request<PlayerStateDto>('/base/swap', { body: { placementId, itemId } });
+
 export interface ShopEntry {
   id: string;
   name: string;

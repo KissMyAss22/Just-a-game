@@ -101,6 +101,14 @@ Wat er per onderdeel gebeurt:
 | Omgevingslicht | Dezelfde lucht wordt omgezet naar een omgevingstextuur. Zonder die textuur heeft glas niets om in te spiegelen en wordt elk raam zwart. |
 | Schaduw | Eén zonlicht met een schaduwcamera die de speler volgt. Plus een donkere aanzet waar een gevel de stoep raakt — echte omgevingsocclusie is op een telefoon te duur, maar die vlek doet visueel bijna hetzelfde werk. |
 
+**Niet elk toestel kan de omgevingstextuur maken.** Die wordt met halve floats
+gerenderd, en een telefoon die `EXT_color_buffer_half_float` niet heeft kan dat
+niet. Dan valt niet alleen de weerspiegeling weg maar ook een flink deel van
+het diffuse licht, en staat de stad er merkbaar vlakker en donkerder bij dan
+bedoeld. De code controleert dat vooraf en zet in dat geval het hemellicht
+ruim tweeënhalf keer zo hoog. Dit kwam boven water uit de logs van een echte
+telefoon; op de ontwikkelmachine werkte het gewoon.
+
 Alleen de 3 × 3 chunks rond de speler staan in de scene (384 m); straatmeubilair
 wordt binnen ongeveer 150 m getekend. Mist in de kleur van de horizon verbergt
 de rand van het geladen gebied.
@@ -329,6 +337,24 @@ doet is de dingen die je meteen voelt als ze ontbreken:
 je er verder dan acht meter vandaan als je op Instappen drukt, dan komt hij
 naar je toe. Je auto zoeken in een stad van een vierkante kilometer is geen
 leuke spelmechaniek, alleen een vervelende.
+
+### Wisselen als je woning vol is
+
+Een woning heeft een vast aantal plekken. Zit hij vol, dan is "Plaats" geen
+optie meer — dan wil je iets ruilen. Dat kon al met opbergen en daarna
+neerzetten, maar dat zijn drie handelingen en je moest zelf bedenken dat het
+kon.
+
+Nu: pak iets uit je rugzak en tik op wat er staat. De knop wordt **Wisselen**,
+en het oude voorwerp gaat terug in je rugzak terwijl het nieuwe op precies
+dezelfde plek komt. In het basescherm heet de knop bij een volle woning ook
+"Wisselen" en neemt hij je mee naar het inrichtscherm met dat voorwerp al in
+je hand.
+
+Op de server is dat één transactie (`/base/swap`) en niet twee verzoeken. Met
+opbergen-en-neerzetten kan het tweede verzoek mislukken terwijl het eerste al
+gelukt is; dan sta je met een lege plek. En bij een volle woning zou het
+neerzetten sowieso geweigerd worden zolang het opbergen nog niet verwerkt is.
 
 ### De plattegrond is de capaciteit
 

@@ -13,6 +13,7 @@ import {
   sellItemsSchema,
   stackValue,
   storeItemSchema,
+  swapItemSchema,
   type Rarity,
 } from '@game/shared';
 import type { FastifyInstance } from 'fastify';
@@ -257,6 +258,57 @@ export async function economyRoutes(app: FastifyInstance): Promise<void> {
 
       const current = loaded.placements.find((p) => p.id === body.placementId);
       if (current) await addItem(tx, playerId, current.itemId, 1);
+
+      const refreshed = await loadPlayer(tx, playerId);
+      const accrual = await settleVault(tx, refreshed, now);
+      return toPlayerStateDto(refreshed, accrual, now);
+    });
+  });
+
+  /**
+   * Wisselen: wat er staat gaat terug in je rugzak en het nieuwe voorwerp komt
+   * op precies dezelfde plek te staan. Eén transactie, dus je kunt hier niet
+   * halverwege stranden met een lege plek of een verdwenen voorwerp.
+   */
+  app.post('/base/swap', { preHandler: authenticate }, async (request) => {
+    const playerId = playerIdOf(request);
+    const body = swapItemSchema.parse(request.body);
+    const now = new Date();
+
+    return prisma.$transaction(async (tx) => {
+      const loaded = await loadPlayer(tx, playerId);
+      await settleVault(tx, loaded, now);
+
+      const current = loaded.placements.find((p) => p.id === body.placementId);
+      if (!current) throw new GameError('Dat staat niet in je woning.', 404, 'not_placed');
+      if (current.itemId === body.itemId) {
+        throw new GameError('Dat staat er al.', 400, 'already_placed');
+      }
+
+      const item = getItem(body.itemId);
+      const plan = floorPlanFor(loaded.player.propertyId);
+      // Controleren of het nieuwe voorwerp op die plek past, met het oude
+      // eruit gedacht: het mag groter zijn dan wat er stond, maar niet zo
+      // groot dat het de buren raakt.
+      const check = checkPlacement(
+        plan,
+        loaded.placements,
+        item.id,
+        current.x,
+        current.z,
+        current.rotation,
+        current.id,
+      );
+      if (!check.ok) {
+        throw new GameError(PLACEMENT_PROBLEM_MESSAGE[check.problem], 400, check.problem);
+      }
+
+      await removeItem(tx, playerId, item.id, 1);
+      await addItem(tx, playerId, current.itemId, 1);
+      await tx.placement.update({
+        where: { id: current.id },
+        data: { itemId: item.id },
+      });
 
       const refreshed = await loadPlayer(tx, playerId);
       const accrual = await settleVault(tx, refreshed, now);

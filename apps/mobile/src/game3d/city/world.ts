@@ -108,10 +108,19 @@ export function createWorld(
   root.add(sun);
   root.add(sun.target);
 
+  /**
+   * Zonder omgevingstextuur is er niets om in te weerspiegelen én valt een
+   * flink deel van het diffuse licht weg. Op zo'n toestel moet het hemellicht
+   * dat opvangen, anders staat de stad er veel vlakker en donkerder bij dan
+   * bedoeld — en dat is precies wat er op een telefoon zonder half-float
+   * gebeurde.
+   */
+  const ambientBoost = environment ? 1 : 2.6;
+
   const ambient = new THREE.HemisphereLight(
     new THREE.Color(lighting.palette.skyLight),
     new THREE.Color(lighting.palette.groundLight),
-    lighting.palette.skyIntensity,
+    lighting.palette.skyIntensity * ambientBoost,
   );
   root.add(ambient);
 
@@ -175,7 +184,7 @@ export function createWorld(
       sun.intensity = lighting.palette.sunIntensity;
       ambient.color.set(lighting.palette.skyLight);
       ambient.groundColor.set(lighting.palette.groundLight);
-      ambient.intensity = lighting.palette.skyIntensity;
+      ambient.intensity = lighting.palette.skyIntensity * ambientBoost;
       fog.color.set(lighting.palette.haze);
 
       if (Math.abs(hour - environmentHour) > ENVIRONMENT_STEP_HOURS) {

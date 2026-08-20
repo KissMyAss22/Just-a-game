@@ -33,6 +33,8 @@ interface GameStore {
   place: (itemId: string, spot?: { x: number; z: number; rotation: number }) => Promise<boolean>;
   moveItem: (placementId: string, x: number, z: number, rotation: number) => Promise<boolean>;
   storeItem: (placementId: string) => Promise<boolean>;
+  /** Vervangt wat er staat door iets uit je rugzak, op dezelfde plek. */
+  swapItem: (placementId: string, itemId: string) => Promise<boolean>;
   craft: (recipeId: string, times?: number) => Promise<boolean>;
   buyBoost: (boostId: string) => Promise<boolean>;
   saveProfile: (input: { displayName?: string; appearance?: Appearance }) => Promise<boolean>;
@@ -209,6 +211,20 @@ export const useGame = create<GameStore>((set, get) => ({
     set({ busy: true });
     try {
       get().applyState(await api.storeItem(placementId));
+      return true;
+    } catch (error) {
+      get().toast(error instanceof Error ? error.message : 'Mislukt');
+      return false;
+    } finally {
+      set({ busy: false });
+    }
+  },
+
+  async swapItem(placementId, itemId) {
+    if (get().busy) return false;
+    set({ busy: true });
+    try {
+      get().applyState(await api.swapItem(placementId, itemId));
       return true;
     } catch (error) {
       get().toast(error instanceof Error ? error.message : 'Mislukt');

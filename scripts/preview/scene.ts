@@ -64,6 +64,10 @@ let hour = 13;
 const world = createWorld(renderer, scene, 'hoog', () => hour);
 scene.add(world.root);
 
+// De renderproef stond alleen in de Oude Stad. Andere wijken hebben een ander
+// palet en een andere gevelsoort, en die waren dus nooit bekeken.
+const extraSpots: [number, number][] = [[-348, 124]];
+
 const character = createCharacter({ skin: '#c89066', outfit: '#2f6f5e', accent: '#e0b64a' });
 character.group.position.set(player.x, 0, player.z);
 character.group.rotation.y = Math.PI * 0.05;
@@ -139,12 +143,12 @@ const views: View[] = [
     },
   },
   {
-    name: 'schemer',
-    hour: 20.4,
+    name: 'industrieterrein in de ochtend',
+    hour: 8.3,
     height: 330,
     place: (c) => {
-      c.position.set(60, 26, 40);
-      c.lookAt(20, 34, -70);
+      c.position.set(-348, 4.5, 118);
+      c.lookAt(-348, 2.0, 160);
     },
   },
   {
@@ -166,7 +170,10 @@ for (const view of views) {
   camera.aspect = canvas.width / view.height;
   camera.updateProjectionMatrix();
   view.place(camera);
-  world.update(camera, 12, player.x, player.z);
+  // De wereld laadt rond de speler; voor een blik op een andere wijk moet hij
+  // eerst weten dat we daar kijken.
+  const focus = view.name.includes('industrie') ? extraSpots[0]! : [player.x, player.z];
+  world.update(camera, 12, focus[0]!, focus[1]!);
   crowd.update(camera, canvas.width, view.height, 0.016, hour > 19 || hour < 6 ? 1 : 0);
   renderer.setViewport(0, offset, canvas.width, view.height);
   renderer.setScissor(0, offset, canvas.width, view.height);

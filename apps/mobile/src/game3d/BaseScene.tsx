@@ -9,7 +9,7 @@ import {
   type PlacedItem,
 } from '@game/shared';
 import { Canvas, useFrame, useThree } from '@react-three/fiber/native';
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { rarityColor } from '../ui/theme';
 import { getItem } from '@game/shared';
@@ -223,17 +223,18 @@ function Furniture({
  * huis er wezenlijk anders uit dan in de stad, en dat valt meteen op als je
  * heen en weer loopt.
  */
-function Environment() {
+function Environment({ onResult }: { onResult: (ok: boolean) => void }) {
   const { gl, scene } = useThree();
   useEffect(() => {
     const texture = createEnvironment(gl, DAY_PALETTE);
+    onResult(Boolean(texture));
     if (!texture) return;
     scene.environment = texture;
     return () => {
       scene.environment = null;
       texture.dispose();
     };
-  }, [gl, scene]);
+  }, [gl, scene, onResult]);
   return null;
 }
 
@@ -249,10 +250,12 @@ export function BaseScene({
   highlight,
   highlightValid,
 }: BaseSceneProps) {
+  const [hasEnvironment, setHasEnvironment] = useState(true);
+
   return (
     <Canvas
       gl={{ antialias: true }}
-      shadows={{ type: THREE.PCFSoftShadowMap }}
+      shadows={{ type: THREE.PCFShadowMap }}
       camera={{ fov: 45, near: 0.1, far: 120, position: [0, 8, 10] }}
       onCreated={({ gl }) => {
         gl.toneMapping = THREE.ACESFilmicToneMapping;
@@ -260,8 +263,10 @@ export function BaseScene({
         gl.setClearColor('#0b1020');
       }}
     >
-      <Environment />
-      <hemisphereLight args={['#e2ecff', '#2a2620', 0.5]} />
+      <Environment onResult={setHasEnvironment} />
+      {/* Zonder omgevingstextuur valt het diffuse licht grotendeels weg; dan
+          moet het hemellicht dat opvangen. Zie city/world.ts. */}
+      <hemisphereLight args={['#e2ecff', '#2a2620', hasEnvironment ? 0.5 : 1.4]} />
       <directionalLight
         position={[7, 13, 6]}
         intensity={2.2}

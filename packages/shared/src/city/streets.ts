@@ -127,8 +127,18 @@ function pushLampRow(
         out.push({ kind: 'bin', x: x + Math.sin(rotY) * 1.1, z: z + Math.cos(rotY) * 1.1, rotY, scale: 1, variant: extra });
       } else if (extra > 0.78) {
         out.push({ kind: 'hydrant', x, z: z + 1.4, rotY: 0, scale: 1, variant: extra });
-      } else if (extra < 0.1) {
-        out.push({ kind: 'bench', x, z, rotY: rotY + Math.PI / 2, scale: 1, variant: extra });
+      } else if (extra < 0.12) {
+        // Een paar meter verderop langs de stoep, met de rug naar de gevel en
+        // het zitvlak naar de straat. Op de paal zelf stond hij eerst.
+        const along = axis === 'x' ? 0 : 1;
+        out.push({
+          kind: 'bench',
+          x: x + (along === 1 ? 3.2 : 0),
+          z: z + (along === 0 ? 3.2 : 0),
+          rotY: rotY + Math.PI,
+          scale: 1,
+          variant: extra,
+        });
       }
     }
   }

@@ -55,28 +55,28 @@ const KEYFRAMES: SkyKeyframe[] = [
     hour: 5.6,
     zenith: '#1d3b6b', horizon: '#c9805f', haze: '#d49a78', ground: '#1b1a1c', sun: '#ffb27a',
     sunLight: '#ffc79a', sunIntensity: 1.3,
-    skyLight: '#6f88b5', groundLight: '#3a3128', skyIntensity: 0.5,
+    skyLight: '#6f88b5', groundLight: '#4e4335', skyIntensity: 0.55,
     night: 0.42,
   },
   {
     hour: 8.5,
     zenith: '#2b5fa0', horizon: '#b6cbdd', haze: '#d6d6cf', ground: '#2c2b29', sun: '#ffe0b0',
     sunLight: '#fff0dc', sunIntensity: 2.7,
-    skyLight: '#a9c4e0', groundLight: '#4d463a', skyIntensity: 0.38,
+    skyLight: '#a9c4e0', groundLight: '#5f5646', skyIntensity: 0.46,
     night: 0.04,
   },
   {
     hour: 13,
     zenith: '#2f63a6', horizon: '#a8c3d8', haze: '#d8cdba', ground: '#31302d', sun: '#ffd9a0',
     sunLight: '#fffaf0', sunIntensity: 3.3,
-    skyLight: '#b9cfe4', groundLight: '#544c40', skyIntensity: 0.35,
+    skyLight: '#b9cfe4', groundLight: '#665c4c', skyIntensity: 0.42,
     night: 0,
   },
   {
     hour: 18.5,
     zenith: '#2a5a9c', horizon: '#dfb187', haze: '#e6c39a', ground: '#2e2b26', sun: '#ffcf90',
     sunLight: '#ffd9a8', sunIntensity: 2.5,
-    skyLight: '#a8bcd6', groundLight: '#57452f', skyIntensity: 0.38,
+    skyLight: '#a8bcd6', groundLight: '#6a5540', skyIntensity: 0.46,
     night: 0.05,
   },
   {
@@ -292,6 +292,17 @@ export function createEnvironment(
   renderer: THREE.WebGLRenderer,
   palette: SkyPalette = DAY_PALETTE,
 ): THREE.Texture | null {
+  // De omgevingstextuur wordt met halve floats gerenderd. Kan het toestel dat
+  // niet — en dat komt op telefoons echt voor — dan heeft doorgaan geen zin:
+  // three zou het stilletjes laten mislukken en wij zouden pas op het toestel
+  // zien dat alles vlak oogt.
+  if (
+    !renderer.extensions.has('EXT_color_buffer_half_float') &&
+    !renderer.extensions.has('EXT_color_buffer_float')
+  ) {
+    return null;
+  }
+
   let dome: SkyDome | null = null;
   let pmrem: THREE.PMREMGenerator | null = null;
   try {

@@ -39,14 +39,20 @@ float hash21(vec2 p) {
 }
 `;
 
-/** Vult vWorldPos en vObjNormal, ook als de mesh instanced is. */
-function injectWorldVaryings(shader: { vertexShader: string }): void {
+/**
+ * Vult vWorldPos, en vObjNormal alleen als het materiaal er iets mee doet.
+ *
+ * Een varying die de vertexshader wél schrijft maar de fragmentshader niet
+ * leest, levert bij elke compilatie een waarschuwing op — en op een telefoon
+ * lopen de logs daar vol mee.
+ */
+function injectWorldVaryings(shader: { vertexShader: string }, withNormal: boolean): void {
   shader.vertexShader = shader.vertexShader
     .replace(
       '#include <common>',
       `#include <common>
 varying vec3 vWorldPos;
-varying vec3 vObjNormal;`,
+${withNormal ? 'varying vec3 vObjNormal;' : ''}`,
     )
     .replace(
       '#include <begin_vertex>',
@@ -57,16 +63,20 @@ varying vec3 vObjNormal;`,
   vec4 gWorld = modelMatrix * vec4(transformed, 1.0);
 #endif
 vWorldPos = gWorld.xyz;
-vObjNormal = normal;`,
+${withNormal ? 'vObjNormal = normal;' : ''}`,
     );
 }
 
-function fragmentHeader(shader: { fragmentShader: string }, extra = ''): void {
+function fragmentHeader(
+  shader: { fragmentShader: string },
+  withNormal: boolean,
+  extra = '',
+): void {
   shader.fragmentShader = shader.fragmentShader.replace(
     '#include <common>',
     `#include <common>
 varying vec3 vWorldPos;
-varying vec3 vObjNormal;
+${withNormal ? 'varying vec3 vObjNormal;' : ''}
 uniform sampler2D uNoise;
 ${extra}
 ${GLSL_HELPERS}`,
@@ -104,8 +114,8 @@ export function createRoadMaterial(groundColor: string): THREE.MeshStandardMater
 
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uNoise = { value: sharedNoise() };
-    injectWorldVaryings(shader);
-    fragmentHeader(shader);
+    injectWorldVaryings(shader, false);
+    fragmentHeader(shader, false);
     injectSurface(
       shader,
       /* glsl */ `
@@ -163,8 +173,8 @@ export function createSidewalkMaterial(): THREE.MeshStandardMaterial {
 
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uNoise = { value: sharedNoise() };
-    injectWorldVaryings(shader);
-    fragmentHeader(shader);
+    injectWorldVaryings(shader, true);
+    fragmentHeader(shader, true);
     injectSurface(
       shader,
       /* glsl */ `
@@ -184,7 +194,7 @@ export function createSidewalkMaterial(): THREE.MeshStandardMaterial {
   float lotX = floor(vWorldPos.x / 16.0);
   float lotZ = floor(vWorldPos.z / 16.0);
   float lotTone = hash21(vec2(lotX, lotZ));
-  vec3 yard = diffuseColor.rgb * (0.52 + lotTone * 0.42 + grain * 0.18 + blotch * 0.10);
+  vec3 yard = diffuseColor.rgb * (0.78 + lotTone * 0.30 + grain * 0.16 + blotch * 0.10);
   float lotSeam = max(gridLine(vWorldPos.x / 16.0, 0.985), gridLine(vWorldPos.z / 16.0, 0.985));
   yard *= 1.0 - lotSeam * 0.35;
 
@@ -216,8 +226,8 @@ export function createGrassMaterial(): THREE.MeshStandardMaterial {
 
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uNoise = { value: sharedNoise() };
-    injectWorldVaryings(shader);
-    fragmentHeader(shader);
+    injectWorldVaryings(shader, true);
+    fragmentHeader(shader, true);
     injectSurface(
       shader,
       /* glsl */ `
@@ -496,8 +506,8 @@ export function createWaterMaterial(): THREE.MeshStandardMaterial {
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uNoise = { value: sharedNoise() };
     shader.uniforms.uTime = uTime;
-    injectWorldVaryings(shader);
-    fragmentHeader(shader, 'uniform float uTime;');
+    injectWorldVaryings(shader, false);
+    fragmentHeader(shader, false, 'uniform float uTime;');
     injectSurface(
       shader,
       /* glsl */ `

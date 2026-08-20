@@ -65,6 +65,9 @@ export default function BaseScreen() {
   const property = getProperty(state.player.propertyId);
   const vehicle = getVehicle(state.player.vehicleId);
   const placedCount = state.placements.length;
+  // Zit de woning vol, dan heeft "Plaats" geen zin meer: dan is wisselen de
+  // enige zet, en die doe je in het inrichtscherm.
+  const full = placedCount >= state.stats.slots;
   const placeable = state.inventory.filter((entry) => isPlaceable(getItem(entry.itemId)));
   const junk = state.inventory.filter((entry) => !isPlaceable(getItem(entry.itemId)));
 
@@ -165,7 +168,7 @@ export default function BaseScreen() {
         </Row>
       </Panel>
 
-      <SectionTitle hint="leveren inkomen op">Te plaatsen</SectionTitle>
+      <SectionTitle hint={full ? 'woning is vol' : 'leveren inkomen op'}>Te plaatsen</SectionTitle>
       {placeable.length === 0 ? (
         <Empty text="Zoek meubels en kunst in de stad om je inkomen te verhogen." />
       ) : (
@@ -174,8 +177,15 @@ export default function BaseScreen() {
             <ItemRow
               key={entry.itemId}
               entry={entry}
-              actionLabel="Plaats"
-              action={() => void place(entry.itemId)}
+              actionLabel={full ? 'Wisselen' : 'Plaats'}
+              action={() =>
+                full
+                  ? router.push({
+                      pathname: '/(game)/interior',
+                      params: { pak: entry.itemId },
+                    })
+                  : void place(entry.itemId)
+              }
             />
           ))}
         </Panel>

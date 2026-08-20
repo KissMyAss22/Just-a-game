@@ -63,6 +63,20 @@ export const storeItemSchema = z.object({
 });
 export type StoreItemInput = z.infer<typeof storeItemSchema>;
 
+/**
+ * Wat er staat vervangen door iets uit je rugzak, op dezelfde plek.
+ *
+ * Dit kan ook met opbergen en daarna neerzetten, maar dan zijn het twee
+ * verzoeken die allebei kunnen mislukken — en bij een volle woning lukt het
+ * tweede niet meer omdat het eerste nog niet verwerkt is. Als één handeling
+ * kan het niet halverwege stranden.
+ */
+export const swapItemSchema = z.object({
+  placementId: z.string().min(1).max(64),
+  itemId: z.string().min(1).max(64),
+});
+export type SwapItemInput = z.infer<typeof swapItemSchema>;
+
 export const buyUpgradeSchema = z.object({
   upgradeId: z.string().min(1).max(64),
 });
