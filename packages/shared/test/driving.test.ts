@@ -1,15 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { cellToWorld } from '../src/city/layout';
+import { CITY, cellToWorld } from '../src/city/layout';
 import { ECONOMY, computeStats } from '../src/economy';
 import { driveStep, toKmh, vehicleRadius, type DriveState } from '../src/driving';
 import { getVehicle } from '../src/vehicles';
 
 const sedan = getVehicle('sedan');
 /**
- * Startpunt op een kruising: het hart van een straat ligt op x = 64k + 4, dus
- * vanaf hier rij je over asfalt in plaats van meteen een gevel in.
+ * Startpunt op een kruising, uitgerekend uit de stadsdata in plaats van
+ * ingetypt: waar de straten liggen hangt af van de bloklengte, en die kan
+ * veranderen.
  */
-const stopped: DriveState = { x: 4, z: 4, heading: 0, speed: 0 };
+const kruising = cellToWorld(CITY.blockSize * 13, CITY.blockSize * 13);
+const stopped: DriveState = { x: kruising.x, z: kruising.z, heading: 0, speed: 0 };
 const TOP = ECONOMY.baseMoveSpeed * sedan.speedMultiplier;
 
 /** Laat een aantal stappen rijden en geeft de eindstand terug. */

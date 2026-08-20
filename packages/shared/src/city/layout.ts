@@ -22,8 +22,16 @@ export const CITY = {
   cellSize: 8,
   /** Aantal cellen in x- en z-richting. */
   gridSize: 128,
-  /** Cellen tussen twee wegen (cel 0 van elk blok is de weg). */
-  blockSize: 8,
+  /**
+   * Cellen tussen twee wegen; cel 0 van elk blok is de weg.
+   *
+   * Vijf cellen betekent een straat om de veertig meter en bouwblokken van
+   * tweeendertig meter breed: twee percelen diep. Daar past precies een
+   * gesloten gevelwand omheen met een binnentuin in het midden. Was dit groter
+   * (acht cellen, zoals eerst), dan bleef er middenin een leeg plein van
+   * dertig bij dertig meter over — en dat is precies wat een stad niet is.
+   */
+  blockSize: 5,
   /** Cellen per chunk; chunks worden per stuk in/uit de scene geladen. */
   chunkSize: 16,
   /** Hoogte van één verdieping in meters. */
@@ -73,10 +81,26 @@ export interface BuildingLot {
   facadeCode: number;
   /** Aantal dakopbouwen (liftschacht, installaties) op het dak. */
   roofUnits: number;
+  /** Tweede vleugel bij een hoekpand; samen vormen ze een L. */
+  wing?: BuildingWing;
   district: DistrictId;
 }
 
 export type BuildingStyle = 'house' | 'block' | 'tower';
+
+/**
+ * De tweede vleugel van een hoekpand.
+ *
+ * Een pand op een hoek ligt aan twee straten en moet aan allebei zijn gevel
+ * doorzetten tot de buren. Dat kan niet met één rechthoek — vandaar een L van
+ * twee vleugels, precies zoals een echt bouwblok op een hoek dichtloopt.
+ */
+export interface BuildingWing {
+  centerX: number;
+  centerZ: number;
+  width: number;
+  depth: number;
+}
 
 /** Maakt een hexkleur donkerder (amount 0..1). Voor daken en dakranden. */
 export function darken(hex: string, amount: number): string {
@@ -187,19 +211,17 @@ export function lotAnchor(cx: number, cz: number): { anchorX: number; anchorZ: n
 }
 
 /**
- * Hoeveel cellen dit perceel beslaat.
+ * Hoeveel cellen dit perceel beslaat: twee, of minder als het blok op is.
  *
- * Een bouwblok is zeven cellen breed: drie percelen van twee cellen en één
- * smal perceel van één cel tegen de volgende straat aan. Dat laatste perceel
- * is er bewust: zonder die rij zou elke straat maar aan één kant bebouwd zijn,
- * met aan de overkant een lege strook.
+ * Bij een blok van vijf cellen zijn dat twee percelen van twee cellen naast
+ * elkaar. Blijft er één cel over (bij een grotere bloklengte), dan wordt dat
+ * een smal perceel tegen de volgende straat aan — zonder die rij zou een
+ * straat maar aan één kant bebouwd zijn.
  */
 export function lotSize(anchorX: number, anchorZ: number): { cellsX: number; cellsZ: number } {
-  const last = CITY.blockSize - 1;
-  return {
-    cellsX: anchorX % CITY.blockSize === last ? 1 : 2,
-    cellsZ: anchorZ % CITY.blockSize === last ? 1 : 2,
-  };
+  const room = (anchor: number): number =>
+    Math.max(1, Math.min(2, CITY.blockSize - (anchor % CITY.blockSize)));
+  return { cellsX: room(anchorX), cellsZ: room(anchorZ) };
 }
 
 /** Middelpunt van een perceel in wereldcoordinaten. */
@@ -231,12 +253,22 @@ export interface LotFrontage {
   corner: boolean;
 }
 
+/**
+ * Aan welke straten dit perceel ligt.
+ *
+ * Een perceel ligt aan de westkant van een blok als het meteen achter de weg
+ * begint, en aan de oostkant als zijn achtergrens tegen de volgende weg aan
+ * ligt. Die tweede voorwaarde moet met de breedte van het perceel gerekend
+ * worden en niet met het anker: percelen zijn niet allemaal even breed.
+ */
 export function lotFrontage(anchorX: number, anchorZ: number): LotFrontage {
-  const last = CITY.blockSize - 1;
-  const west = anchorX % CITY.blockSize === 1;
-  const east = anchorX % CITY.blockSize === last;
-  const north = anchorZ % CITY.blockSize === 1;
-  const south = anchorZ % CITY.blockSize === last;
+  const size = lotSize(anchorX, anchorZ);
+  const lx = anchorX % CITY.blockSize;
+  const lz = anchorZ % CITY.blockSize;
+  const west = lx === 1;
+  const east = lx + size.cellsX === CITY.blockSize;
+  const north = lz === 1;
+  const south = lz + size.cellsZ === CITY.blockSize;
   return {
     west,
     east,
@@ -247,39 +279,6 @@ export function lotFrontage(anchorX: number, anchorZ: number): LotFrontage {
   };
 }
 
-/**
- * Bepaalt voor één as hoe diep het pand is en waar het staat.
- *
- * Drie gevallen: het pand staat met zijn gevel aan de straat (dan telt de
- * diepte vanaf de rooilijn), het maakt deel uit van een rij die langs déze as
- * loopt (dan vult het de volle perceelbreedte, zodat het zijn buren raakt), of
- * het staat achteraf op het binnenterrein en is vrijstaand.
- */
-function axisExtent(
-  span: number,
-  center: number,
-  frontLow: boolean,
-  frontHigh: boolean,
-  alongStreet: boolean,
-  corner: boolean,
-  depthScale: number,
-  jitter: number,
-): { size: number; center: number } {
-  if (frontLow || frontHigh) {
-    // Op een hoek vult het pand het perceel tot achteren, zodat het aansluit
-    // op de rij die erachter doorloopt.
-    const size = corner
-      ? span - BUILDING_LINE_SETBACK
-      : Math.min(span - BUILDING_LINE_SETBACK, span * depthScale + 1.5);
-    const offset = span / 2 - BUILDING_LINE_SETBACK - size / 2;
-    return { size, center: frontLow ? center - offset : center + offset };
-  }
-  if (alongStreet) {
-    return { size: span + PARTY_WALL_OVERLAP, center };
-  }
-  return { size: span * (0.52 + jitter * 0.26), center: center + (jitter - 0.5) * 1.4 };
-}
-
 /** Hoe ver de gevel van de perceelgrens af staat: de breedte van de stoep. */
 const BUILDING_LINE_SETBACK = 0.6;
 /**
@@ -287,6 +286,18 @@ const BUILDING_LINE_SETBACK = 0.6;
  * twee vlakken op exact dezelfde plek, en dat kan gaan flikkeren.
  */
 const PARTY_WALL_OVERLAP = 0.04;
+/** Hoeveel er achter een vleugel vrij blijft; dat wordt de binnentuin. */
+const COURTYARD_MIN = 4.5;
+/** Vanaf zoveel verdiepingen wordt het geen rijtje meer maar een toren. */
+const TOWER_FLOORS = 9;
+
+/**
+ * De diepte van een vleugel: ver genoeg voor een woning, maar nooit zo diep
+ * dat de binnentuin verdwijnt.
+ */
+function wingDepth(span: number, scale: number): number {
+  return Math.max(6.5, Math.min(span - COURTYARD_MIN, span * scale));
+}
 
 export function buildingAtCell(cx: number, cz: number): BuildingLot | null {
   const anchor = lotAnchor(cx, cz);
@@ -326,32 +337,66 @@ export function buildingAtCell(cx: number, cz: number): BuildingLot | null {
   const spanX = size.cellsX * CITY.cellSize;
   const spanZ = size.cellsZ * CITY.cellSize;
   const center = lotCenter(anchorX, anchorZ);
+  const depthScale = 0.55 + valueAt(CITY.seed + 2, anchorX, anchorZ) * 0.22;
 
-  const depthScale = 0.58 + valueAt(CITY.seed + 2, anchorX, anchorZ) * 0.24;
-  const axisX = axisExtent(
-    spanX,
-    center.x,
-    frontage.west,
-    frontage.east,
-    frontage.north || frontage.south,
-    frontage.corner,
-    depthScale,
-    valueAt(CITY.seed + 8, anchorX, anchorZ),
-  );
-  const axisZ = axisExtent(
-    spanZ,
-    center.z,
-    frontage.north,
-    frontage.south,
-    frontage.west || frontage.east,
-    frontage.corner,
-    depthScale,
-    valueAt(CITY.seed + 9, anchorX, anchorZ),
-  );
-  const width = axisX.size;
-  const depth = axisZ.size;
-  const centerX = axisX.center;
-  const centerZ = axisZ.center;
+  /** Waar de gevel komt te staan langs één as. */
+  const line = (span: number, middle: number, wing: number, low: boolean): number =>
+    low
+      ? middle - span / 2 + BUILDING_LINE_SETBACK + wing / 2
+      : middle + span / 2 - BUILDING_LINE_SETBACK - wing / 2;
+
+  let width: number;
+  let depth: number;
+  let centerX: number;
+  let centerZ: number;
+  let wing: BuildingWing | undefined;
+
+  if (!frontage.street) {
+    // Achteraf op het blok: een vrijstaand bijgebouw in de tuin.
+    width = spanX * 0.48;
+    depth = spanZ * 0.48;
+    centerX = center.x + (valueAt(CITY.seed + 8, anchorX, anchorZ) - 0.5) * 2.2;
+    centerZ = center.z + (valueAt(CITY.seed + 9, anchorX, anchorZ) - 0.5) * 2.2;
+  } else if (floors >= TOWER_FLOORS) {
+    // Een toren vult het hele perceel tot aan de rooilijn. Een L-vorm van
+    // twintig verdiepingen is geen gebouw meer maar een muur.
+    width = spanX - BUILDING_LINE_SETBACK;
+    depth = spanZ - BUILDING_LINE_SETBACK;
+    centerX = frontage.west
+      ? center.x + BUILDING_LINE_SETBACK / 2
+      : center.x - BUILDING_LINE_SETBACK / 2;
+    centerZ = frontage.north
+      ? center.z + BUILDING_LINE_SETBACK / 2
+      : center.z - BUILDING_LINE_SETBACK / 2;
+  } else {
+    // Rijtjes: elke vleugel staat met zijn gevel aan de straat en vult het
+    // perceel van buur tot buur. Een hoekpand krijgt er twee, samen een L —
+    // zo sluit het blok rondom en blijft er middenin een binnentuin over.
+    const alongX = frontage.north || frontage.south;
+    const alongZ = frontage.west || frontage.east;
+    const depthZ = wingDepth(spanZ, depthScale);
+    const depthX = wingDepth(spanX, 0.55 + valueAt(CITY.seed + 7, anchorX, anchorZ) * 0.22);
+
+    if (alongX) {
+      width = spanX + PARTY_WALL_OVERLAP;
+      centerX = center.x;
+      depth = depthZ;
+      centerZ = line(spanZ, center.z, depthZ, frontage.north);
+      if (alongZ) {
+        wing = {
+          width: depthX,
+          depth: spanZ + PARTY_WALL_OVERLAP,
+          centerX: line(spanX, center.x, depthX, frontage.west),
+          centerZ: center.z,
+        };
+      }
+    } else {
+      width = depthX;
+      centerX = line(spanX, center.x, depthX, frontage.west);
+      depth = spanZ + PARTY_WALL_OVERLAP;
+      centerZ = center.z;
+    }
+  }
 
   const color = district.palette[paletteIndex] ?? '#888888';
   const style: BuildingStyle = floors <= 3 ? 'house' : floors <= 8 ? 'block' : 'tower';
@@ -377,6 +422,7 @@ export function buildingAtCell(cx: number, cz: number): BuildingLot | null {
     style,
     setback,
     seed,
+    wing,
     facade: district.facade,
     facadeCode: FACADE_CODE[district.facade],
     roofUnits,
@@ -394,6 +440,19 @@ export function cellType(cx: number, cz: number): CellType {
 // Botsingen / begaanbaarheid
 // ---------------------------------------------------------------------------
 
+/** Staat een cirkel met straal `radius` binnen deze rechthoek? */
+function blocks(
+  x: number,
+  z: number,
+  centerX: number,
+  centerZ: number,
+  width: number,
+  depth: number,
+  radius: number,
+): boolean {
+  return Math.abs(x - centerX) < width / 2 + radius && Math.abs(z - centerZ) < depth / 2 + radius;
+}
+
 /**
  * Mag de speler (een cirkel met straal `radius`) hier staan?
  * Controleert water en de rechthoeken van gebouwen in de buurt.
@@ -408,11 +467,11 @@ export function isWalkable(x: number, z: number, radius = 0.45): boolean {
     for (let dx = -reach; dx <= reach; dx++) {
       const lot = buildingAtCell(cx + dx, cz + dz);
       if (!lot) continue;
-      const halfW = lot.width / 2 + radius;
-      const halfD = lot.depth / 2 + radius;
+      // Een hoekpand is een L; beide vleugels zijn muur.
+      if (blocks(x, z, lot.centerX, lot.centerZ, lot.width, lot.depth, radius)) return false;
       if (
-        Math.abs(x - lot.centerX) < halfW &&
-        Math.abs(z - lot.centerZ) < halfD
+        lot.wing &&
+        blocks(x, z, lot.wing.centerX, lot.wing.centerZ, lot.wing.width, lot.wing.depth, radius)
       ) {
         return false;
       }
@@ -478,6 +537,9 @@ export function chunkAtWorld(x: number, z: number): { chunkX: number; chunkZ: nu
 export function buildChunk(chunkX: number, chunkZ: number): ChunkContent {
   const startX = chunkX * CITY.chunkSize;
   const startZ = chunkZ * CITY.chunkSize;
+  const chunkSpan = CITY.chunkSize * CITY.cellSize;
+  const startWorldX = (startX - CITY.gridSize / 2) * CITY.cellSize;
+  const startWorldZ = (startZ - CITY.gridSize / 2) * CITY.cellSize;
   const buildings: BuildingLot[] = [];
   const green: ChunkContent['green'] = [];
   const water: ChunkContent['water'] = [];
@@ -518,6 +580,47 @@ export function buildChunk(chunkX: number, chunkZ: number): ChunkContent {
           seed,
         });
       }
+    }
+  }
+
+  // Binnentuinen: het hart van elk bouwblok. De vleugels laten daar bewust
+  // ruimte over, en zonder groen zou dat een verhard achtererf blijven — precies
+  // het lege plein waar we vanaf wilden.
+  // Let op: een blok begint met een wegcel. Het bebouwde deel — en dus ook
+  // het hart van de binnentuin — ligt een cel verderop.
+  const blockInterior = (CITY.blockSize - 1) * CITY.cellSize;
+  const firstBlock = Math.floor(startX / CITY.blockSize);
+  const lastBlock = Math.floor((startX + CITY.chunkSize - 1) / CITY.blockSize);
+  const firstBlockZ = Math.floor(startZ / CITY.blockSize);
+  const lastBlockZ = Math.floor((startZ + CITY.chunkSize - 1) / CITY.blockSize);
+  const gridHalf = CITY.gridSize / 2;
+
+  for (let bz = firstBlockZ; bz <= lastBlockZ; bz++) {
+    for (let bx = firstBlock; bx <= lastBlock; bx++) {
+      const originX = (bx * CITY.blockSize - gridHalf) * CITY.cellSize;
+      const originZ = (bz * CITY.blockSize - gridHalf) * CITY.cellSize;
+      const centerX = originX + CITY.cellSize + blockInterior / 2;
+      const centerZ = originZ + CITY.cellSize + blockInterior / 2;
+      // Alleen tekenen bij het blok dat er het meest van in deze chunk ligt,
+      // anders staat dezelfde tuin er straks twee keer.
+      if (
+        centerX < startWorldX ||
+        centerX >= startWorldX + chunkSpan ||
+        centerZ < startWorldZ ||
+        centerZ >= startWorldZ + chunkSpan
+      ) {
+        continue;
+      }
+      const seed = valueAt(CITY.seed + 14, bx, bz);
+      const size = 6.5 + seed * 3.0;
+      const reach = size / 2;
+      // Staat er een toren op het blok, dan is er geen binnentuin meer over.
+      const open =
+        isWalkable(centerX - reach, centerZ - reach, 0.3) &&
+        isWalkable(centerX + reach, centerZ - reach, 0.3) &&
+        isWalkable(centerX - reach, centerZ + reach, 0.3) &&
+        isWalkable(centerX + reach, centerZ + reach, 0.3);
+      if (open) green.push({ x: centerX, z: centerZ, size, seed });
     }
   }
 

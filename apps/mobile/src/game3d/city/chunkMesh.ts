@@ -214,6 +214,23 @@ function buildBuildings(content: ChunkContent, quality: ChunkQuality): THREE.Obj
 
   for (const lot of content.buildings) {
     const color = new THREE.Color(lot.color);
+    // De tweede vleugel van een hoekpand: zelfde hoogte, kleur en gevelsoort,
+    // zodat de L als één gebouw leest.
+    if (lot.wing) {
+      boxes.push({
+        x: lot.wing.centerX,
+        z: lot.wing.centerZ,
+        baseY: SIDEWALK_HEIGHT,
+        width: lot.wing.width,
+        height: lot.height,
+        depth: lot.wing.depth,
+        color,
+        seed: lot.seed,
+        floors: lot.floors,
+        offset: 0,
+        facade: lot.facadeCode,
+      });
+    }
     if (lot.setback > 0) {
       const podium = lot.height * lot.setback;
       boxes.push({

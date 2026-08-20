@@ -12,6 +12,7 @@ import {
   findSpawnPoint,
   isWalkable,
   lotCenter,
+  lotFrontage,
   lotSize,
   resolveMovement,
   spawnPosition,
@@ -152,13 +153,21 @@ describe('spawnpunten', () => {
 });
 
 describe('straatprofiel', () => {
-  it('legt het rijdek op de weg-as en de stoep op het bouwblok', () => {
-    // De as van een straat ligt op x = 64k + 4.
-    expect(isAsphalt(4, 20)).toBe(true);
-    expect(groundHeightAt(4, 20)).toBe(0);
-    // Midden in een bouwblok is geen asfalt.
-    expect(isAsphalt(36, 36)).toBe(false);
-    expect(groundHeightAt(36, 36)).toBe(SIDEWALK_HEIGHT);
+  it('legt het rijdek precies op de cellen die een weg zijn', () => {
+    // Dit is de afspraak die ooit stilzwijgend brak toen de bloklengte
+    // veranderde: de as van de straat moet samenvallen met de wegcellen.
+    for (let cx = 0; cx < CITY.gridSize; cx++) {
+      const world = cellToWorld(cx, 64);
+      if (cx % CITY.blockSize !== 0) continue;
+      expect(isAsphalt(world.x, world.z)).toBe(true);
+      expect(groundHeightAt(world.x, world.z)).toBe(0);
+    }
+  });
+
+  it('legt de stoep hoger dan het rijdek, midden op het blok', () => {
+    const midden = cellToWorld(3, 3);
+    expect(isAsphalt(midden.x, midden.z)).toBe(false);
+    expect(groundHeightAt(midden.x, midden.z)).toBe(SIDEWALK_HEIGHT);
   });
 
   it('houdt het rijdek smaller dan de wegcel, zodat er stoep overblijft', () => {
@@ -225,13 +234,37 @@ describe('gebouwvormen', () => {
   });
 
   it('bebouwt beide kanten van elke straat', () => {
-    // Zonder de smalle perceelrij tegen de volgende straat aan zou elke straat
-    // maar aan één kant een gevelwand hebben.
+    // Zonder een perceelrij tegen de volgende straat aan zou elke straat maar
+    // aan één kant een gevelwand hebben.
     const chunk = buildChunk(4, 4);
-    const westkant = chunk.buildings.filter((b) => b.anchorX % CITY.blockSize === 1);
-    const oostkant = chunk.buildings.filter((b) => b.anchorX % CITY.blockSize === CITY.blockSize - 1);
-    expect(westkant.length).toBeGreaterThan(0);
-    expect(oostkant.length).toBeGreaterThan(0);
+    const west = chunk.buildings.filter((b) => lotFrontage(b.anchorX, b.anchorZ).west);
+    const oost = chunk.buildings.filter((b) => lotFrontage(b.anchorX, b.anchorZ).east);
+    expect(west.length).toBeGreaterThan(0);
+    expect(oost.length).toBeGreaterThan(0);
+  });
+
+  it('maakt van een hoekpand een L, zodat het blok op de hoek dichtloopt', () => {
+    const chunk = buildChunk(4, 4);
+    const hoeken = chunk.buildings.filter((b) => lotFrontage(b.anchorX, b.anchorZ).corner);
+    expect(hoeken.length).toBeGreaterThan(0);
+    // Lage hoekpanden krijgen twee vleugels; een toren vult het perceel zelf.
+    const rijtjes = hoeken.filter((b) => b.floors < 9);
+    expect(rijtjes.length).toBeGreaterThan(0);
+    for (const lot of rijtjes) expect(lot.wing).toBeDefined();
+  });
+
+  it('houdt midden in elk bouwblok ruimte over voor een binnentuin', () => {
+    // Het hart van een blok moet begaanbaar blijven. Bouwden de vleugels tot
+    // achteraan door, dan werd elk blok één massief blok beton.
+    const chunk = buildChunk(4, 4);
+    let tuinen = 0;
+    for (let blok = 0; blok < 3; blok++) {
+      const cel = 4 * CITY.chunkSize + blok * CITY.blockSize + Math.floor(CITY.blockSize / 2) + 1;
+      const midden = cellToWorld(cel, cel);
+      if (isWalkable(midden.x, midden.z, 0.45)) tuinen++;
+    }
+    expect(tuinen).toBeGreaterThan(0);
+    expect(chunk.buildings.length).toBeGreaterThan(0);
   });
 
   it('zet groen alleen op onbebouwde percelen', () => {

@@ -306,7 +306,7 @@ ${GLSL_HELPERS}`,
   // Detail dat kleiner wordt dan een pixel gaat moireren. Daarom vervaagt fijn
   // werk (metselverband, naden) eerder dan grof werk (ramen), net zoals een
   // mipmap dat zou doen.
-  float fineDetail = 1.0 - smoothstep(14.0, 42.0, viewDist);
+  float fineDetail = 1.0 - smoothstep(26.0, 75.0, viewDist);
   float detail = 1.0 - smoothstep(120.0, 300.0, viewDist);
 
   float style = vInfo.w;
@@ -373,10 +373,15 @@ ${GLSL_HELPERS}`,
                 + isCurtain * vec2(0.05, 0.95)
                 + isPanel   * vec2(0.24, 0.76);
 
-  // Begane grond: pui in plaats van ramen.
+  // Begane grond: pui in plaats van ramen. En ongeveer een kwart van de
+  // traveeen is geen winkel maar een voordeur — een straat zonder deuren
+  // leest als een decorstuk.
   float ground = step(floorIndex, 0.5);
+  float door = ground * step(0.74, hash21(vec2(columnIndex + 5.0, vInfo.x * 31.0 + 3.0)));
   rowRange = mix(rowRange, vec2(0.10, 0.88), ground);
   colRange = mix(colRange, vec2(0.06, 0.94), ground);
+  rowRange = mix(rowRange, vec2(0.03, 0.74), door);
+  colRange = mix(colRange, vec2(0.30, 0.70), door);
 
   float edgeY = min(fy - rowRange.x, rowRange.y - fy);
   float edgeX = min(fx - colRange.x, colRange.y - fx);
@@ -409,13 +414,37 @@ ${GLSL_HELPERS}`,
   vec3 frameColor = mix(vec3(0.86, 0.85, 0.82), vec3(0.16, 0.17, 0.19), isCurtain);
 
   vec3 surface = wall;
+
+  // Kroonlijst onder de dakrand en een cordonlijst boven de begane grond.
+  // Twee horizontale lijnen die een gevel meteen laten lezen als architectuur
+  // in plaats van als een uitgerekt blok.
+  float top = vSize.y + vInfo.z;
+  float cornice = step(top - 1.25, height) * (1.0 - step(top - 0.80, height)) * side;
+  float stringCourse = ground * step(0.93, fy) * side;
+  surface = mix(surface, base * 1.28 + vec3(0.03), max(cornice, stringCourse));
+  // Een schaduwlijntje eronder geeft de lijst diepte.
+  surface *= 1.0 - step(top - 1.40, height) * (1.0 - step(top - 1.25, height)) * side * 0.30;
+
   surface = mix(surface, frameColor * (0.7 + weather * 0.4), frame);
   surface = mix(surface, glassColor, pane);
+  // De deur is geen ruit maar hout of staal, met een lichte dorpel.
+  vec3 doorColor = mix(vec3(0.20, 0.13, 0.09), vec3(0.10, 0.13, 0.16), step(0.5, vInfo.x));
+  surface = mix(surface, doorColor * (0.8 + weather * 0.5), pane * door);
   surface = mix(surface, mix(base, vec3(0.78), 0.55), sill);
+
+  // Luifel boven een deel van de puien. Gestreept, in een eigen kleur per
+  // pand — dat is precies het soort rommeligheid dat een straat echt maakt.
+  float awning = ground * (1.0 - door)
+    * step(0.86, hash21(vec2(columnIndex + 11.0, vInfo.x * 17.0)))
+    * step(0.90, fy) * (1.0 - step(0.99, fy))
+    * step(0.02, fx) * (1.0 - step(0.98, fx)) * side;
+  vec3 awningColor = mix(vec3(0.55, 0.14, 0.12), vec3(0.10, 0.28, 0.20), step(0.5, vInfo.x));
+  awningColor = mix(awningColor, vec3(0.86, 0.84, 0.78), step(0.5, fract(across / 0.35)));
+  surface = mix(surface, awningColor, awning);
 
   // ---- dak ----------------------------------------------------------------
   float roofGrey = dot(diffuseColor.rgb, vec3(0.30, 0.59, 0.11));
-  vec3 roofColor = mix(vec3(roofGrey), diffuseColor.rgb, 0.22) * (0.40 + grain * 0.20);
+  vec3 roofColor = mix(vec3(roofGrey), diffuseColor.rgb, 0.22) * (0.28 + grain * 0.16);
   vec2 rel = abs(vec2(vLocalPos.x / max(vSize.x, 0.001), vLocalPos.z / max(vSize.z, 0.001))) * 2.0;
   float coping = step(0.88, max(rel.x, rel.y)) * roof;
   roofColor = mix(roofColor, vec3(0.42, 0.41, 0.39), coping * 0.8);

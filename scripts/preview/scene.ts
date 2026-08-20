@@ -121,12 +121,12 @@ interface View {
 
 const views: View[] = [
   {
-    name: 'ochtend',
-    hour: 8.5,
+    name: 'gevel van dichtbij',
+    hour: 11,
     height: 460,
     place: (c) => {
-      c.position.set(13.0, 3.0, 4.0);
-      c.lookAt(4.5, 1.0, 13.0);
+      c.position.set(14.0, 4.0, 30.0);
+      c.lookAt(30.0, 6.0, 46.0);
     },
   },
   {

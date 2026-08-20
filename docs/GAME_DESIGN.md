@@ -37,19 +37,25 @@ inkomen → verder de stad in.**
 ## 3. De stad
 
 128 × 128 cellen van 8 meter = **1.024 × 1.024 meter**. Wegen liggen op elk
-achtvoud, dus straten om de 64 meter.
+vijfvoud, dus straten om de 40 meter. Wat ertussen ligt is een bouwblok van
+32 meter breed: precies twee percelen van 2 × 2 cellen (16 × 16 m) diep.
 
-Een bouwblok is zeven cellen breed: drie percelen van 2 × 2 cellen (16 × 16 m)
-en één smal perceel van één cel tegen de volgende straat aan. Dat smalle
-perceel is er bewust — zonder die rij zou elke straat maar aan één kant een
-gevelwand hebben, met aan de overkant een lege strook.
+**Dat blok is een ring, geen plein.** Elk perceel ligt aan twee straten, en
+daar staat een pand met twee vleugels — een L — die elk hun gevel doorzetten
+tot de buren. Vier van die L'en sluiten het blok rondom, en wat er in het
+midden overblijft is een binnentuin van acht tot tien meter, met gras en
+bomen. Dat is hoe een stadsblok in het echt in elkaar zit.
 
-**Panden aan een straat staan in een rij.** Ze vullen hun perceel van buur tot
-buur en staan op één rooilijn, zodat ze een aaneengesloten gevelwand vormen;
-alleen de diepte en de hoogte verschillen per pand. Hoekpanden vullen het hele
-hoekperceel. Achter op het blok is het juist open: daar staat maar zelden iets,
-en dan laag — dat worden de binnenterreinen en tuinen. Losse dozen met gaten
-ertussen zien er nu eenmaal uit als een maquette, niet als een stad.
+Panden staan op één rooilijn en vullen hun perceel van buur tot buur; alleen
+diepte, hoogte en kleur verschillen. Vanaf negen verdiepingen wordt het geen
+rijtje meer maar een toren die het hele perceel vult — een L van twintig hoog
+is geen gebouw meer maar een muur.
+
+Dit is de tweede opzet. De eerste had blokken van 56 meter met alleen
+bebouwing langs de randen, en dan blijft er middenin een leeg plein van dertig
+bij dertig meter over. Op een schermafdruk was dat meteen te zien: een speler
+op een enorme verlaten vlakte, met de stad ergens in de verte. Kleinere blokken
+lossen dat op zonder aan het aantal gebouwen te tornen.
 
 Alles wordt afgeleid uit `CITY.seed` met een deterministische generator
 (`mulberry32`), dus de stad ziet er op elk toestel en op de server exact
@@ -89,7 +95,8 @@ Wat er per onderdeel gebeurt:
 | Gevels | Vier soorten: stuc, metselwerk, vliesgevel en betonpanelen — per district. De shader tekent verdiepingen, ramen met kozijn en vensterbank, een plint, en op de begane grond een pui. |
 | Ramen | Meestal donker glas dat de lucht weerspiegelt; overdag brandt er maar in enkele licht. Elk raam krijgt een minieme knik in de normaal, anders weerspiegelt een vlakke gevel overal precies dezelfde kleur. |
 | Daken | Bitumen in plaats van gevelkleur, met een dakrand en één tot drie dakopbouwen (liftschacht, installaties). |
-| Straatmeubilair | Lantaarns, bomen, banken, prullenbakken, brandkranen en geparkeerde auto's. Per soort één instanced mesh voor het hele zichtveld. |
+| Straatmeubilair | Lantaarns, bomen, banken, prullenbakken, brandkranen en geparkeerde auto's. Per soort één instanced mesh voor het hele zichtveld. Auto's parkeren aan één kant van de straat — aan twee kanten stond je met je eigen auto klem. |
+| Straatniveau | Winkelpuien, voordeuren, gestreepte luifels, cordonlijsten en een kroonlijst onder de dakrand. Dat is het detail dat een gevel van een blok een gebouw maakt. |
 | Lucht | Een bol met een verloop, zon en meeschuivende wolken. Wordt als eerste getekend met de dieptetest uit, zodat de far-plane van de camera kort kan blijven. |
 | Omgevingslicht | Dezelfde lucht wordt omgezet naar een omgevingstextuur. Zonder die textuur heeft glas niets om in te spiegelen en wordt elk raam zwart. |
 | Schaduw | Eén zonlicht met een schaduwcamera die de speler volgt. Plus een donkere aanzet waar een gevel de stoep raakt — echte omgevingsocclusie is op een telefoon te duur, maar die vlek doet visueel bijna hetzelfde werk. |

@@ -11,22 +11,42 @@ import { valueAt } from '../rng';
  * hoogte wil je later ook op de server kunnen narekenen.
  */
 
+function wrap(value: number, period: number): number {
+  return ((value % period) + period) % period;
+}
+
 /** Afstand tussen twee evenwijdige straten, in meters. */
-export const ROAD_PERIOD = CITY.blockSize * CITY.cellSize; // 64 m
-/** Waar het hart van de straat ligt binnen zo'n periode. */
-export const ROAD_CENTER_OFFSET = CITY.cellSize / 2; // 4 m
-/** Halve breedte van het rijdek. De rest van de wegcel is stoep. */
-export const ASPHALT_HALF_WIDTH = 2.6;
+export const ROAD_PERIOD = CITY.blockSize * CITY.cellSize;
+
+/**
+ * Waar het hart van de straat ligt binnen zo'n periode.
+ *
+ * Dit móet uitgerekend worden en niet aangenomen. Een weg ligt op elke cel
+ * waarvan de index deelbaar is door de bloklengte, en het middelpunt van cel 0
+ * ligt niet op nul: de stad is om de oorsprong heen gecentreerd. Bij de oude
+ * bloklengte kwam dat toevallig op precies een halve cel uit, waardoor de
+ * aanname jarenlang goed leek — tot de bloklengte veranderde en de stoepen,
+ * de belijning en het straatmeubilair acht meter naast de weg belandden.
+ */
+export const ROAD_CENTER_OFFSET = wrap(
+  CITY.cellSize / 2 - (CITY.gridSize / 2) * CITY.cellSize,
+  ROAD_PERIOD,
+);
+/**
+ * Halve breedte van het rijdek. De rest van de wegcel is stoep.
+ *
+ * Zes meter asfalt klinkt smal, maar met geparkeerde auto's aan één kant
+ * blijft er ruim vier meter rijstrook over. Bij een smaller rijdek stond je
+ * met je auto klem tussen twee rijen geparkeerde auto's, en dat was precies
+ * wat er gebeurde toen rijden erbij kwam.
+ */
+export const ASPHALT_HALF_WIDTH = 3.0;
 /** Hoogteverschil tussen rijdek en stoep. */
 export const SIDEWALK_HEIGHT = 0.16;
 /** Afstand van het hart van de weg tot de rij lantaarns. */
 export const LAMP_OFFSET = 3.3;
 /** Om de hoeveel meter staat er een lantaarn. */
 export const LAMP_SPACING = 24;
-
-function wrap(value: number, period: number): number {
-  return ((value % period) + period) % period;
-}
 
 /** Afstand tot de dichtstbijzijnde straat-as, in één richting. */
 export function distanceToRoadAxis(v: number): number {
@@ -80,8 +100,8 @@ export interface StreetProp {
  * server een speler die nu op een geldige plek staat ineens afkeuren. Dat is
  * het niet waard voor een aangeklede straat.
  */
-const CAR_OFFSET = 1.55;
-const CAR_SPACING = 22;
+const CAR_OFFSET = 2.0;
+const CAR_SPACING = 20;
 
 function pushLampRow(
   out: StreetProp[],
@@ -122,19 +142,20 @@ function pushCarRow(
   to: number,
   seed: number,
 ): void {
+  // Aan één kant parkeren, net als in een smalle straat. Welke kant het is
+  // ligt vast per straat, zodat het niet per chunk verspringt.
+  const side = valueAt(seed + 21, Math.round(axisValue), axis === 'x' ? 0 : 1) < 0.5 ? -1 : 1;
   const first = Math.ceil(from / CAR_SPACING) * CAR_SPACING;
   for (let along = first; along < to; along += CAR_SPACING) {
-    for (const side of [-1, 1] as const) {
-      const x = axis === 'x' ? axisValue + side * CAR_OFFSET : along;
-      const z = axis === 'x' ? along : axisValue + side * CAR_OFFSET;
-      const chance = valueAt(seed + 3, x | 0, z | 0);
-      if (chance > 0.42) continue;
-      const cell = worldCell(x, z);
-      if (isWaterCell(cell.cx, cell.cz)) continue;
-      // Een auto langs een noord-zuidstraat staat in de rijrichting.
-      const rotY = axis === 'x' ? 0 : Math.PI / 2;
-      out.push({ kind: 'car', x, z, rotY, scale: 1, variant: valueAt(seed + 4, x | 0, z | 0) });
-    }
+    const x = axis === 'x' ? axisValue + side * CAR_OFFSET : along;
+    const z = axis === 'x' ? along : axisValue + side * CAR_OFFSET;
+    const chance = valueAt(seed + 3, x | 0, z | 0);
+    if (chance > 0.5) continue;
+    const cell = worldCell(x, z);
+    if (isWaterCell(cell.cx, cell.cz)) continue;
+    // Een auto langs een noord-zuidstraat staat in de rijrichting.
+    const rotY = axis === 'x' ? 0 : Math.PI / 2;
+    out.push({ kind: 'car', x, z, rotY, scale: 1, variant: valueAt(seed + 4, x | 0, z | 0) });
   }
 }
 
