@@ -95,5 +95,5 @@ function shoot(page, file, width, height) {
 }
 
 console.log('Renderen...');
-shoot('index.html', 'stad.png', 900, 1500);
+shoot('index.html', 'stad.png', 900, 1930);
 shoot('items.html', 'items.png', 1100, 900);

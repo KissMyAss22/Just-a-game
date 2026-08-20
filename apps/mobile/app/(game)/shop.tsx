@@ -1,17 +1,15 @@
 import { formatDuration, formatMoney, type PlayerStateDto } from '@game/shared';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import * as api from '../../src/net/api';
 import { useGame } from '../../src/state/useGame';
-import { Button, Panel, Row, SectionTitle } from '../../src/ui/components';
+import { Button, Panel, Row, Screen, SectionTitle } from '../../src/ui/components';
 import { theme } from '../../src/ui/theme';
 
 type Tab = 'upgrades' | 'properties' | 'vehicles' | 'boosts';
 
 export default function ShopScreen() {
-  const insets = useSafeAreaInsets();
   const applyState = useGame((s) => s.applyState);
   const toast = useGame((s) => s.toast);
   const buyBoost = useGame((s) => s.buyBoost);
@@ -59,10 +57,7 @@ export default function ShopScreen() {
   }
 
   return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={{ padding: 14, paddingTop: insets.top + 10, paddingBottom: 40 }}
-    >
+    <Screen>
       <Row style={{ justifyContent: 'space-between' }}>
         <Text style={styles.title}>Winkel</Text>
         <Text style={styles.cash}>{formatMoney(shop.cash)}</Text>
@@ -234,12 +229,11 @@ export default function ShopScreen() {
           ))}
         </>
       ) : null}
-    </ScrollView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: theme.color.bg },
   loading: { flex: 1, backgroundColor: theme.color.bg, alignItems: 'center', justifyContent: 'center' },
   title: { color: theme.color.text, fontSize: 26, fontWeight: '800' },
   cash: { color: theme.color.cash, fontSize: 18, fontWeight: '800' },

@@ -147,6 +147,19 @@ export const rebirthSchema = z.object({
 });
 export type RebirthInput = z.infer<typeof rebirthSchema>;
 
+/**
+ * Iets weggooien uit je rugzak.
+ *
+ * Bewust een aparte route en geen verkoop met opbrengst nul: weggooien levert
+ * niets op en hoort dus niet in het grootboek, en het onderscheid maakt in de
+ * logs meteen duidelijk of iemand iets kwijtraakte of verkocht.
+ */
+export const discardItemsSchema = z.object({
+  itemId: z.string().min(1).max(64),
+  quantity: z.number().int().min(1).max(9999),
+});
+export type DiscardItemsInput = z.infer<typeof discardItemsSchema>;
+
 export const reportPositionSchema = z.object({
   x: z.number().finite(),
   z: z.number().finite(),

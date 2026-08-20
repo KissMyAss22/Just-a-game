@@ -1,13 +1,12 @@
 import { ITEMS, formatMoney, getItem } from '@game/shared';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import * as api from '../../src/net/api';
 import { playerPosition, setPlayerPosition } from '../../src/state/position';
 import { useGame } from '../../src/state/useGame';
 import { useSettings } from '../../src/state/useSettings';
-import { Button, Panel, Row, SectionTitle } from '../../src/ui/components';
+import { Button, Panel, Row, Screen, SectionTitle } from '../../src/ui/components';
 import { rarityColor, theme } from '../../src/ui/theme';
 
 /**
@@ -76,7 +75,6 @@ function Choices<T>({
 }
 
 export default function DevScreen() {
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const applyState = useGame((s) => s.applyState);
   const toast = useGame((s) => s.toast);
@@ -143,15 +141,7 @@ export default function DevScreen() {
   const quantity = Math.max(1, Math.min(999, Math.round(Number(amount) || 1)));
 
   return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={{
-        padding: theme.space(4),
-        paddingTop: insets.top + theme.space(4),
-        paddingBottom: insets.bottom + theme.space(10),
-        gap: theme.space(3),
-      }}
-    >
+    <Screen gap={theme.space(3)}>
       <Row style={{ justifyContent: 'space-between', alignItems: 'center' }}>
         <Text style={styles.title}>Testgereedschap</Text>
         <Button label="Terug" tone="ghost" compact onPress={() => router.back()} />
@@ -429,12 +419,11 @@ export default function DevScreen() {
           een nieuwe speler met voorsprong. Het grootboek blijft staan.
         </Text>
       </Panel>
-    </ScrollView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: theme.color.bg },
   title: { color: theme.color.text, fontSize: 26, fontWeight: '800' },
   hint: { color: theme.color.textDim, fontSize: 12, fontWeight: '700' },
   note: { color: theme.color.textDim, fontSize: 12, marginTop: 10, lineHeight: 17 },

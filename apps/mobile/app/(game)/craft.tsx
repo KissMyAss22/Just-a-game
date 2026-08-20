@@ -1,11 +1,10 @@
 import { formatMoney, getItem } from '@game/shared';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import * as api from '../../src/net/api';
 import { useGame } from '../../src/state/useGame';
-import { Button, Empty, Panel, Row, SectionTitle } from '../../src/ui/components';
+import { Button, Empty, Panel, Row, Screen, SectionTitle } from '../../src/ui/components';
 import { rarityColor, theme } from '../../src/ui/theme';
 
 /**
@@ -14,7 +13,6 @@ import { rarityColor, theme } from '../../src/ui/theme';
  * met wat er gaat gebeuren.
  */
 export default function CraftScreen() {
-  const insets = useSafeAreaInsets();
   const state = useGame((s) => s.state);
   const busy = useGame((s) => s.busy);
   const craft = useGame((s) => s.craft);
@@ -67,10 +65,7 @@ export default function CraftScreen() {
   const locked = recipes.filter((r) => level < r.requiredLevel);
 
   return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={{ padding: 14, paddingTop: insets.top + 10, paddingBottom: 40 }}
-    >
+    <Screen>
       <Row style={{ justifyContent: 'space-between' }}>
         <Text style={styles.title}>Werkbank</Text>
         <Text style={styles.cash}>{formatMoney(cash)}</Text>
@@ -170,12 +165,11 @@ export default function CraftScreen() {
           ))}
         </>
       ) : null}
-    </ScrollView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: theme.color.bg },
   loading: {
     flex: 1,
     backgroundColor: theme.color.bg,

@@ -3,6 +3,7 @@ import {
   RARITIES,
   checkPlacement,
   dayIndexFor,
+  discardItemsSchema,
   findFreeSpot,
   floorPlanFor,
   getItem,
@@ -141,6 +142,32 @@ export async function economyRoutes(app: FastifyInstance): Promise<void> {
 
       const refreshed = await loadPlayer(tx, playerId);
       return { earned: total, itemsSold: sold, cash, inventory: refreshed.inventory };
+    });
+  });
+
+  /**
+   * Weggooien: uit je rugzak, en verder niets.
+   *
+   * Er komt geen cash tegenover te staan, dus dit raakt het grootboek niet.
+   * De reden dat dit bestaat: als je woning vol zit en je rugzak ook, dan is
+   * er zonder deze route geen enkele manier om plek te maken voor iets beters.
+   */
+  app.post('/economy/discard', { preHandler: authenticate }, async (request) => {
+    const playerId = playerIdOf(request);
+    const body = discardItemsSchema.parse(request.body);
+    const now = new Date();
+
+    return prisma.$transaction(async (tx) => {
+      // Gooit een fout als je ze niet (genoeg) hebt, dus de transactie draait
+      // vanzelf terug bij een verzoek dat niet klopt.
+      await removeItem(tx, playerId, getItem(body.itemId).id, body.quantity);
+
+      const refreshed = await loadPlayer(tx, playerId);
+      const accrual = await settleVault(tx, refreshed, now);
+      return {
+        discarded: body.quantity,
+        state: toPlayerStateDto(refreshed, accrual, now),
+      };
     });
   });
 

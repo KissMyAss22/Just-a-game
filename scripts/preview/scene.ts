@@ -121,6 +121,14 @@ interface View {
   hour: number;
   height: number;
   place: (c: THREE.PerspectiveCamera) => void;
+  /**
+   * Waar de wereld omheen geladen moet worden. De stad laadt in chunks rond
+   * de speler; kijk je ergens anders, dan moet hij dat weten. Zonder dit stond
+   * er letterlijk niets in beeld.
+   */
+  focus?: [number, number];
+  /** Beeldhoek; standaard dezelfde als in de app. */
+  fov?: number;
 }
 
 const views: View[] = [
@@ -146,6 +154,7 @@ const views: View[] = [
     name: 'industrieterrein in de ochtend',
     hour: 8.3,
     height: 330,
+    focus: extraSpots[0],
     place: (c) => {
       c.position.set(-348, 4.5, 118);
       c.lookAt(-348, 2.0, 160);
@@ -160,6 +169,27 @@ const views: View[] = [
       c.lookAt(player.x, 1.6, player.z);
     },
   },
+  {
+    // Vanaf de rijbaan langs de stoeprand kijken.
+    //
+    // De straat-as ligt hier op x=52 (de assen liggen op 12 + 40k), het asfalt
+    // loopt van 49 tot 55 en de westelijke stoep van 47,4 tot 49,0. Op precies
+    // 48,2 staat een rij meubels: brandkranen op z=21,6 en z=-2,4 en een
+    // prullenbak op z=-22,4. De camera staat op het asfalt en kijkt er langs.
+    //
+    // Dit beeld bestaat omdat het misging: de prullenbak werd in de
+    // kijkrichting van de lantaarn gezet en die buigt naar de weg toe, dus
+    // stond hij op de rijbaan. Op een overzichtsbeeld zie je dat niet.
+    name: 'stoeprand van opzij',
+    hour: 15,
+    height: 380,
+    focus: [50, 16],
+    fov: 32,
+    place: (c) => {
+      c.position.set(53.2, 2.8, 40);
+      c.lookAt(48.6, 0.6, 2);
+    },
+  },
 ];
 
 renderer.setScissorTest(true);
@@ -168,11 +198,10 @@ for (const view of views) {
   offset -= view.height;
   hour = view.hour;
   camera.aspect = canvas.width / view.height;
+  camera.fov = view.fov ?? 52;
   camera.updateProjectionMatrix();
   view.place(camera);
-  // De wereld laadt rond de speler; voor een blik op een andere wijk moet hij
-  // eerst weten dat we daar kijken.
-  const focus = view.name.includes('industrie') ? extraSpots[0]! : [player.x, player.z];
+  const focus = view.focus ?? [player.x, player.z];
   world.update(camera, 12, focus[0]!, focus[1]!);
   crowd.update(camera, canvas.width, view.height, 0.016, hour > 19 || hour < 6 ? 1 : 0);
   renderer.setViewport(0, offset, canvas.width, view.height);

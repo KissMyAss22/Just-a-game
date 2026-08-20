@@ -174,13 +174,25 @@ describe('straatprofiel', () => {
     expect(ASPHALT_HALF_WIDTH).toBeLessThan(CITY.cellSize / 2);
   });
 
-  it('zet lantaarns op de stoep en nooit in een gebouw', () => {
-    const props = streetPropsIn(-100, -100, 100, 100);
-    const lampen = props.filter((p) => p.kind === 'lamp');
-    expect(lampen.length).toBeGreaterThan(0);
-    for (const lamp of lampen) {
-      expect(isAsphalt(lamp.x, lamp.z)).toBe(false);
-      const { cx, cz } = worldToCell(lamp.x, lamp.z);
+  /**
+   * Deze test bestaat omdat het mis ging: de prullenbak werd een meter in de
+   * kijkrichting van de lantaarn gezet, en die buigt naar de weg toe. Daardoor
+   * stond bij élke lantaarn een bak midden op de rijbaan, en de brandkraan
+   * schoof altijd in +z ongeacht welke kant de straat op liep. Eén brede
+   * steekproef vangt dat allemaal in één keer.
+   */
+  it('zet alle straatmeubels op de stoep en nooit in een gebouw', () => {
+    const props = streetPropsIn(-300, -300, 300, 300).filter((p) => p.kind !== 'car');
+    // Alle soorten moeten in de steekproef zitten, anders test hij niets.
+    for (const kind of ['lamp', 'bin', 'hydrant', 'bench'] as const) {
+      expect(props.filter((p) => p.kind === kind).length).toBeGreaterThan(0);
+    }
+    for (const prop of props) {
+      expect({ kind: prop.kind, asfalt: isAsphalt(prop.x, prop.z) }).toEqual({
+        kind: prop.kind,
+        asfalt: false,
+      });
+      const { cx, cz } = worldToCell(prop.x, prop.z);
       expect(buildingAtCell(cx, cz)).toBeNull();
     }
   });

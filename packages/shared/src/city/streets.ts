@@ -43,8 +43,29 @@ export const ROAD_CENTER_OFFSET = wrap(
 export const ASPHALT_HALF_WIDTH = 3.0;
 /** Hoogteverschil tussen rijdek en stoep. */
 export const SIDEWALK_HEIGHT = 0.16;
-/** Afstand van het hart van de weg tot de rij lantaarns. */
-export const LAMP_OFFSET = 3.3;
+/**
+ * Afstand van het hart van de weg tot de rij lantaarns.
+ *
+ * De stoep is smal: het asfalt loopt tot 3,0 m uit de as en de gevel staat op
+ * 4,6 m (de wegcel is acht meter breed, de rooilijn ligt 0,6 m daarachter).
+ * Er is dus een band van anderhalve meter om alles in kwijt te kunnen, en
+ * 3,8 m is het midden daarvan. Op 3,3 m hing de voet van de paal over de
+ * stoeprand.
+ */
+export const LAMP_OFFSET = 3.8;
+
+/**
+ * Waar het straatmeubilair langs een straat mag staan.
+ *
+ * Alles wat naast de lantaarn hoort — een prullenbak, een brandkraan, een
+ * bank — schuift *langs* de straat en niet dwars erop. Dwars is geen ruimte:
+ * een meter opzij is óf rijbaan óf gevel. Dat is precies wat er misging toen
+ * de prullenbak een meter in de kijkrichting van de lantaarn werd gezet — die
+ * buigt naar de weg toe, dus stond de bak steevast op het asfalt.
+ */
+const BIN_ALONG = 1.6;
+const HYDRANT_ALONG = -2.4;
+const BENCH_ALONG = 3.2;
 /** Om de hoeveel meter staat er een lantaarn. */
 export const LAMP_SPACING = 24;
 
@@ -122,19 +143,23 @@ function pushLampRow(
       const rotY = axis === 'x' ? (side > 0 ? -Math.PI / 2 : Math.PI / 2) : side > 0 ? Math.PI : 0;
       out.push({ kind: 'lamp', x, z, rotY, scale: 1, variant: valueAt(seed, x | 0, z | 0) });
 
+      // Een stukje opschuiven langs de stoep, in de richting waarin de straat
+      // loopt. Bij een noord-zuidstraat is dat de z-as, bij een oost-weststraat
+      // de x-as.
+      const beside = (meters: number): { x: number; z: number } =>
+        axis === 'x' ? { x, z: z + meters } : { x: x + meters, z };
+
       const extra = valueAt(seed + 7, x | 0, z | 0);
       if (extra > 0.86) {
-        out.push({ kind: 'bin', x: x + Math.sin(rotY) * 1.1, z: z + Math.cos(rotY) * 1.1, rotY, scale: 1, variant: extra });
+        out.push({ kind: 'bin', ...beside(BIN_ALONG), rotY, scale: 1, variant: extra });
       } else if (extra > 0.78) {
-        out.push({ kind: 'hydrant', x, z: z + 1.4, rotY: 0, scale: 1, variant: extra });
+        out.push({ kind: 'hydrant', ...beside(HYDRANT_ALONG), rotY, scale: 1, variant: extra });
       } else if (extra < 0.12) {
-        // Een paar meter verderop langs de stoep, met de rug naar de gevel en
-        // het zitvlak naar de straat. Op de paal zelf stond hij eerst.
-        const along = axis === 'x' ? 0 : 1;
+        // Met de rug naar de gevel en het zitvlak naar de straat. Op de paal
+        // zelf stond hij eerst.
         out.push({
           kind: 'bench',
-          x: x + (along === 1 ? 3.2 : 0),
-          z: z + (along === 0 ? 3.2 : 0),
+          ...beside(BENCH_ALONG),
           rotY: rotY + Math.PI,
           scale: 1,
           variant: extra,
@@ -201,7 +226,12 @@ export function streetPropsIn(
     pushCarRow(out, 'z', az, minX, maxX, seed);
   }
 
-  return out;
+  // Vangnet. Bij een kruising is de stoep aan beide kanten rijbaan, dus een
+  // bank of prullenbak die netjes langs zijn eigen straat opschuift kan alsnog
+  // midden op de dwarsstraat uitkomen. Dat is per geval uitrekenen lastig en
+  // hier in één regel te zien. Geparkeerde auto's horen juist wél op het
+  // asfalt, dus die blijven staan.
+  return out.filter((prop) => prop.kind === 'car' || !isAsphalt(prop.x, prop.z));
 }
 
 /** Bomen op een groen perceel: één tot drie, altijd op dezelfde plek. */

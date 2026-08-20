@@ -214,6 +214,12 @@ export const sellItem = (itemId: string, quantity: number) =>
     body: { itemId, quantity },
   });
 
+/** Weggooien: uit je rugzak, geen opbrengst. */
+export const discardItem = (itemId: string, quantity: number) =>
+  request<{ discarded: number; state: PlayerStateDto }>('/economy/discard', {
+    body: { itemId, quantity },
+  });
+
 /** Zonder x/z zoekt de server zelf de eerste vrije plek. */
 export const placeItem = (
   itemId: string,

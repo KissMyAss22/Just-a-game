@@ -1,11 +1,10 @@
 import { formatMoney } from '@game/shared';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
 import * as api from '../../src/net/api';
 import { useGame } from '../../src/state/useGame';
-import { Bar, Button, Panel, Row, SectionTitle } from '../../src/ui/components';
+import { Bar, Button, Panel, Row, Screen, SectionTitle } from '../../src/ui/components';
 import { theme } from '../../src/ui/theme';
 
 /**
@@ -15,7 +14,6 @@ import { theme } from '../../src/ui/theme';
  * er echt gebeurt.
  */
 export default function RebirthScreen() {
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const busy = useGame((s) => s.busy);
   const rebirth = useGame((s) => s.rebirth);
@@ -77,10 +75,7 @@ export default function RebirthScreen() {
   ].filter(Boolean) as string[];
 
   return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={{ padding: 14, paddingTop: insets.top + 10, paddingBottom: 40 }}
-    >
+    <Screen>
       <Row style={{ justifyContent: 'space-between' }}>
         <Text style={styles.title}>Rebirth</Text>
         <Button label="Terug" tone="ghost" compact onPress={() => router.back()} />
@@ -192,12 +187,11 @@ export default function RebirthScreen() {
           </Row>
         </Panel>
       ))}
-    </ScrollView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: theme.color.bg },
   loading: {
     flex: 1,
     backgroundColor: theme.color.bg,

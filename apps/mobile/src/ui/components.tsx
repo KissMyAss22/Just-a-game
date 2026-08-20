@@ -2,13 +2,56 @@ import type { ReactNode } from 'react';
 import {
   ActivityIndicator,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from './theme';
+
+/**
+ * Een scrollend scherm met de statusbalk netjes afgedekt.
+ *
+ * `edgeToEdgeEnabled` in app.json laat de app tot achter de statusbalk
+ * tekenen. Met alleen `paddingTop: insets.top` staat de inhoud bij scrollstand
+ * nul goed, maar zodra je scrolt schuift hij er gewoon onderdoor en loopt je
+ * tekst dwars door de klok en het batterij-icoon. Daarom ligt er hier een
+ * ondoorzichtige balk overheen ter hoogte van de inkeping.
+ *
+ * Onderaan is de ruimte bewust `insets.bottom` plus wat lucht: op een toestel
+ * met veegbediening viel de laatste knop anders half achter de balk.
+ */
+export function Screen({
+  children,
+  refreshControl,
+  gap,
+}: {
+  children: ReactNode;
+  refreshControl?: React.ComponentProps<typeof ScrollView>['refreshControl'];
+  gap?: number;
+}) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={styles.screenRoot}>
+      <ScrollView
+        style={styles.screenRoot}
+        contentContainerStyle={{
+          padding: 14,
+          paddingTop: insets.top + 10,
+          paddingBottom: insets.bottom + 40,
+          ...(gap === undefined ? {} : { gap }),
+        }}
+        refreshControl={refreshControl}
+      >
+        {children}
+      </ScrollView>
+      <View style={[styles.statusScrim, { height: insets.top }]} pointerEvents="none" />
+    </View>
+  );
+}
 
 export function Panel({
   children,
@@ -121,6 +164,14 @@ export function Empty({ text }: { text: string }) {
 }
 
 const styles = StyleSheet.create({
+  screenRoot: { flex: 1, backgroundColor: theme.color.bg },
+  statusScrim: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: theme.color.bg,
+  },
   panel: {
     backgroundColor: theme.color.panel,
     borderRadius: theme.radius.md,

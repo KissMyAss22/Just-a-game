@@ -1,4 +1,4 @@
-import { getItem, type Appearance, type PlayerStateDto, type SpawnDto } from '@game/shared';
+import { formatMoney, getItem, type Appearance, type PlayerStateDto, type SpawnDto } from '@game/shared';
 import { create } from 'zustand';
 import * as api from '../net/api';
 import { playerPosition, setPlayerPosition, travelBuffer } from './position';
@@ -30,6 +30,10 @@ interface GameStore {
   collect: (spawn: SpawnDto) => Promise<void>;
   claimVault: () => Promise<void>;
   sellAll: (maxRarity: string) => Promise<void>;
+  /** Eén stapel (of een deel daarvan) verkopen. */
+  sellItem: (itemId: string, quantity: number) => Promise<void>;
+  /** Eén stapel (of een deel daarvan) weggooien; levert niets op. */
+  discardItem: (itemId: string, quantity: number) => Promise<void>;
   place: (itemId: string, spot?: { x: number; z: number; rotation: number }) => Promise<boolean>;
   moveItem: (placementId: string, x: number, z: number, rotation: number) => Promise<boolean>;
   storeItem: (placementId: string) => Promise<boolean>;
@@ -170,6 +174,37 @@ export const useGame = create<GameStore>((set, get) => ({
       const result = await api.sellAll(maxRarity);
       get().toast('Verkocht', `${result.itemsSold} items voor ${result.earned}`, 'legendary');
       await get().refresh();
+    } catch (error) {
+      get().toast(error instanceof Error ? error.message : 'Mislukt');
+    } finally {
+      set({ busy: false });
+    }
+  },
+
+  async sellItem(itemId, quantity) {
+    if (get().busy) return;
+    set({ busy: true });
+    try {
+      const item = getItem(itemId);
+      const result = await api.sellItem(itemId, quantity);
+      get().toast(`${quantity}x ${item.name} verkocht`, formatMoney(result.earned), item.rarity);
+      // Verkopen raakt cash én rugzak; een verse toestand is goedkoper dan
+      // hier twee losse velden bijhouden.
+      await get().refresh();
+    } catch (error) {
+      get().toast(error instanceof Error ? error.message : 'Mislukt');
+    } finally {
+      set({ busy: false });
+    }
+  },
+
+  async discardItem(itemId, quantity) {
+    if (get().busy) return;
+    set({ busy: true });
+    try {
+      const result = await api.discardItem(itemId, quantity);
+      get().applyState(result.state);
+      get().toast(`${quantity}x ${getItem(itemId).name} weggegooid`);
     } catch (error) {
       get().toast(error instanceof Error ? error.message : 'Mislukt');
     } finally {

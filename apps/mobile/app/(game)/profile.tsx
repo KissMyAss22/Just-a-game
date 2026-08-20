@@ -13,12 +13,11 @@ import {
 } from '@game/shared';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { QUALITY, QUALITY_LEVELS } from '../../src/game3d/city/quality';
 import { useGame } from '../../src/state/useGame';
 import { WALK_BOOSTS, useSettings } from '../../src/state/useSettings';
-import { Button, Panel, Row, SectionTitle } from '../../src/ui/components';
+import { Button, Panel, Row, Screen, SectionTitle } from '../../src/ui/components';
 import { theme } from '../../src/ui/theme';
 
 function Swatches({
@@ -53,7 +52,6 @@ function Swatches({
  * andere spelers straks van je zien als jullie in dezelfde stad lopen.
  */
 export default function ProfileScreen() {
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const quality = useSettings((s) => s.quality);
   const setQuality = useSettings((s) => s.setQuality);
@@ -92,10 +90,7 @@ export default function ProfileScreen() {
   const vehicle = getVehicle(state.player.vehicleId);
 
   return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={{ padding: 14, paddingTop: insets.top + 10, paddingBottom: 40 }}
-    >
+    <Screen>
       <Row style={{ justifyContent: 'space-between' }}>
         <Text style={styles.title}>Je personage</Text>
         <Button label="Terug" tone="ghost" compact onPress={() => router.back()} />
@@ -245,7 +240,7 @@ export default function ProfileScreen() {
         disabled={(!nameChanged && !lookChanged) || !check.ok}
         onPress={() => void save()}
       />
-    </ScrollView>
+    </Screen>
   );
 }
 
@@ -267,7 +262,6 @@ const styles = StyleSheet.create({
   qualityLabelActive: { color: theme.color.accent },
   qualityHint: { color: theme.color.text, fontSize: 13 },
   qualityNote: { color: theme.color.textDim, fontSize: 12, marginTop: 10, lineHeight: 17 },
-  screen: { flex: 1, backgroundColor: theme.color.bg },
   title: { color: theme.color.text, fontSize: 26, fontWeight: '800' },
   dim: { color: theme.color.textDim, fontSize: 12, marginTop: 4, textAlign: 'center' },
   avatarHat: { width: 46, height: 12, borderRadius: 5 },

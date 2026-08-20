@@ -1,11 +1,10 @@
 import { formatDuration, formatMoney, getItem, getVehicle } from '@game/shared';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import * as api from '../../src/net/api';
 import { useGame } from '../../src/state/useGame';
-import { Bar, Button, Panel, Row, SectionTitle } from '../../src/ui/components';
+import { Bar, Button, Panel, Row, Screen, SectionTitle } from '../../src/ui/components';
 import { theme } from '../../src/ui/theme';
 
 type RewardDto = { kind: string; amount?: number; itemId?: string; vehicleId?: string };
@@ -33,7 +32,6 @@ function rewardLabel(reward: RewardDto): string {
 }
 
 export default function PassScreen() {
-  const insets = useSafeAreaInsets();
   const toast = useGame((s) => s.toast);
   const refresh = useGame((s) => s.refresh);
   const [season, setSeason] = useState<api.SeasonResponse | null>(null);
@@ -79,10 +77,7 @@ export default function PassScreen() {
   const weeklies = season.quests.filter((q) => q.scope === 'weekly');
 
   return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={{ padding: 14, paddingTop: insets.top + 10, paddingBottom: 40 }}
-    >
+    <Screen>
       <Text style={styles.title}>Seizoen {season.season.index}</Text>
       <Text style={styles.subtitle}>
         {season.season.name} · nog {formatDuration(remaining)}
@@ -167,7 +162,7 @@ export default function PassScreen() {
           </Panel>
         );
       })}
-    </ScrollView>
+    </Screen>
   );
 }
 
@@ -249,7 +244,6 @@ function TrackRow({
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: theme.color.bg },
   loading: { flex: 1, backgroundColor: theme.color.bg, alignItems: 'center', justifyContent: 'center' },
   title: { color: theme.color.text, fontSize: 26, fontWeight: '800' },
   subtitle: { color: theme.color.textDim, fontSize: 13, marginTop: 2 },
