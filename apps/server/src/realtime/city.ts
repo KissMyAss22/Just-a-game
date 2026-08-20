@@ -1,6 +1,7 @@
 import {
   REALTIME,
   clientMessageSchema,
+  DEV_SPEED_ALLOWANCE,
   moveBudget,
   withinInterest,
   computeStats,
@@ -12,6 +13,7 @@ import {
 } from '@game/shared';
 import type { FastifyInstance } from 'fastify';
 import type { WebSocket } from 'ws';
+import { env } from '../env.js';
 import { prisma } from '../lib/prisma.js';
 
 /**
@@ -140,7 +142,12 @@ function nearby(self: Connected): RemotePlayer[] {
 function applyMove(entry: Connected, x: number, z: number, heading: number, driving: 0 | 1): void {
   const now = Date.now();
   const elapsed = Math.min(MAX_GAP_SECONDS, Math.max(0, now - entry.movedAt) / 1000);
-  const budget = moveBudget(entry.profile.topSpeed, elapsed, SPEED_TOLERANCE_M);
+  const budget = moveBudget(
+    entry.profile.topSpeed,
+    elapsed,
+    SPEED_TOLERANCE_M,
+    env.devTools ? DEV_SPEED_ALLOWANCE : undefined,
+  );
   const travelled = Math.hypot(x - entry.x, z - entry.z);
 
   if (travelled <= budget) {

@@ -49,30 +49,51 @@ execFileSync(
   { stdio: 'inherit', cwd: root },
 );
 
-const shot = join(outDir, 'stad.png');
-rmSync(shot, { force: true });
-
-console.log('Renderen...');
+/** De itemmodellen krijgen hun eigen pagina; die wil je los kunnen bekijken. */
+console.log('Bundelen (items)...');
 execFileSync(
-  chrome,
+  join(root, 'node_modules/.bin/esbuild'),
   [
-    '--headless=new',
-    '--disable-gpu',
-    '--enable-unsafe-swiftshader',
-    '--use-gl=angle',
-    '--use-angle=swiftshader',
-    '--hide-scrollbars',
-    '--no-sandbox',
-    '--virtual-time-budget=8000',
-    `--screenshot=${shot}`,
-    '--window-size=900,1500',
-    `file://${join(previewDir, 'index.html')}`,
+    join(previewDir, 'items.ts'),
+    '--bundle',
+    '--format=iife',
+    '--platform=browser',
+    '--loader:.ts=ts',
+    '--alias:@game/shared=./packages/shared/src/index.ts',
+    `--outfile=${join(previewDir, 'items-bundle.js')}`,
+    '--log-level=warning',
   ],
-  { stdio: ['ignore', 'ignore', 'pipe'] },
+  { stdio: 'inherit', cwd: root },
 );
 
-if (!existsSync(shot)) {
-  console.error('Er is geen plaatje gemaakt.');
-  process.exit(1);
+/** Rendert één pagina naar een PNG. */
+function shoot(page, file, width, height) {
+  const target = join(outDir, file);
+  rmSync(target, { force: true });
+  execFileSync(
+    chrome,
+    [
+      '--headless=new',
+      '--disable-gpu',
+      '--enable-unsafe-swiftshader',
+      '--use-gl=angle',
+      '--use-angle=swiftshader',
+      '--hide-scrollbars',
+      '--no-sandbox',
+      '--virtual-time-budget=8000',
+      `--screenshot=${target}`,
+      `--window-size=${width},${height}`,
+      `file://${join(previewDir, page)}`,
+    ],
+    { stdio: ['ignore', 'ignore', 'pipe'] },
+  );
+  if (!existsSync(target)) {
+    console.error(`Er is geen plaatje gemaakt voor ${page}.`);
+    process.exit(1);
+  }
+  console.log(`Klaar: ${target} (${(readFileSync(target).length / 1024).toFixed(0)} kB)`);
 }
-console.log(`Klaar: ${shot} (${(readFileSync(shot).length / 1024).toFixed(0)} kB)`);
+
+console.log('Renderen...');
+shoot('index.html', 'stad.png', 900, 1500);
+shoot('items.html', 'items.png', 1100, 900);

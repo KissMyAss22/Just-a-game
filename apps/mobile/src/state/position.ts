@@ -25,6 +25,12 @@ export const driveState = { x: 0, z: 0, heading: 0, speed: 0, steer: 0, braking:
 /** Actuele stand van de joystick, -1..1 per as. */
 export const moveInput = { x: 0, y: 0, active: false };
 
+/**
+ * De vliegmodus uit het ontwikkelgereedschap: hoe hoog je hangt, en of je
+ * stijgt of daalt. Staat hier omdat het elke frame verandert.
+ */
+export const flyInput = { altitude: 0, climb: 0 };
+
 /** Afstand die nog niet naar de server is gemeld. */
 export const travelBuffer = { meters: 0 };
 

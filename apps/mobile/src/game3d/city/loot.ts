@@ -1,6 +1,7 @@
 import type { SpawnDto } from '@game/shared';
 import { groundHeightAt } from '@game/shared';
 import * as THREE from 'three';
+import { itemGeometry, lootScale } from './itemModels';
 
 /**
  * Items op straat.
@@ -51,40 +52,41 @@ export interface LootField {
   dispose: () => void;
 }
 
+/** Zoveel exemplaren van hetzelfde item kunnen tegelijk in beeld staan. */
+const PER_ITEM = 24;
+
 export function createLootField(colorFor: (rarity: string) => string): LootField {
   const group = new THREE.Group();
 
-  const gemGeometry = new THREE.OctahedronGeometry(0.42, 0);
-  const gemMaterial = new THREE.MeshStandardMaterial({
+  /**
+   * Elk voorwerp krijgt zijn eigen model, en dus zijn eigen instanced mesh.
+   * Bij een handvol soorten in beeld zijn dat een paar tekenopdrachten; één
+   * gedeelde vorm voor alles zou goedkoper zijn, maar dan lag er overal
+   * hetzelfde blokje op straat.
+   */
+  const material = new THREE.MeshStandardMaterial({
     vertexColors: true,
-    roughness: 0.16,
-    metalness: 0.35,
-    emissive: new THREE.Color('#ffffff'),
-    emissiveIntensity: 0.28,
+    roughness: 0.42,
+    metalness: 0.25,
   });
-  // De emissie moet de kleur van het item volgen, en die zit per instance in
-  // vColor. Zonder deze regel gloeit alles even wit op.
-  gemMaterial.onBeforeCompile = (shader) => {
-    shader.fragmentShader = shader.fragmentShader.replace(
-      '#include <emissivemap_fragment>',
-      `#include <emissivemap_fragment>
-totalEmissiveRadiance *= diffuseColor.rgb * 3.0;`,
-    );
-  };
-  // Zonder kleurattribuut past three de instance-kleur niet toe.
-  gemGeometry.setAttribute(
-    'color',
-    new THREE.Float32BufferAttribute(
-      new Float32Array(gemGeometry.attributes.position!.count * 3).fill(1),
-      3,
-    ),
-  );
+  const meshes = new Map<string, THREE.InstancedMesh>();
+  const counters = new Map<string, number>();
 
-  const gems = new THREE.InstancedMesh(gemGeometry, gemMaterial, MAX_VISIBLE);
-  gems.count = 0;
-  gems.frustumCulled = false;
-  group.add(gems);
+  function meshFor(itemId: string): THREE.InstancedMesh {
+    const existing = meshes.get(itemId);
+    if (existing) return existing;
+    const mesh = new THREE.InstancedMesh(itemGeometry(itemId), material, PER_ITEM);
+    mesh.count = 0;
+    mesh.frustumCulled = false;
+    mesh.castShadow = false;
+    meshes.set(itemId, mesh);
+    group.add(mesh);
+    return mesh;
+  }
 
+  // De lichtvlek op de grond draagt de zeldzaamheid. Het voorwerp zelf houdt
+  // zijn eigen kleuren — een gouden staaf hoort goud te zijn, ook als hij
+  // episch is.
   const glowMap = glowTexture();
   const glowGeometry = new THREE.PlaneGeometry(1, 1);
   glowGeometry.rotateX(-Math.PI / 2);
@@ -114,7 +116,10 @@ totalEmissiveRadiance *= diffuseColor.rgb * 3.0;`,
   return {
     group,
     update(spawns, playerX, playerZ, time, pickupRadius) {
-      let index = 0;
+      counters.clear();
+      for (const mesh of meshes.values()) mesh.count = 0;
+
+      let glowCount = 0;
       let closest: { spawn: SpawnDto; distance: number } | null = null;
 
       for (const spawn of spawns) {
@@ -125,43 +130,46 @@ totalEmissiveRadiance *= diffuseColor.rgb * 3.0;`,
 
         const distance = Math.sqrt(squared);
         if (!closest || distance < closest.distance) closest = { spawn, distance };
-        if (index >= MAX_VISIBLE) continue;
+        if (glowCount >= MAX_VISIBLE) continue;
 
         const ground = groundHeightAt(spawn.x, spawn.z);
-        const phase = index * 0.7;
+        const phase = glowCount * 0.7;
         const near = distance < pickupRadius + 1.5;
 
-        dummy.position.set(spawn.x, ground + 0.75 + Math.sin(time * 1.8 + phase) * 0.14, spawn.z);
-        dummy.rotation.set(0.42, time * 1.0 + phase, 0.2);
-        dummy.scale.setScalar(near ? 1.3 : 1);
-        dummy.updateMatrix();
-        gems.setMatrixAt(index, dummy.matrix);
+        const mesh = meshFor(spawn.itemId);
+        const index = counters.get(spawn.itemId) ?? 0;
+        if (index < PER_ITEM) {
+          const scale = lootScale(spawn.itemId) * (near ? 1.22 : 1);
+          dummy.position.set(spawn.x, ground + 0.28 + Math.sin(time * 1.8 + phase) * 0.1, spawn.z);
+          dummy.rotation.set(0, time * 0.9 + phase, 0);
+          dummy.scale.setScalar(scale);
+          dummy.updateMatrix();
+          mesh.setMatrixAt(index, dummy.matrix);
+          counters.set(spawn.itemId, index + 1);
+        }
 
         const pulse = 1.5 + Math.sin(time * 2.4 + phase) * 0.12 + (near ? 0.5 : 0);
         dummy.position.set(spawn.x, ground + 0.035, spawn.z);
         dummy.rotation.set(0, 0, 0);
         dummy.scale.set(pulse, 1, pulse);
         dummy.updateMatrix();
-        glows.setMatrixAt(index, dummy.matrix);
-
-        color.set(colorFor(spawn.rarity));
-        gems.setColorAt(index, color);
-        glows.setColorAt(index, color);
-        index++;
+        glows.setMatrixAt(glowCount, dummy.matrix);
+        glows.setColorAt(glowCount, color.set(colorFor(spawn.rarity)));
+        glowCount++;
       }
 
-      gems.count = index;
-      glows.count = index;
-      gems.instanceMatrix.needsUpdate = true;
+      for (const [itemId, mesh] of meshes) {
+        mesh.count = counters.get(itemId) ?? 0;
+        mesh.instanceMatrix.needsUpdate = true;
+      }
+      glows.count = glowCount;
       glows.instanceMatrix.needsUpdate = true;
-      if (gems.instanceColor) gems.instanceColor.needsUpdate = true;
       if (glows.instanceColor) glows.instanceColor.needsUpdate = true;
 
       return closest;
     },
     dispose() {
-      gemGeometry.dispose();
-      gemMaterial.dispose();
+      material.dispose();
       glowGeometry.dispose();
       glowMaterial.dispose();
       glowMap.dispose();

@@ -1,6 +1,12 @@
-import { moveBudget, reportPositionSchema, resolveMovement } from '@game/shared';
+import {
+  DEV_SPEED_ALLOWANCE,
+  moveBudget,
+  reportPositionSchema,
+  resolveMovement,
+} from '@game/shared';
 import type { FastifyInstance } from 'fastify';
 import { authenticate, playerIdOf } from '../lib/auth.js';
+import { env } from '../env.js';
 import { prisma } from '../lib/prisma.js';
 import { loadPlayer, settleVault, toPlayerStateDto } from '../services/player.js';
 import { trackQuest } from '../services/quests.js';
@@ -30,7 +36,12 @@ export async function stateRoutes(app: FastifyInstance): Promise<void> {
     return prisma.$transaction(async (tx) => {
       const loaded = await loadPlayer(tx, playerId);
       const elapsed = Math.max(0, now.getTime() - loaded.player.positionAt.getTime()) / 1000;
-      const maxDistance = moveBudget(loaded.stats.moveSpeed, elapsed, 30);
+      const maxDistance = moveBudget(
+        loaded.stats.moveSpeed,
+        elapsed,
+        30,
+        env.devTools ? DEV_SPEED_ALLOWANCE : undefined,
+      );
 
       // Accepteer alleen een geloofwaardige verplaatsing, en zorg dat de
       // positie sowieso op begaanbaar terrein ligt.

@@ -2,6 +2,7 @@ import {
   DEFAULT_APPEARANCE,
   ECONOMY,
   appearanceColors,
+  CITY_SPAN,
   driveStep,
   getVehicle,
   groundHeightAt,
@@ -16,6 +17,8 @@ import { createVehicle } from './city/vehicle';
 import { localPresence } from '../net/presence';
 import { cameraState, driveState, moveInput, playerPosition, travelBuffer } from '../state/position';
 import { parkBeside, useDriving } from '../state/useDriving';
+import { flyInput } from '../state/position';
+import { useSettings } from '../state/useSettings';
 import { useGame } from '../state/useGame';
 
 const PLAYER_RADIUS = 0.5;
@@ -81,13 +84,16 @@ export function PlayerRig() {
   useFrame((_, rawDelta) => {
     const delta = Math.min(rawDelta, 0.05);
     const state = useGame.getState().state;
-    const driving = useDriving.getState().active && vehicle !== null;
+    const settings = useSettings.getState();
+    const boost = settings.walkBoost;
+    const flying = settings.fly;
+    const driving = useDriving.getState().active && vehicle !== null && !flying;
 
     const yaw = cameraState.yaw;
     let travelled = 0;
 
     if (driving && vehicle) {
-      const topSpeed = state?.stats.moveSpeed ?? ECONOMY.baseMoveSpeed;
+      const topSpeed = (state?.stats.moveSpeed ?? ECONOMY.baseMoveSpeed) * boost;
       const before = { x: driveState.x, z: driveState.z };
       const next = driveStep(
         driveState,
@@ -113,7 +119,7 @@ export function PlayerRig() {
       vehicle.update(delta, next.speed, driveState.steer, driveState.braking, NIGHT_UNIFORM.value);
       character.group.visible = false;
     } else {
-      const walkSpeed = state?.stats.walkSpeed ?? ECONOMY.baseMoveSpeed;
+      const walkSpeed = (state?.stats.walkSpeed ?? ECONOMY.baseMoveSpeed) * boost * (flying ? 3 : 1);
       const forwardX = -Math.sin(yaw);
       const forwardZ = -Math.cos(yaw);
       const rightX = Math.cos(yaw);
@@ -129,18 +135,34 @@ export function PlayerRig() {
 
       if (magnitude > 0.05) {
         const step = walkSpeed * delta;
-        const next = resolveMovement(
-          playerPosition.x,
-          playerPosition.z,
-          playerPosition.x + moveX * step,
-          playerPosition.z + moveZ * step,
-          PLAYER_RADIUS,
-        );
+        // In de vliegmodus geen botsingen: dwars door alles heen, maar wel
+        // binnen de stadsgrenzen — daarbuiten is er niets om naar te kijken.
+        const edge = CITY_SPAN / 2 - 2;
+        const next = flying
+          ? {
+              x: Math.max(-edge, Math.min(edge, playerPosition.x + moveX * step)),
+              z: Math.max(-edge, Math.min(edge, playerPosition.z + moveZ * step)),
+            }
+          : resolveMovement(
+              playerPosition.x,
+              playerPosition.z,
+              playerPosition.x + moveX * step,
+              playerPosition.z + moveZ * step,
+              PLAYER_RADIUS,
+            );
         travelled = Math.hypot(next.x - playerPosition.x, next.z - playerPosition.z);
         playerPosition.x = next.x;
         playerPosition.z = next.z;
         facing.current = Math.atan2(moveX, moveZ);
       }
+
+      // Hoogte in de vliegmodus. Buiten die modus zakt hij vanzelf terug naar
+      // de grond, zodat je nooit blijft zweven na het uitzetten.
+      const climb = flying ? flyInput.climb * 14 * delta : 0;
+      flyInput.altitude = Math.max(
+        0,
+        Math.min(220, flying ? flyInput.altitude + climb : flyInput.altitude - 40 * delta),
+      );
 
       character.group.visible = true;
       character.group.position.x = playerPosition.x;
@@ -166,6 +188,8 @@ export function PlayerRig() {
     const wanted = delta > 0 ? travelled / delta : 0;
     speedRef.current += (wanted - speedRef.current) * Math.min(1, delta * 9);
     character.update(delta, driving ? 0 : speedRef.current, playerPosition.x, playerPosition.z);
+    // Het figuurtje hangt mee omhoog als je vliegt.
+    character.group.position.y += flyInput.altitude;
 
     // Tijdens het rijden zwenkt de camera achter de auto, maar pas als de
     // speler zelf even niet aan het kijken is.
@@ -175,7 +199,7 @@ export function PlayerRig() {
       cameraState.yaw += delta2 * Math.min(1, delta * 2.2);
     }
 
-    const ground = groundHeightAt(playerPosition.x, playerPosition.z);
+    const ground = groundHeightAt(playerPosition.x, playerPosition.z) + flyInput.altitude;
     const distance = cameraState.distance * (driving ? DRIVE_CAMERA_PULLBACK : 1);
     const height = cameraState.height * (driving ? 1.1 : 1);
     cameraTarget.set(

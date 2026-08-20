@@ -51,9 +51,23 @@ export const SPEED_ALLOWANCE = 1.6;
  * wereld. Liepen die uiteen, dan zou een actie die de ene laag goedkeurt door
  * de andere geweigerd worden.
  */
-export function moveBudget(topSpeed: number, elapsedSeconds: number, tolerance: number): number {
-  return topSpeed * SPEED_ALLOWANCE * Math.max(0, elapsedSeconds) + tolerance;
+export function moveBudget(
+  topSpeed: number,
+  elapsedSeconds: number,
+  tolerance: number,
+  /** Ruimte voor het ontwikkelgereedschap; standaard geen. */
+  allowance = SPEED_ALLOWANCE,
+): number {
+  return topSpeed * allowance * Math.max(0, elapsedSeconds) + tolerance;
 }
+
+/**
+ * Hoeveel speling het ontwikkelgereedschap krijgt.
+ *
+ * Ruim genoeg voor de vliegmodus en acht keer looptempo, en het staat alleen
+ * aan op een server die je zelf hebt aangezet.
+ */
+export const DEV_SPEED_ALLOWANCE = 60;
 
 /**
  * De dichtstbijzijnde spelers binnen het zichtgebied.

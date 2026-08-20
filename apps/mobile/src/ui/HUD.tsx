@@ -10,8 +10,9 @@ import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { onCrowdChange, realtime } from '../net/presence';
-import { driveState, playerPosition } from '../state/position';
+import { driveState, flyInput, playerPosition } from '../state/position';
 import { driving, useDriving } from '../state/useDriving';
+import { useSettings } from '../state/useSettings';
 import { useGame } from '../state/useGame';
 import { Bar, Button } from './components';
 import { rarityColor, theme } from './theme';
@@ -91,6 +92,36 @@ function Speedometer() {
   );
 }
 
+/**
+ * Stijgen en dalen in de vliegmodus. Alleen zichtbaar als die aan staat.
+ *
+ * De knoppen schrijven rechtstreeks in `flyInput`; er gaat niets via React,
+ * want dit verandert zestig keer per seconde zolang je hem ingedrukt houdt.
+ */
+function FlyControls({ bottom }: { bottom: number }) {
+  return (
+    <View style={[styles.flyColumn, { bottom }]}>
+      {([
+        ['▲', 1],
+        ['▼', -1],
+      ] as const).map(([label, direction]) => (
+        <Pressable
+          key={label}
+          onPressIn={() => {
+            flyInput.climb = direction;
+          }}
+          onPressOut={() => {
+            flyInput.climb = 0;
+          }}
+          style={({ pressed }) => [styles.flyButton, pressed && styles.flyButtonActive]}
+        >
+          <Text style={styles.flyLabel}>{label}</Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
 /** In- en uitstappen. Alleen zichtbaar als je iets hebt om in te stappen. */
 function DriveButton({ vehicleId, bottom }: { vehicleId: string; bottom: number }) {
   const active = useDriving((s) => s.active);
@@ -123,6 +154,8 @@ export function HUD() {
   const surroundings = useSurroundings();
   const clockOffset = useGame((s) => s.clockOffset);
   const isDriving = useDriving((s) => s.active);
+  const flying = useSettings((s) => s.fly);
+  const walkBoost = useSettings((s) => s.walkBoost);
 
   if (!state) return null;
   const { player, stats } = state;
@@ -222,8 +255,18 @@ export function HUD() {
       </View>
 
       {/* Voertuig */}
-      <DriveButton vehicleId={player.vehicleId} bottom={insets.bottom + 148} />
+      {flying ? null : <DriveButton vehicleId={player.vehicleId} bottom={insets.bottom + 148} />}
       {isDriving ? <Speedometer /> : null}
+      {flying ? <FlyControls bottom={insets.bottom + 120} /> : null}
+      {flying || walkBoost > 1 ? (
+        <View style={[styles.devBadge, { bottom: insets.bottom + 258 }]} pointerEvents="none">
+          <Text style={styles.devBadgeText}>
+            {flying ? '🛩️ vliegmodus' : ''}
+            {flying && walkBoost > 1 ? ' · ' : ''}
+            {walkBoost > 1 ? `${walkBoost}× snelheid` : ''}
+          </Text>
+        </View>
+      ) : null}
 
       {/* Meldingen */}
       <View style={[styles.toasts, { bottom: insets.bottom + 250 }]} pointerEvents="none">
@@ -245,6 +288,37 @@ export function HUD() {
 }
 
 const styles = StyleSheet.create({
+  flyColumn: {
+    position: 'absolute',
+    right: 16,
+    gap: 8,
+  },
+  flyButton: {
+    width: 56,
+    height: 46,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.color.panel,
+    borderWidth: 1,
+    borderColor: theme.color.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  flyButtonActive: {
+    borderColor: theme.color.accent,
+    backgroundColor: 'rgba(77, 212, 172, 0.20)',
+  },
+  flyLabel: { color: theme.color.text, fontSize: 18, fontWeight: '700' },
+  devBadge: {
+    position: 'absolute',
+    left: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: theme.radius.pill,
+    backgroundColor: 'rgba(139, 125, 255, 0.22)',
+    borderWidth: 1,
+    borderColor: theme.color.xp,
+  },
+  devBadgeText: { color: theme.color.text, fontSize: 11, fontWeight: '700' },
   driveButton: {
     position: 'absolute',
     right: 16,

@@ -44,4 +44,4 @@ coverage/
 
 # Renderproef van de stad (scripts/render-preview.mjs)
 .preview/
-scripts/preview/bundle.js
+scripts/preview/*bundle.js

@@ -4,6 +4,7 @@ import {
   DISTRICTS_BY_ID,
   findSpawnPoint,
   getItem,
+  DEV_SPEED_ALLOWANCE,
   moveBudget,
   mulberry32,
   pickItemForDistrict,
@@ -12,6 +13,7 @@ import {
   type Rarity,
 } from '@game/shared';
 import { GameError } from '../lib/errors.js';
+import { env } from '../env.js';
 import { prisma } from '../lib/prisma.js';
 import type { Tx } from './ledger.js';
 import type { LoadedPlayer } from './player.js';
@@ -193,7 +195,12 @@ export async function collectSpawn(
     MAX_POSITION_GAP_SECONDS,
     Math.max(0, now.getTime() - player.positionAt.getTime()) / 1000,
   );
-  const maxDistance = moveBudget(stats.moveSpeed, sincePosition, SPEED_TOLERANCE_M);
+  const maxDistance = moveBudget(
+    stats.moveSpeed,
+    sincePosition,
+    SPEED_TOLERANCE_M,
+    env.devTools ? DEV_SPEED_ALLOWANCE : undefined,
+  );
   const travelled = Math.hypot(claimedX - player.x, claimedZ - player.z);
   if (travelled > maxDistance) {
     throw new GameError('Je bewoog te snel.', 400, 'position_rejected');

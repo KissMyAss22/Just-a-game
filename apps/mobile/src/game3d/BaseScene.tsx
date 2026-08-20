@@ -11,9 +11,8 @@ import {
 import { Canvas, useFrame, useThree } from '@react-three/fiber/native';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { rarityColor } from '../ui/theme';
-import { getItem } from '@game/shared';
 import { DAY_PALETTE, createEnvironment } from './city/sky';
+import { interiorScale, itemGeometry } from './city/itemModels';
 
 /** Hoogte van de muurtjes: hoog genoeg om een kamer te zijn, laag genoeg om
  *  overheen te kijken vanuit elke hoek. */
@@ -176,6 +175,24 @@ function Floor({ plan, highlight, highlightValid }: FloorProps) {
   );
 }
 
+/**
+ * Eén materiaal voor al het meubilair; de kleuren zitten in de punten van het
+ * model zelf. Het geselecteerde voorwerp krijgt een eigen exemplaar, want een
+ * gloed hoort bij één ding en niet bij de hele kamer.
+ */
+const FURNITURE_MATERIAL = new THREE.MeshStandardMaterial({
+  vertexColors: true,
+  roughness: 0.55,
+  metalness: 0.12,
+});
+const FURNITURE_SELECTED = new THREE.MeshStandardMaterial({
+  vertexColors: true,
+  roughness: 0.55,
+  metalness: 0.12,
+  emissive: new THREE.Color('#4dd4ac'),
+  emissiveIntensity: 0.45,
+});
+
 function Furniture({
   plan,
   placements,
@@ -188,25 +205,22 @@ function Furniture({
   return (
     <group>
       {placements.map((placed) => {
-        const item = getItem(placed.itemId);
         const box = placedItemCenter(plan, placed);
-        const height = itemHeight(placed.itemId);
         const selected = placed.id === selectedId;
+        const scale = interiorScale(placed.itemId, placed.rotation, HOME_CELL_SIZE);
         return (
-          <group key={placed.id} position={[box.x, 0, box.z]}>
-            <mesh position={[0, height / 2 + 0.06, 0]} castShadow receiveShadow>
-              <boxGeometry args={[box.width * 0.82, height, box.depth * 0.82]} />
-              <meshStandardMaterial
-                color={rarityColor[item.rarity] ?? '#9ca3af'}
-                roughness={0.45}
-                metalness={0.15}
-                emissive={selected ? '#4dd4ac' : '#000000'}
-                emissiveIntensity={selected ? 0.45 : 0}
-              />
-            </mesh>
+          <group key={placed.id} position={[box.x, 0.06, box.z]}>
+            <mesh
+              geometry={itemGeometry(placed.itemId)}
+              material={selected ? FURNITURE_SELECTED : FURNITURE_MATERIAL}
+              scale={scale}
+              rotation-y={(placed.rotation * Math.PI) / 2}
+              castShadow
+              receiveShadow
+            />
             {/* Ring om het geselecteerde voorwerp. */}
             {selected ? (
-              <mesh position={[0, 0.08, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+              <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
                 <ringGeometry args={[box.width * 0.5, box.width * 0.6, 24]} />
                 <meshBasicMaterial color="#4dd4ac" side={THREE.DoubleSide} />
               </mesh>

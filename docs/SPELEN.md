@@ -147,6 +147,17 @@ met de server weg.
 Chat is er nog niet — je ziet elkaar lopen en rijden, maar praten gaat
 voorlopig nog gewoon naast de telefoon.
 
+### Waar houdt de stad op?
+
+De stad is 1.024 bij 1.024 meter. Aan de zuidkant en rond het privé-eiland ligt
+zee; daar kun je niet heen lopen, en varen kan nog niet. Loop je vast tegen
+water, dan is dat de kust en niet een fout.
+
+Wil je zelf zien hoe groot hij is: zet in **Profiel → Ontwikkelgereedschap** de
+vliegmodus aan. Je gaat dan dwars door alles heen en met de pijlen rechts in
+beeld omhoog. Daarvoor moet je server wel met `DEV_TOOLS=1` draaien — zie
+`apps/server/.env`.
+
 ### Hoe rijd ik?
 
 Zodra je een scooter of auto hebt, staat er rechtsonder een knop **Instappen**.

@@ -148,6 +148,18 @@ De omgevingstextuur wordt hooguit elk kwartier speeltijd opnieuw gemaakt. Die
 stap is te duur om elke frame te doen, en een kwartier verschil in
 weerspiegeling ziet niemand.
 
+### Ontwikkelgereedschap
+
+In het profielscherm staat een blokje **Ontwikkelgereedschap**: loopsnelheid
+maal 1, 2, 4 of 8, en een vliegmodus die dwars door gebouwen gaat met pijlen
+om te stijgen en te dalen. Handig om de stad te bekijken en om te zien waar hij
+ophoudt.
+
+Dit werkt alleen als de server met `DEV_TOOLS=1` draait. Zonder dat duwt de
+snelheidscontrole je gewoon terug — en dat hoort ook zo: één regel in een `.env`
+mag niet de hele anti-cheat uitschakelen. De vlag doet in productie sowieso
+niets.
+
 ### Beeldkwaliteit in drie standen
 
 Een telefoon van vier jaar oud en een nieuwe iPhone zitten een factor tien uit
@@ -302,7 +314,31 @@ Base-upgrades: Kluis (+25% opslag), Aggregaat (+1 uur offline), Boekhouder
 (+6% inkomen), Rugzak (+4 plekken), Magneet (+0,6 m oppakafstand), Manager
 (int automatisch, tegen commissie).
 
-### 6a. Rijden
+### 5a. Hoe items eruitzien
+
+Elk item heeft een eigen 3D-model dat bij zijn naam past: een vloerlamp is een
+vloerlamp, een goudstaaf een staaf, een aquarium een bak met vissen erin. Alles
+is opgebouwd uit primitieven met de kleur in de punten gebakken — dezelfde
+bouwdoos als het straatmeubilair. Geen enkel model komt van buiten: met
+drieënveertig items zou een 3D-bestand per stuk hard oplopen in bundelgrootte
+en laadtijd.
+
+De maten staan op **ware grootte in meters**, zodat een voorwerp klopt zodra
+het in je woning staat. Op straat wordt het model daarna naar ongeveer dezelfde
+hoogte geschaald: op ware grootte zou een muntje onvindbaar zijn en een vleugel
+de halve straat vullen. Het verschil wordt gedempt en niet weggepoetst, dus een
+goudstaaf oogt nog steeds forser dan een fles.
+
+De zeldzaamheid zit niet meer in de kleur van het voorwerp — dat zou een gouden
+staaf paars maken — maar in de lichtvlek eronder.
+
+`pnpm preview` zet alle modellen naast elkaar in `.preview/items.png`, met hun
+naam erboven. Dat is de enige manier om te controleren of een model bij zijn
+naam past: een test kan hooguit vaststellen dát er geometrie is.
+
+---
+
+## 6a. Rijden
 
 Vanaf de scooter kun je instappen. Een knop rechtsonder wisselt tussen lopen
 en rijden; tijdens het rijden is de joystick gas en stuur, staat er een
