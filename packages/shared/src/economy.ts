@@ -228,7 +228,18 @@ export interface PlayerStats {
   vaultCapacity: number;
   offlineCapHours: number;
   inventorySlots: number;
+  /**
+   * Topsnelheid van je voertuig. Dit is ook het plafond waarmee de server een
+   * gemelde positie toetst.
+   */
   moveSpeed: number;
+  /**
+   * Hoe hard je loopt als je níét in je voertuig zit. Bij een bestuurbaar
+   * voertuig telt de vermenigvuldiger daar niet in mee — die verdien je pas
+   * door in te stappen. Bij een boot of helikopter, waar je nog niet zelf mee
+   * kunt varen of vliegen, blijft het een bonus op je looptempo.
+   */
+  walkSpeed: number;
   pickupRadius: number;
   /** Met een manager loopt de kluis niet over: hij wordt continu geleegd. */
   autoCollect: boolean;
@@ -328,6 +339,10 @@ export function computeStats(input: StatsInput): PlayerStats {
     inventorySlots:
       ECONOMY.baseInventorySlots + vehicle.carryBonus + backpackLevel * getUpgrade('backpack').perLevel,
     moveSpeed: ECONOMY.baseMoveSpeed * vehicle.speedMultiplier * legacy.moveSpeed,
+    walkSpeed:
+      ECONOMY.baseMoveSpeed *
+      legacy.moveSpeed *
+      (vehicle.drivable ? 1 : vehicle.speedMultiplier),
     pickupRadius: ECONOMY.basePickupRadius + magnetLevel * getUpgrade('magnet').perLevel,
     autoCollect: managerLvl > 0,
     managerFee: managerFee(managerLvl),

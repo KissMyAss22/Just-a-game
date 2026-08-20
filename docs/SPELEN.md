@@ -136,6 +136,19 @@ Werk de Expo-pakketten dus niet zomaar bij: dan kun je het spel niet meer met
 Expo Go openen en heb je een eigen development build nodig. Zie
 `apps/mobile/package.json` - daar staat waarom.
 
+### Hoe rijd ik?
+
+Zodra je een scooter of auto hebt, staat er rechtsonder een knop **Instappen**.
+De joystick is dan gas en stuur: naar voren is gas, naar achteren remmen en
+achteruit, links en rechts is sturen. Sturen werkt pas als je rijdt — een auto
+draait niet om zijn as.
+
+Je voertuig blijft staan waar je uitstapt. Ben je te ver weggelopen, dan komt
+hij naar je toe zodra je op Instappen drukt; je kunt hem dus niet kwijtraken.
+
+Boot, helikopter en jacht zijn nog niet bestuurbaar. Die geven zolang een
+bonus op je looptempo.
+
 ### Het spel hapert of voelt traag
 
 Ga naar **Profiel** en zet **Beeldkwaliteit** op *Laag*. Dat zet schaduwen en

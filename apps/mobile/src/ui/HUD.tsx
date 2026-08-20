@@ -1,8 +1,16 @@
-import { BOOSTS_BY_ID, districtAtWorld, formatDuration, formatMoney } from '@game/shared';
+import {
+  BOOSTS_BY_ID,
+  districtAtWorld,
+  formatDuration,
+  formatMoney,
+  getVehicle,
+  toKmh,
+} from '@game/shared';
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { playerPosition } from '../state/position';
+import { driveState, playerPosition } from '../state/position';
+import { driving, useDriving } from '../state/useDriving';
 import { useGame } from '../state/useGame';
 import { Bar, Button } from './components';
 import { rarityColor, theme } from './theme';
@@ -33,6 +41,49 @@ function useSurroundings() {
   return info;
 }
 
+/**
+ * Snelheidsmeter.
+ *
+ * De snelheid verandert elke frame, maar hem elke frame in React zetten zou
+ * de hele HUD zestig keer per seconde hertekenen. Vijf keer per seconde is
+ * ruim genoeg om een teller te laten meelopen.
+ */
+function Speedometer() {
+  const [kmh, setKmh] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setKmh(toKmh(driveState.speed)), 200);
+    return () => clearInterval(timer);
+  }, []);
+  return (
+    <View style={styles.speedo} pointerEvents="none">
+      <Text style={styles.speedoValue}>{kmh}</Text>
+      <Text style={styles.speedoUnit}>km/u</Text>
+    </View>
+  );
+}
+
+/** In- en uitstappen. Alleen zichtbaar als je iets hebt om in te stappen. */
+function DriveButton({ vehicleId, bottom }: { vehicleId: string; bottom: number }) {
+  const active = useDriving((s) => s.active);
+  const vehicle = getVehicle(vehicleId);
+  if (!vehicle.drivable) return null;
+
+  return (
+    <Pressable
+      onPress={() => (active ? driving.exit() : driving.enter(vehicleId))}
+      style={({ pressed }) => [
+        styles.driveButton,
+        { bottom },
+        active && styles.driveButtonActive,
+        pressed && { opacity: 0.7 },
+      ]}
+    >
+      <Text style={styles.driveIcon}>{active ? '🚶' : vehicle.icon}</Text>
+      <Text style={styles.driveLabel}>{active ? 'Uitstappen' : 'Instappen'}</Text>
+    </Pressable>
+  );
+}
+
 export function HUD() {
   const insets = useSafeAreaInsets();
   const state = useGame((s) => s.state);
@@ -42,6 +93,7 @@ export function HUD() {
   const vault = useLiveVault();
   const surroundings = useSurroundings();
   const clockOffset = useGame((s) => s.clockOffset);
+  const isDriving = useDriving((s) => s.active);
 
   if (!state) return null;
   const { player, stats } = state;
@@ -139,6 +191,10 @@ export function HUD() {
         </Text>
       </View>
 
+      {/* Voertuig */}
+      <DriveButton vehicleId={player.vehicleId} bottom={insets.bottom + 148} />
+      {isDriving ? <Speedometer /> : null}
+
       {/* Meldingen */}
       <View style={[styles.toasts, { bottom: insets.bottom + 250 }]} pointerEvents="none">
         {toasts.map((toast) => (
@@ -159,6 +215,37 @@ export function HUD() {
 }
 
 const styles = StyleSheet.create({
+  driveButton: {
+    position: 'absolute',
+    right: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.color.panel,
+    borderWidth: 1,
+    borderColor: theme.color.border,
+  },
+  driveButtonActive: {
+    borderColor: theme.color.accent,
+    backgroundColor: 'rgba(77, 212, 172, 0.18)',
+  },
+  driveIcon: { fontSize: 22 },
+  driveLabel: { color: theme.color.text, fontSize: 11, fontWeight: '700', marginTop: 2 },
+  speedo: {
+    position: 'absolute',
+    right: 18,
+    bottom: 44,
+    alignItems: 'flex-end',
+  },
+  speedoValue: {
+    color: theme.color.text,
+    fontSize: 34,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
+  },
+  speedoUnit: { color: theme.color.textDim, fontSize: 11, marginTop: -4, letterSpacing: 1 },
   overlay: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 },
   topBar: {
     flexDirection: 'row',

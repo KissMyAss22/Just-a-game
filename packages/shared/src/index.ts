@@ -6,6 +6,7 @@ export * from './character';
 export * from './properties';
 export * from './home';
 export * from './vehicles';
+export * from './driving';
 export * from './economy';
 export * from './rebirth';
 export * from './season';

@@ -9,11 +9,12 @@
  * De vier beelden staan op verschillende uren, zodat ook de dag- en
  * nachtcyclus te beoordelen is zonder tot vanavond te wachten.
  */
-import { spawnPosition } from '@game/shared';
+import { getVehicle, spawnPosition } from '@game/shared';
 import * as THREE from 'three';
 import { createCharacter } from '../../apps/mobile/src/game3d/city/character';
 import { createLootField } from '../../apps/mobile/src/game3d/city/loot';
 import { QUALITY } from '../../apps/mobile/src/game3d/city/quality';
+import { createVehicle } from '../../apps/mobile/src/game3d/city/vehicle';
 import { createWorld } from '../../apps/mobile/src/game3d/city/world';
 
 declare global {
@@ -67,6 +68,18 @@ character.group.rotation.y = Math.PI * 0.05;
 character.update(0.016, 3.2, player.x, player.z);
 scene.add(character.group);
 
+// Twee voertuigen op de rijbaan: de auto en de scooter delen dezelfde opbouw
+// maar zien er heel anders uit, dus allebei even bekijken.
+const sedan = createVehicle(getVehicle('sedan'), '#8e1f23');
+sedan.place(4, 16, 0);
+sedan.update(0.016, 12, 0.35, true, 0);
+scene.add(sedan.group);
+
+const scooter = createVehicle(getVehicle('scooter'), '#2f6f5e');
+scooter.place(4, 5, 0.2);
+scooter.update(0.016, 4, -0.2, false, 0);
+scene.add(scooter.group);
+
 const loot = createLootField((rarity) =>
   rarity === 'legendary' ? '#fbbf24' : rarity === 'rare' ? '#38bdf8' : '#4ade80',
 );
@@ -96,8 +109,8 @@ const views: View[] = [
     hour: 8.5,
     height: 460,
     place: (c) => {
-      c.position.set(player.x + 3.2, 2.6, player.z - 6.2);
-      c.lookAt(player.x, 1.15, player.z);
+      c.position.set(13.0, 3.0, 4.0);
+      c.lookAt(4.5, 1.0, 13.0);
     },
   },
   {

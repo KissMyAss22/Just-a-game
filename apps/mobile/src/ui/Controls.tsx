@@ -70,6 +70,7 @@ export function LookControl() {
       cameraState.yaw = startYaw.current - event.translationX * 0.006;
       const height = 9 - event.translationY * 0.03;
       cameraState.height = Math.max(4, Math.min(28, height));
+      cameraState.userYawAt = Date.now();
     });
 
   const pinch = Gesture.Pinch()

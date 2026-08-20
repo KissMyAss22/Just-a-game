@@ -6,8 +6,21 @@
  */
 export const playerPosition = { x: 0, z: 0 };
 
-/** Kijkrichting van de camera in radialen; bepaalt ook de looprichting. */
-export const cameraState = { yaw: Math.PI * 0.25, distance: 15, height: 9 };
+/**
+ * Kijkrichting van de camera in radialen; bepaalt ook de looprichting.
+ *
+ * `userYawAt` is het moment waarop de speler zelf voor het laatst heeft
+ * gedraaid. Tijdens het rijden zwenkt de camera vanzelf achter de auto, maar
+ * pas als de speler even niet aan het kijken is — anders vecht de camera met
+ * je duim.
+ */
+export const cameraState = { yaw: Math.PI * 0.25, distance: 15, height: 9, userYawAt: 0 };
+
+/**
+ * De stand van het voertuig waar je in rijdt. Staat hier en niet in React om
+ * dezelfde reden als de spelerpositie: dit verandert elke frame.
+ */
+export const driveState = { x: 0, z: 0, heading: 0, speed: 0, steer: 0, braking: false };
 
 /** Actuele stand van de joystick, -1..1 per as. */
 export const moveInput = { x: 0, y: 0, active: false };

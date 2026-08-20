@@ -277,13 +277,51 @@ hetzelfde bedrag.
 ## 6. Je woning inrichten
 
 Woningen (Kraakpand → Privé-eiland) bepalen basisinkomen, kluisgrootte en
-offline-cap. Voertuigen (te voet → Superjacht) bepalen loopsnelheid,
+offline-cap. Voertuigen (te voet → Superjacht) bepalen snelheid,
 draagcapaciteit en toegang tot verre districten. Een auto kopen is dus een
 echte progressiestap, geen skin.
+
+**In een wegvoertuig stap je ook echt in.** Zie hoofdstuk 6a.
 
 Base-upgrades: Kluis (+25% opslag), Aggregaat (+1 uur offline), Boekhouder
 (+6% inkomen), Rugzak (+4 plekken), Magneet (+0,6 m oppakafstand), Manager
 (int automatisch, tegen commissie).
+
+### 6a. Rijden
+
+Vanaf de scooter kun je instappen. Een knop rechtsonder wisselt tussen lopen
+en rijden; tijdens het rijden is de joystick gas en stuur, staat er een
+snelheidsmeter in beeld en zwenkt de camera achter je voertuig.
+
+**De vermenigvuldiger van je voertuig telt alleen als je erin zit.** Te voet
+loop je je basistempo. Dat is het hele punt: eerst gaf een auto je sneller
+lópen, wat nergens op sloeg en ook niet te merken was. Nu is de sportwagen
+kopen voelbaar, omdat je er daadwerkelijk in gaat rijden.
+
+Boot, helikopter en jacht zijn nog niet bestuurbaar — daar is water- en
+luchtbeweging voor nodig. Zolang dat er niet is houden ze hun bonus op je
+looptempo, zodat ze niet ineens minder waard worden dan de auto eronder.
+
+Het rijmodel staat in `packages/shared/src/driving.ts`, en dat is geen toeval:
+de server toetst een gemelde positie op `moveSpeed`, en een auto haalt
+makkelijk vier keer je looptempo. Zonder dat de server dat weet is "ik reed"
+niet te onderscheiden van "ik sprong".
+
+Het model is bewust arcade en geen simulatie: gas, rem, sturen. Wat het wél
+doet is de dingen die je meteen voelt als ze ontbreken:
+
+| | |
+|---|---|
+| Sturen heeft vaart nodig | Een auto draait niet om zijn as. Onder ongeveer 3,5 m/s stuur je niet. |
+| Sneller = rustiger stuur | Bij topsnelheid stuurt hij een stuk minder scherp dan stapvoets, anders is hij op straat niet te houden. |
+| Achteruit stuur je omgekeerd | Zoals in een echte auto. Achteruit haal je een derde van je topsnelheid. |
+| Remmen gaat harder dan optrekken | Ruim twee keer. Zonder dat voelt een auto als een boot. |
+| Tegen een muur rijden kost vaart | Anders schuur je met vol gas langs een gevel alsof er niets aan de hand is. |
+
+**Je voertuig raak je niet kwijt.** Hij blijft staan waar je uitstapt, maar sta
+je er verder dan acht meter vandaan als je op Instappen drukt, dan komt hij
+naar je toe. Je auto zoeken in een stad van een vierkante kilometer is geen
+leuke spelmechaniek, alleen een vervelende.
 
 ### De plattegrond is de capaciteit
 
@@ -581,7 +619,8 @@ In deze volgorde, want elke knop hierboven beïnvloedt de volgende:
 | 2b | Rebirth met erfenis en permanente voordelen | ✅ af |
 | 2c | Base-indeling: spullen op echte plekken in je woning | ✅ af |
 | 2d | Balansronde met simulatie (hoofdstuk 11) | 🚧 volgende |
-| 3 | Rijdbare voertuigen, dag/nacht, geluid, LOD en performanceronde op een midrange toestel | ⬜ |
+| 2e | Visuele ronde: straten, gevels, licht, rijtjes, dag en nacht | ✅ af |
+| 3 | Rijdbare wegvoertuigen | ✅ af · varen, vliegen, geluid en LOD nog niet |
 | 4 | Roleplay en multiplayer (Colyseus) — zie hieronder | ⬜ |
 | 5 | Live-ops: seizoenen configureren zonder deploy, events, admin-tooling | ⬜ |
 | 6 | Echte IAP (RevenueCat), analytics, Sentry, privacybeleid, App Store | ⬜ |

@@ -216,7 +216,10 @@ export interface PlayerStateDto {
     vaultCapacity: number;
     offlineCapHours: number;
     inventorySlots: number;
+    /** Topsnelheid in je voertuig; ook het plafond waarop de server toetst. */
     moveSpeed: number;
+    /** Hoe hard je loopt als je niet in je voertuig zit. */
+    walkSpeed: number;
     pickupRadius: number;
     autoCollect: boolean;
     managerFee: number;

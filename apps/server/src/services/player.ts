@@ -303,6 +303,7 @@ export function toPlayerStateDto(
       offlineCapHours: stats.offlineCapHours,
       inventorySlots: stats.inventorySlots,
       moveSpeed: stats.moveSpeed,
+      walkSpeed: stats.walkSpeed,
       pickupRadius: stats.pickupRadius,
       autoCollect: stats.autoCollect,
       managerFee: stats.managerFee,
