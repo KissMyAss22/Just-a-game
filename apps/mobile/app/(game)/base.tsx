@@ -126,12 +126,12 @@ export default function BaseScreen() {
               {placedCount === 0 ? 'Nog leeg' : `${placedCount} voorwerpen`}
             </Text>
             <Text style={styles.dim}>
-              Zet je spullen op een echte plek neer. Hoe voller de kamer, hoe hoger je
-              inrichtingsbonus.
+              Loop je woning binnen en zet je spullen neer waar je staat. Hoe voller de kamer,
+              hoe hoger je inrichtingsbonus.
             </Text>
           </View>
           <Button
-            label="Inrichten"
+            label="Naar binnen"
             compact
             onPress={() => router.push('/(game)/interior')}
           />

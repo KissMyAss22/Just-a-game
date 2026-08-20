@@ -3,6 +3,8 @@ import { computeStats } from '../src/economy';
 import {
   DECORATION_BONUS_CAP,
   FLOOR_PLANS,
+  HOME_CELL_SIZE,
+  PLACEMENT_PROBLEM_MESSAGE,
   cellsFor,
   checkPlacement,
   decorationBonus,
@@ -10,16 +12,18 @@ import {
   findFreeSpot,
   floorPlanFor,
   homeCellToWorld,
+  homeEntrance,
+  isHomeWalkable,
   itemFootprint,
   itemHeight,
   occupiedCells,
-  PLACEMENT_PROBLEM_MESSAGE,
   placeableCells,
   placedItemCenter,
   propertySlots,
+  resolveHomeMovement,
   rotatedFootprint,
-  worldToHomeCell,
   type PlacedItem,
+  worldToHomeCell,
 } from '../src/home';
 import { ITEMS, getItem } from '../src/items';
 import { PROPERTIES } from '../src/properties';
@@ -222,7 +226,7 @@ describe('van cel naar wereld', () => {
     const linksCel = homeCellToWorld(plan, 0, 0);
     const rechtsCel = homeCellToWorld(plan, 1, 0);
     expect(midden.x).toBeCloseTo((linksCel.x + rechtsCel.x) / 2, 6);
-    expect(midden.width).toBeCloseTo(2 * 1.2, 6);
+    expect(midden.width).toBeCloseTo(2 * HOME_CELL_SIZE, 6);
   });
 });
 
@@ -265,6 +269,86 @@ describe('items die je kunt plaatsen', () => {
       const { w, d } = rotatedFootprint(item.id, 0);
       if (w * d > 1) continue;
       expect(findFreeSpot(smal, [], item.id), getItem(item.id).name).not.toBeNull();
+    }
+  });
+});
+
+/**
+ * Je loopt door je woning heen, dus muren en meubels moeten je tegenhouden en
+ * de rest van de kamer moet begaanbaar zijn. Dit is het soort ding dat op een
+ * telefoon pas opvalt als je vastloopt in een hoek.
+ */
+describe('rondlopen in je woning', () => {
+  const plan = floorPlanFor('apartment'); // 3x3 cellen
+
+  it('laat je door een lege kamer lopen', () => {
+    for (let x = 0; x < plan.width; x++) {
+      for (let z = 0; z < plan.depth; z++) {
+        const world = homeCellToWorld(plan, x, z);
+        expect({ x, z, loopbaar: isHomeWalkable(plan, [], world.x, world.z) }).toEqual({
+          x,
+          z,
+          loopbaar: true,
+        });
+      }
+    }
+  });
+
+  it('houdt je binnen de muren', () => {
+    const halfWidth = (plan.width * HOME_CELL_SIZE) / 2;
+    expect(isHomeWalkable(plan, [], halfWidth + 1, 0)).toBe(false);
+    expect(isHomeWalkable(plan, [], 0, -(plan.depth * HOME_CELL_SIZE) / 2 - 1)).toBe(false);
+  });
+
+  it('laat je niet door een geplaatst meubel lopen', () => {
+    const kast = placed('a', 'piano', 0, 0, 0);
+    const midden = placedItemCenter(plan, kast);
+    expect(isHomeWalkable(plan, [kast], midden.x, midden.z)).toBe(false);
+    // Vlak ernaast moet je nog wél kunnen staan, anders zit een volle kamer op slot.
+    const vrij = homeCellToWorld(plan, 2, 2);
+    expect(isHomeWalkable(plan, [kast], vrij.x, vrij.z)).toBe(true);
+  });
+
+  it('laat je langs een kast glijden in plaats van erop vast te lopen', () => {
+    const kast = placed('a', 'aquarium', 0, 0, 0);
+    const start = homeCellToWorld(plan, 0, 2);
+    const doel = placedItemCenter(plan, kast);
+    // Recht op de kast af, maar met een zijwaartse component: die moet blijven.
+    const na = resolveHomeMovement(plan, [kast], start.x, start.z, doel.x, doel.z);
+    expect(na).not.toEqual({ x: doel.x, z: doel.z });
+    expect(isHomeWalkable(plan, [kast], na.x, na.z)).toBe(true);
+  });
+
+  it('zet je bij binnenkomst op een plek waar je kunt staan, ook in een volle woning', () => {
+    for (const property of PROPERTIES) {
+      const p = floorPlanFor(property.id);
+      const deur = doorCell(p);
+      // Alles vol behalve de deur; die weigert checkPlacement sowieso.
+      const vol: PlacedItem[] = [];
+      for (let x = 0; x < p.width; x++) {
+        for (let z = 0; z < p.depth; z++) {
+          if (x === deur.x && z === deur.z) continue;
+          vol.push(placed(`v${x}-${z}`, 'lamp', x, z));
+        }
+      }
+      const entree = homeEntrance(p);
+      expect({ woning: property.id, loopbaar: isHomeWalkable(p, vol, entree.x, entree.z) }).toEqual({
+        woning: property.id,
+        loopbaar: true,
+      });
+    }
+  });
+
+  it('geeft elke woning een kamer waar je in kunt lopen', () => {
+    for (const property of PROPERTIES) {
+      const p = floorPlanFor(property.id);
+      const meters = Math.min(p.width, p.depth) * HOME_CELL_SIZE;
+      // Vier meter is de ondergrens: daaronder sta je met je neus tegen de muur.
+      // De woning in de melding, anders weet je bij een rode test niet welke.
+      expect({ woning: property.id, krapGenoeg: meters >= 4 }).toEqual({
+        woning: property.id,
+        krapGenoeg: true,
+      });
     }
   });
 });

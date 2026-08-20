@@ -5,25 +5,29 @@ import {
   formatMoney,
   getItem,
   isPlaceable,
-  rotatedFootprint,
 } from '@game/shared';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BaseScene, homeCameraState, tapToCell } from '../../src/game3d/BaseScene';
+import { BaseScene, homeCameraState } from '../../src/game3d/BaseScene';
+import { homeFocus } from '../../src/state/homePosition';
 import { useGame } from '../../src/state/useGame';
 import { Button, Row } from '../../src/ui/components';
+import { Joystick } from '../../src/ui/Controls';
 import { rarityColor, theme } from '../../src/ui/theme';
 
 /**
- * Je woning inrichten.
+ * Je woning van binnen — je loopt er zelf doorheen.
  *
- * Op een telefoon is slepen in 3D onnauwkeurig, dus het gaat in twee stappen:
- * tik een vak aan om de cursor te verplaatsen, en bevestig daarna. Zo zet je
- * nooit per ongeluk iets op de verkeerde plek, en kun je van tevoren zien of
- * het past.
+ * Het was een poppenhuis: een camera die eromheen draaide en vakjes waar je van
+ * bovenaf op tikte. Dat werkte, maar het maakte van je woning een formulier.
+ * Nu loop je naar een plek toe en zet je daar iets neer, en dat is precies wat
+ * een gevonden bank de moeite waard maakt.
+ *
+ * Alles draait om het vakje voor je neus: dat licht op, en de knoppen eronder
+ * gaan over dát vakje. Geen cursor die je apart moet verplaatsen.
  */
 export default function InteriorScreen() {
   const insets = useSafeAreaInsets();
@@ -35,162 +39,123 @@ export default function InteriorScreen() {
   const storeItem = useGame((s) => s.storeItem);
   const swapItem = useGame((s) => s.swapItem);
 
-  const [cursor, setCursor] = useState<{ x: number; z: number } | null>(null);
-  // Kom je hier vanuit het basescherm omdat je woning vol is, dan houd je dat
-  // voorwerp meteen vast — je hoeft het niet nog eens uit de rugzak te zoeken.
+  // Kom je hier vanaf het base-scherm omdat je iets wilde neerzetten, dan houd
+  // je dat meteen vast — anders moet je het nog eens uit je rugzak vissen.
   const { pak } = useLocalSearchParams<{ pak?: string }>();
-  const [pendingItemId, setPendingItemId] = useState<string | null>(pak ?? null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  /** Wat je vasthoudt om neer te zetten. */
+  const [holding, setHolding] = useState<string | null>(pak ?? null);
   const [rotation, setRotation] = useState(0);
+  const [trayOpen, setTrayOpen] = useState(false);
+
+  /**
+   * Waar je naar kijkt. De 3D-laag schrijft dit elke frame; hier lezen we het
+   * vijf keer per seconde. Vaker zou de hele onderbalk zestig keer per seconde
+   * hertekenen voor een getal dat je toch niet zo snel kunt lezen.
+   */
+  const [focus, setFocus] = useState<{ cell: { x: number; z: number } | null; placementId: string | null }>({
+    cell: null,
+    placementId: null,
+  });
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setFocus({ cell: homeFocus.cell, placementId: homeFocus.placementId });
+    }, 200);
+    return () => clearInterval(timer);
+  }, []);
+
   const startYaw = useRef(homeCameraState.yaw);
+  const look = Gesture.Pan()
+    .runOnJS(true)
+    .minDistance(10)
+    .onBegin(() => {
+      startYaw.current = homeCameraState.yaw;
+    })
+    .onUpdate((event) => {
+      homeCameraState.yaw = startYaw.current - event.translationX * 0.006;
+    });
 
   const plan = useMemo(
     () => floorPlanFor(state?.player.propertyId ?? 'squat'),
     [state?.player.propertyId],
   );
 
-  const placements = state?.placements ?? [];
-
-  /** Wat staat er op deze cel? */
-  const placementAt = (x: number, z: number) =>
-    placements.find((placed) =>
-      rotatedFootprintCells(placed).some((cell) => cell.x === x && cell.z === z),
-    ) ?? null;
-
-  function rotatedFootprintCells(placed: (typeof placements)[number]) {
-    const { w, d } = rotatedFootprint(placed.itemId, placed.rotation);
-    const cells: { x: number; z: number }[] = [];
-    for (let dz = 0; dz < d; dz++) {
-      for (let dx = 0; dx < w; dx++) cells.push({ x: placed.x + dx, z: placed.z + dz });
-    }
-    return cells;
-  }
-
-  const tap = Gesture.Tap()
-    .runOnJS(true)
-    .maxDistance(14)
-    .onEnd((event) => {
-      const cell = tapToCell(plan, event.x, event.y);
-      if (!cell) return;
-      const hit = placementAt(cell.x, cell.z);
-      if (hit) {
-        setSelectedId(hit.id);
-        // Houd je iets vast, dan blijft dat staan: dan wil je wisselen, niet
-        // je keuze kwijtraken door per ongeluk op een kast te tikken.
-        if (!pendingItemId) setRotation(hit.rotation);
-      }
-      setCursor(cell);
-    });
-
-  const pan = Gesture.Pan()
-    .runOnJS(true)
-    .minDistance(14)
-    .onBegin(() => {
-      startYaw.current = homeCameraState.yaw;
-    })
-    .onUpdate((event) => {
-      homeCameraState.yaw = startYaw.current - event.translationX * 0.008;
-    });
-
   if (!state) return null;
+  const placements = state.placements;
+  const inTray = state.inventory.filter((entry) => isPlaceable(getItem(entry.itemId)));
 
-  // Wat er gebeurt als je nu bevestigt.
-  const movingItemId = pendingItemId ?? placements.find((p) => p.id === selectedId)?.itemId ?? null;
+  /** Het voorwerp waar je voor staat. */
+  const facing = placements.find((placed) => placed.id === focus.placementId) ?? null;
+  /** Wat er straks op dat vakje komt: wat je vasthoudt, of wat je oppakt om te verzetten. */
+  const subject = holding ?? facing?.itemId ?? null;
+
   const check =
-    movingItemId && cursor
+    subject && focus.cell
       ? checkPlacement(
           plan,
           placements,
-          movingItemId,
-          cursor.x,
-          cursor.z,
+          subject,
+          focus.cell.x,
+          focus.cell.z,
           rotation,
-          pendingItemId ? undefined : (selectedId ?? undefined),
+          // Verplaats je iets, dan mag het zichzelf niet in de weg zitten.
+          holding ? undefined : facing?.id,
         )
       : null;
-  const canConfirm = Boolean(check?.ok);
+  const fits = check?.ok === true;
 
-  const inTray = state.inventory.filter((entry) => isPlaceable(getItem(entry.itemId)));
-  const selected = placements.find((p) => p.id === selectedId) ?? null;
-  // Wisselen kan zodra je iets vasthoudt én op iets staat dat er al staat.
-  const swapTarget = pendingItemId && selected && selected.itemId !== pendingItemId ? selected : null;
-  const swapFits = swapTarget
-    ? checkPlacement(
-        plan,
-        placements,
-        pendingItemId!,
-        swapTarget.x,
-        swapTarget.z,
-        swapTarget.rotation,
-        swapTarget.id,
-      ).ok
-    : false;
+  /** Sta je voor iets én houd je iets vast, dan is wisselen de bedoeling. */
+  const canSwap = Boolean(holding && facing && holding !== facing.itemId);
 
-  const confirm = async () => {
-    if (!cursor || !movingItemId) return;
-    const ok = pendingItemId
-      ? await place(pendingItemId, { x: cursor.x, z: cursor.z, rotation })
-      : selectedId
-        ? await moveItem(selectedId, cursor.x, cursor.z, rotation)
-        : false;
-    if (ok) {
-      setPendingItemId(null);
-      setSelectedId(null);
-      setCursor(null);
-      setRotation(0);
-    }
+  const reset = (): void => {
+    setHolding(null);
+    setRotation(0);
   };
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top }]}>
-      <Row style={styles.header}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.title}>Inrichten</Text>
-          <Text style={styles.dim}>
-            {placements.length}/{state.stats.slots} plekken ·{' '}
-            {Math.round(state.stats.decorationBonus * 100)}% inrichtingsbonus ·{' '}
-            {formatMoney(state.stats.incomePerHour)}/u
-          </Text>
-        </View>
-        <Button label="Terug" tone="ghost" compact onPress={() => router.back()} />
-      </Row>
+    <View style={styles.screen}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        <Row style={{ alignItems: 'center' }}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.title}>Thuis</Text>
+            <Text style={styles.dim}>
+              {placements.length}/{state.stats.slots} plekken ·{' '}
+              {Math.round(state.stats.decorationBonus * 100)}% inrichtingsbonus ·{' '}
+              {formatMoney(state.stats.incomePerHour)}/u
+            </Text>
+          </View>
+          <Button label="Naar buiten" tone="ghost" compact onPress={() => router.back()} />
+        </Row>
+      </View>
 
-      <GestureDetector gesture={Gesture.Exclusive(pan, tap)}>
+      <GestureDetector gesture={look}>
         <View style={styles.canvas}>
           <BaseScene
             plan={plan}
             placements={placements}
-            selectedId={selectedId}
-            highlight={cursor}
-            highlightValid={canConfirm}
+            selectedId={facing?.id ?? null}
+            highlight={focus.cell}
+            highlightValid={fits || canSwap}
+            ghost={holding && focus.cell ? { itemId: holding, rotation } : null}
           />
+          <Joystick />
         </View>
       </GestureDetector>
 
-      {/* Wat je nu kunt doen */}
+      {/* Wat je hier kunt doen. Altijd over het vakje voor je neus. */}
       <View style={styles.panel}>
-        {movingItemId && cursor ? (
+        {holding ? (
           <>
             <Text style={styles.panelTitle}>
-              {getItem(movingItemId).icon} {getItem(movingItemId).name}
-              {pendingItemId ? ' neerzetten' : ' verplaatsen'}
+              {getItem(holding).icon} {getItem(holding).name} in je handen
             </Text>
-            <Text
-              style={[
-                styles.dim,
-                !canConfirm && !swapTarget && { color: theme.color.danger },
-                swapTarget && !swapFits && { color: theme.color.danger },
-              ]}
-            >
-              {swapTarget
-                ? swapFits
-                  ? `${getItem(swapTarget.itemId).name} gaat terug in je rugzak`
-                  : 'Dat past hier niet in plaats van wat er staat'
-                : canConfirm
-                  ? `Vak ${cursor.x + 1},${cursor.z + 1} is vrij`
+            <Text style={[styles.dim, !fits && !canSwap && { color: theme.color.danger }]}>
+              {canSwap
+                ? `Wisselen met ${getItem(facing!.itemId).name}`
+                : fits
+                  ? 'Hier is plek'
                   : check && !check.ok
                     ? PLACEMENT_PROBLEM_MESSAGE[check.problem]
-                    : ''}
+                    : 'Loop naar een vrij vak'}
             </Text>
             <Row style={{ marginTop: 8 }}>
               <Button
@@ -199,92 +164,115 @@ export default function InteriorScreen() {
                 tone="ghost"
                 onPress={() => setRotation((r) => (r + 1) % 4)}
               />
-              {selected && !pendingItemId ? (
-                <Button
-                  label="Opbergen"
-                  compact
-                  tone="ghost"
-                  loading={busy}
-                  onPress={async () => {
-                    if (await storeItem(selected.id)) {
-                      setSelectedId(null);
-                      setCursor(null);
-                    }
-                  }}
-                />
-              ) : null}
+              <Button label="Leggen laten" compact tone="ghost" onPress={reset} />
               <View style={{ flex: 1 }} />
-              {swapTarget ? (
+              {canSwap ? (
                 <Button
                   label="Wisselen"
                   compact
-                  disabled={!swapFits}
                   loading={busy}
                   onPress={async () => {
-                    if (await swapItem(swapTarget.id, pendingItemId!)) {
-                      setPendingItemId(null);
-                      setSelectedId(null);
-                      setCursor(null);
-                    }
+                    if (await swapItem(facing!.id, holding)) reset();
                   }}
                 />
               ) : (
                 <Button
-                  label={pendingItemId ? 'Zet neer' : 'Verplaats'}
+                  label="Zet neer"
                   compact
-                  disabled={!canConfirm}
+                  disabled={!fits}
                   loading={busy}
-                  onPress={() => void confirm()}
+                  onPress={async () => {
+                    if (!focus.cell) return;
+                    if (await place(holding, { ...focus.cell, rotation })) reset();
+                  }}
                 />
               )}
             </Row>
           </>
+        ) : facing ? (
+          <>
+            <Text style={styles.panelTitle}>
+              {getItem(facing.itemId).icon} {getItem(facing.itemId).name}
+            </Text>
+            <Text style={styles.dim}>
+              {formatMoney(getItem(facing.itemId).incomePerHour ?? 0)}/u ·{' '}
+              {getItem(facing.itemId).flex ?? 0} flex
+            </Text>
+            <Row style={{ marginTop: 8 }}>
+              <Button
+                label="Draaien"
+                compact
+                tone="ghost"
+                loading={busy}
+                onPress={() =>
+                  void moveItem(facing.id, facing.x, facing.z, (facing.rotation + 1) % 4)
+                }
+              />
+              <View style={{ flex: 1 }} />
+              <Button
+                label="Oppakken"
+                compact
+                loading={busy}
+                onPress={() => void storeItem(facing.id)}
+              />
+            </Row>
+          </>
         ) : (
           <Text style={styles.dim}>
-            Kies hieronder iets uit je rugzak, of tik op een meubel om het te verplaatsen. Is je
-            woning vol? Pak iets uit je rugzak en tik op wat er staat om te wisselen. Sleep om de
-            kamer rond te draaien.
+            Loop met de joystick, veeg om je heen te kijken. Ga voor een leeg vak staan en pak iets
+            uit je rugzak om het daar neer te zetten. Sta je voor iets dat er al staat, dan kun je
+            het draaien of oppakken.
           </Text>
         )}
       </View>
 
-      {/* Je spullen */}
+      {/* Je rugzak, ingeklapt tot je hem nodig hebt. */}
       <View style={[styles.tray, { paddingBottom: insets.bottom + 8 }]}>
-        <Text style={styles.trayLabel}>In je rugzak</Text>
-        {inTray.length === 0 ? (
-          <Text style={styles.dim}>
-            Niets om neer te zetten. Zoek meubels in de stad of maak ze bij de Werkbank.
+        <Pressable onPress={() => setTrayOpen((open) => !open)} style={styles.trayHeader}>
+          <Text style={styles.trayLabel}>
+            🎒 In je rugzak ({inTray.reduce((sum, entry) => sum + entry.quantity, 0)})
           </Text>
-        ) : (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {inTray.map((entry) => {
-              const item = getItem(entry.itemId);
-              const active = pendingItemId === entry.itemId;
-              return (
-                <Pressable
-                  key={entry.itemId}
-                  onPress={() => {
-                    setPendingItemId(active ? null : entry.itemId);
-                    setSelectedId(null);
-                    setRotation(0);
-                  }}
-                  style={[
-                    styles.trayItem,
-                    { borderColor: active ? theme.color.accent : theme.color.border },
-                  ]}
-                >
-                  <Text style={styles.trayIcon}>{item.icon}</Text>
-                  <Text style={[styles.trayName, { color: rarityColor[item.rarity] }]} numberOfLines={1}>
-                    {item.name}
-                  </Text>
-                  <Text style={styles.dim}>
-                    {entry.quantity}x · {formatMoney(item.incomePerHour ?? 0)}/u
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        )}
+          <Text style={styles.trayChevron}>{trayOpen ? '▾' : '▴'}</Text>
+        </Pressable>
+
+        {trayOpen ? (
+          inTray.length === 0 ? (
+            <Text style={styles.dim}>
+              Niets om neer te zetten. Zoek meubels in de stad of maak ze bij de Werkbank.
+            </Text>
+          ) : (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {inTray.map((entry) => {
+                const item = getItem(entry.itemId);
+                const active = holding === entry.itemId;
+                return (
+                  <Pressable
+                    key={entry.itemId}
+                    onPress={() => {
+                      setHolding(active ? null : entry.itemId);
+                      setRotation(0);
+                    }}
+                    style={[
+                      styles.trayItem,
+                      { borderColor: active ? theme.color.accent : theme.color.border },
+                    ]}
+                  >
+                    <Text style={styles.trayIcon}>{item.icon}</Text>
+                    <Text
+                      style={[styles.trayName, { color: rarityColor[item.rarity] }]}
+                      numberOfLines={1}
+                    >
+                      {item.name}
+                    </Text>
+                    <Text style={styles.dim}>
+                      {entry.quantity}x · {formatMoney(item.incomePerHour ?? 0)}/u
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          )
+        ) : null}
       </View>
     </View>
   );
@@ -301,7 +289,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: theme.color.border,
     padding: 12,
-    minHeight: 92,
+    minHeight: 96,
   },
   panelTitle: { color: theme.color.text, fontSize: 16, fontWeight: '700' },
   tray: {
@@ -311,13 +299,9 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingHorizontal: 12,
   },
-  trayLabel: {
-    color: theme.color.textDim,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1,
-    marginBottom: 6,
-  },
+  trayHeader: { flexDirection: 'row', alignItems: 'center', paddingBottom: 6 },
+  trayLabel: { color: theme.color.textDim, fontSize: 12, fontWeight: '800', flex: 1 },
+  trayChevron: { color: theme.color.textDim, fontSize: 13, fontWeight: '800' },
   trayItem: {
     width: 104,
     marginRight: 8,

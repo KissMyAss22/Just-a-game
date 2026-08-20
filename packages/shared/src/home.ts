@@ -12,8 +12,19 @@ import { PROPERTIES } from './properties';
  * "aantal plekken" meer dat daarnaast kan gaan afwijken.
  */
 
-/** Meters per cel. */
-export const HOME_CELL_SIZE = 1.2;
+/**
+ * Meters per cel.
+ *
+ * Twee meter, en dat is een bewuste keuze: je loopt door je woning heen, en op
+ * de oude 1,2 m was een krot 2,4 bij 2,4 meter — een bezemkast waar je tegen de
+ * muur staat voordat je een stap hebt gezet.
+ *
+ * Alleen de célmaat is veranderd, niet het aantal cellen. Het aantal plekken
+ * van een woning ís `width × depth − 1`, dus daar hangt het inkomen aan; groter
+ * maken door er cellen bij te doen zou de hele balans verschuiven. Zo blijft
+ * alles staan en wordt een woning kopen ook ruimtelijk voelbaar.
+ */
+export const HOME_CELL_SIZE = 2.0;
 /** Hoogte van de muren in meters. */
 export const HOME_WALL_HEIGHT = 2.6;
 
@@ -267,6 +278,71 @@ export function placedItemCenter(
     width: w * HOME_CELL_SIZE,
     depth: d * HOME_CELL_SIZE,
   };
+}
+
+/**
+ * Waar je kunt staan in je woning.
+ *
+ * Dezelfde vorm als `isWalkable` voor de stad: een punt met een straal eromheen,
+ * dat vrij moet zijn van muren en van wat er al staat. Hij hoort hier en niet in
+ * de app, zodat de server hem later kan narekenen — precies zoals dat bij de
+ * stad gebeurt.
+ */
+export function isHomeWalkable(
+  plan: FloorPlan,
+  placements: readonly PlacedItem[],
+  worldX: number,
+  worldZ: number,
+  radius = 0.32,
+): boolean {
+  const halfWidth = (plan.width * HOME_CELL_SIZE) / 2;
+  const halfDepth = (plan.depth * HOME_CELL_SIZE) / 2;
+  // De muren staan op de rand van het raster.
+  if (Math.abs(worldX) + radius > halfWidth) return false;
+  if (Math.abs(worldZ) + radius > halfDepth) return false;
+
+  for (const placed of placements) {
+    const box = placedItemCenter(plan, placed);
+    // Meubels vullen hun cellen niet helemaal; er blijft een randje langs
+    // waar je nog net langs kunt schuiven. Zonder die marge sta je in een
+    // volle kamer voortdurend klem.
+    const reachX = box.width * 0.42 + radius;
+    const reachZ = box.depth * 0.42 + radius;
+    if (Math.abs(worldX - box.x) < reachX && Math.abs(worldZ - box.z) < reachZ) return false;
+  }
+  return true;
+}
+
+/**
+ * Schuift een gewenste stap zo dat je niet door een muur of een kast loopt.
+ * Eerst de hele stap, dan alleen x, dan alleen z — zo glijd je langs een bank
+ * in plaats van ertegenaan te blijven staan.
+ */
+export function resolveHomeMovement(
+  plan: FloorPlan,
+  placements: readonly PlacedItem[],
+  fromX: number,
+  fromZ: number,
+  toX: number,
+  toZ: number,
+  radius = 0.32,
+): { x: number; z: number } {
+  if (isHomeWalkable(plan, placements, toX, toZ, radius)) return { x: toX, z: toZ };
+  if (isHomeWalkable(plan, placements, toX, fromZ, radius)) return { x: toX, z: fromZ };
+  if (isHomeWalkable(plan, placements, fromX, toZ, radius)) return { x: fromX, z: toZ };
+  return { x: fromX, z: fromZ };
+}
+
+/**
+ * Waar je staat als je binnenkomt: midden op de deurcel.
+ *
+ * Die cel blijft altijd vrij — `checkPlacement` weigert er iets neer te zetten —
+ * dus dit is de enige plek waarvan zeker is dat je er kunt staan, hoe vol je
+ * woning ook is.
+ */
+export function homeEntrance(plan: FloorPlan): { x: number; z: number } {
+  const door = doorCell(plan);
+  return homeCellToWorld(plan, door.x, door.z);
 }
 
 /** Elke woning moet een plattegrond hebben; anders is de winkel kapot. */

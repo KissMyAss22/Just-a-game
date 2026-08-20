@@ -268,3 +268,19 @@ tikken zet hem weer uit.
 **Praten met elkaar kan nog niet.** Spraak vraagt om techniek die niet in Expo Go past — daar
 is een eigen ontwikkelbuild voor nodig. Chat en spraak komen samen, want die vragen ook om
 filteren, blokkeren en rapporteren, en dat hoort er in één keer bij.
+
+## Je woning van binnen
+
+Open **Base** in je telefoon en tik op **Naar binnen**. Je staat dan in je eigen deuropening
+en loopt met de joystick de kamer in; vegen draait de camera om je heen.
+
+Het vakje voor je neus licht op, en de knoppen onderin gaan altijd over dát vakje:
+
+- **Voor een leeg vak:** open je rugzak onderin, kies iets, draai het en zet het neer.
+- **Voor iets dat er al staat:** draaien of oppakken.
+- **Iets in je handen én voor een meubel staan:** dan wordt het wisselen.
+
+De kamers zijn met deze ronde flink groter geworden — een cel is van 1,2 naar 2 meter
+gegaan. Je krot is nu 4 bij 4 meter, een appartement 6 bij 6, een villa 10 bij 10 en het
+privé-landgoed 16 bij 12. Het **aantal plekken is niet veranderd**, dus je inkomen blijft
+precies hetzelfde; het is dezelfde woning, alleen op ware grootte.

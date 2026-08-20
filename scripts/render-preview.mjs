@@ -83,6 +83,23 @@ execFileSync(
   { stdio: 'inherit', cwd: root },
 );
 
+/** Je woning van binnen: sinds je er doorheen loopt moet je erin kunnen kijken. */
+console.log('Bundelen (woning)...');
+execFileSync(
+  join(root, 'node_modules/.bin/esbuild'),
+  [
+    join(previewDir, 'home.ts'),
+    '--bundle',
+    '--format=iife',
+    '--platform=browser',
+    '--loader:.ts=ts',
+    '--alias:@game/shared=./packages/shared/src/index.ts',
+    `--outfile=${join(previewDir, 'home-bundle.js')}`,
+    '--log-level=warning',
+  ],
+  { stdio: 'inherit', cwd: root },
+);
+
 /** Rendert één pagina naar een PNG. */
 function shoot(page, file, width, height) {
   const target = join(outDir, file);
@@ -115,3 +132,4 @@ console.log('Renderen...');
 shoot('index.html', 'stad.png', 900, 2310);
 shoot('items.html', 'items.png', 1100, 900);
 shoot('map.html', 'kaart.png', 660, 800);
+shoot('home.html', 'woning.png', 820, 1220);
