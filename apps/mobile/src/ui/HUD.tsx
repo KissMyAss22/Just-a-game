@@ -1,9 +1,11 @@
 import {
   BOOSTS_BY_ID,
+  SHOP_REACH,
   districtAtWorld,
   formatDuration,
   formatMoney,
   getVehicle,
+  nearestShop,
   toKmh,
 } from '@game/shared';
 import { useEffect, useState } from 'react';
@@ -11,11 +13,12 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { onCrowdChange, realtime } from '../net/presence';
 import { renderStats } from '../state/devWorld';
-import { driveState, flyInput, playerPosition } from '../state/position';
+import { cameraState, driveState, flyInput, navigationTarget, playerPosition } from '../state/position';
 import { driving, useDriving } from '../state/useDriving';
 import { useSettings } from '../state/useSettings';
 import { useGame } from '../state/useGame';
 import { Bar, Button } from './components';
+import { ShopSheet } from './ShopSheet';
 import { rarityColor, theme } from './theme';
 import { useLiveVault } from './useLiveVault';
 
@@ -124,6 +127,70 @@ function FlyControls({ bottom }: { bottom: number }) {
 }
 
 /**
+ * Sta je bij een pandjeshuis, en waar is de dichtstbijzijnde?
+ *
+ * Vier keer per seconde. Je loopt hooguit een paar meter per tel, dus vaker
+ * peilen levert niets op behalve hertekeningen van de hele HUD.
+ */
+function useShop() {
+  const [near, setNear] = useState(() => nearestShop(playerPosition.x, playerPosition.z));
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNear(nearestShop(playerPosition.x, playerPosition.z));
+    }, 250);
+    return () => clearInterval(timer);
+  }, []);
+
+  return { near, atShop: near !== null && near.distance <= SHOP_REACH };
+}
+
+/**
+ * De navigatiewijzer: een pijl naar je bestemming, met de afstand erbij.
+ *
+ * De pijl draait mee met de camera, want "die kant op" heeft alleen betekenis
+ * ten opzichte van waar je kijkt. Dit is bewust één wijzer met een instelbaar
+ * doel en niet een winkelpijl: straks kan de kaart er ook een bestemming in
+ * zetten, en twee pijlen op één scherm is geen navigatie meer.
+ */
+function Compass({ bottom }: { bottom: number }) {
+  const [state, setState] = useState<{ label: string; distance: number; angle: number } | null>(null);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const target = navigationTarget.current;
+      if (!target) {
+        setState(null);
+        return;
+      }
+      const dx = target.x - playerPosition.x;
+      const dz = target.z - playerPosition.z;
+      setState({
+        label: target.label,
+        distance: Math.hypot(dx, dz),
+        // atan2 geeft de richting in de wereld; de camerahoek eraf haalt het
+        // om naar "links of rechts van waar je kijkt".
+        angle: Math.atan2(dx, dz) - cameraState.yaw,
+      });
+    }, 250);
+    return () => clearInterval(timer);
+  }, []);
+
+  if (!state) return null;
+  return (
+    <View style={[styles.compass, { bottom }]} pointerEvents="none">
+      <Text style={[styles.compassArrow, { transform: [{ rotate: `${-state.angle}rad` }] }]}>➤</Text>
+      <View>
+        <Text style={styles.compassLabel} numberOfLines={1}>
+          {state.label}
+        </Text>
+        <Text style={styles.compassDistance}>{Math.round(state.distance)} m</Text>
+      </View>
+    </View>
+  );
+}
+
+/**
  * De meter uit het testgereedschap: hoe zwaar is dit beeld, en waar sta ik?
  *
  * Twee keer per seconde. Vaker heeft geen zin — je leest het toch niet — en
@@ -188,10 +255,30 @@ export function HUD() {
   const flying = useSettings((s) => s.fly);
   const walkBoost = useSettings((s) => s.walkBoost);
   const debugOverlay = useSettings((s) => s.debugOverlay);
+  const { near: shop, atShop } = useShop();
+  const [shopOpen, setShopOpen] = useState(false);
+
+  const carriedNow = state
+    ? state.inventory.reduce((sum, entry) => sum + entry.quantity, 0)
+    : 0;
+  const nearlyFull = state ? carriedNow >= state.stats.inventorySlots * 0.8 : false;
+
+  // Zit je rugzak bijna vol, dan wijst de wijzer vanzelf naar de winkel — dat
+  // is precies wanneer je hem nodig hebt. Staat er al een bestemming van de
+  // speler zelf, dan blijft die staan.
+  useEffect(() => {
+    if (nearlyFull && shop) {
+      if (!navigationTarget.current || navigationTarget.current.label === shop.spot.name) {
+        navigationTarget.current = { x: shop.spot.x, z: shop.spot.z, label: shop.spot.name };
+      }
+    } else if (shop && navigationTarget.current?.label === shop.spot.name) {
+      navigationTarget.current = null;
+    }
+  }, [nearlyFull, shop]);
 
   if (!state) return null;
   const { player, stats } = state;
-  const carried = state.inventory.reduce((sum, entry) => sum + entry.quantity, 0);
+  const carried = carriedNow;
   const vaultBalance = vault?.vaultBalance ?? state.vault.balance;
   const vaultFull = !stats.autoCollect && vaultBalance >= stats.vaultCapacity;
 
@@ -281,10 +368,28 @@ export function HUD() {
 
       {/* Rugzak */}
       <View style={[styles.backpack, { bottom: insets.bottom + 200 }]} pointerEvents="none">
-        <Text style={styles.backpackText}>
+        <Text style={[styles.backpackText, nearlyFull && { color: theme.color.danger }]}>
           🎒 {carried}/{stats.inventorySlots}
         </Text>
       </View>
+
+      {/* Pandjeshuis: alleen als je ervoor staat. */}
+      {atShop && shop ? (
+        <Pressable
+          onPress={() => setShopOpen(true)}
+          style={({ pressed }) => [
+            styles.shopButton,
+            { bottom: insets.bottom + 240 },
+            pressed && { opacity: 0.75 },
+          ]}
+        >
+          <Text style={styles.shopIcon}>🏷️</Text>
+          <Text style={styles.shopLabel}>Verkopen</Text>
+        </Pressable>
+      ) : null}
+      {shopOpen && shop ? (
+        <ShopSheet name={shop.spot.name} onClose={() => setShopOpen(false)} />
+      ) : null}
 
       {/* Voertuig */}
       {flying ? null : <DriveButton vehicleId={player.vehicleId} bottom={insets.bottom + 148} />}
@@ -300,6 +405,7 @@ export function HUD() {
         </View>
       ) : null}
 
+      <Compass bottom={insets.bottom + 300} />
       {debugOverlay ? <DebugPanel top={insets.top + 120} /> : null}
 
       {/* Meldingen */}
@@ -457,6 +563,36 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   backpackText: { color: theme.color.text, fontWeight: '700', fontSize: 13 },
+  shopButton: {
+    position: 'absolute',
+    left: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.color.accent,
+  },
+  shopIcon: { fontSize: 15 },
+  shopLabel: { color: '#062018', fontWeight: '800', fontSize: 13 },
+  compass: {
+    position: 'absolute',
+    left: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.color.panel,
+    borderWidth: 1,
+    borderColor: theme.color.border,
+    maxWidth: 210,
+  },
+  compassArrow: { color: theme.color.accent, fontSize: 17 },
+  compassLabel: { color: theme.color.text, fontSize: 12, fontWeight: '700' },
+  compassDistance: { color: theme.color.textDim, fontSize: 11, fontWeight: '700' },
   toasts: { position: 'absolute', left: 16, right: 16, gap: 6 },
   toast: {
     alignSelf: 'flex-start',

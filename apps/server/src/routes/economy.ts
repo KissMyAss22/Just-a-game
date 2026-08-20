@@ -1,6 +1,9 @@
 import {
   PLACEMENT_PROBLEM_MESSAGE,
   RARITIES,
+  SHOP_REACH_TOLERANCE,
+  atShop,
+  nearestShop,
   checkPlacement,
   dayIndexFor,
   discardItemsSchema,
@@ -30,6 +33,31 @@ import {
   toPlayerStateDto,
 } from '../services/player.js';
 import { trackQuest } from '../services/quests.js';
+
+/**
+ * Sta je bij een pandjeshuis?
+ *
+ * Toetst tegen de positie die de server zélf heeft opgeslagen, niet tegen iets
+ * wat de client meestuurt. Die kolom wordt bijgehouden door /player/position,
+ * waar hij al door de snelheidscontrole gaat en op begaanbaar terrein wordt
+ * gezet. Daarmee is de winkel een echte regel: je kunt niet beweren dat je er
+ * staat, je moet er naartoe lopen.
+ *
+ * De marge zit erop omdat die opgeslagen positie altijd een fractie achterloopt
+ * op waar je op je scherm staat; zonder marge krijg je een weigering terwijl je
+ * de verkoper aankijkt.
+ */
+function requireShop(player: { x: number; z: number }): void {
+  if (atShop(player.x, player.z, SHOP_REACH_TOLERANCE)) return;
+  const near = nearestShop(player.x, player.z);
+  throw new GameError(
+    near
+      ? `Hier koopt niemand iets van je. ${near.spot.name} is ${Math.round(near.distance)} meter verderop.`
+      : 'Hier koopt niemand iets van je.',
+    400,
+    'not_at_shop',
+  );
+}
 
 export async function economyRoutes(app: FastifyInstance): Promise<void> {
   /** De actuele marktprijzen; schommelen per dag per categorie. */
@@ -80,6 +108,7 @@ export async function economyRoutes(app: FastifyInstance): Promise<void> {
 
     return prisma.$transaction(async (tx) => {
       const loaded = await loadPlayer(tx, playerId);
+      requireShop(loaded.player);
       const item = getItem(body.itemId);
       const market = marketMultiplier(item.category, dayIndexFor(now.getTime()));
       const value = stackValue(item.id, body.quantity, market * loaded.stats.sellMultiplier);
@@ -114,6 +143,7 @@ export async function economyRoutes(app: FastifyInstance): Promise<void> {
 
     return prisma.$transaction(async (tx) => {
       const loaded = await loadPlayer(tx, playerId);
+      requireShop(loaded.player);
       const day = dayIndexFor(now.getTime());
 
       let total = 0;

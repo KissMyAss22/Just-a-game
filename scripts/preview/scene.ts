@@ -9,7 +9,7 @@
  * De vier beelden staan op verschillende uren, zodat ook de dag- en
  * nachtcyclus te beoordelen is zonder tot vanavond te wachten.
  */
-import { getVehicle, spawnPosition } from '@game/shared';
+import { getVehicle, shopSpots, spawnPosition } from '@game/shared';
 import * as THREE from 'three';
 import { createCharacter } from '../../apps/mobile/src/game3d/city/character';
 import { createCrowd } from '../../apps/mobile/src/game3d/city/crowd';
@@ -17,6 +17,7 @@ import { ingestSnapshot } from '../../apps/mobile/src/net/presence';
 import { createLootField } from '../../apps/mobile/src/game3d/city/loot';
 import { QUALITY } from '../../apps/mobile/src/game3d/city/quality';
 import { createVehicle } from '../../apps/mobile/src/game3d/city/vehicle';
+import { createShopfronts } from '../../apps/mobile/src/game3d/city/shopfront';
 import { createWorld } from '../../apps/mobile/src/game3d/city/world';
 
 declare global {
@@ -100,6 +101,12 @@ ingestSnapshot({
   ],
 });
 
+// De pandjeshuizen. Hun plek wordt gezocht, dus die moet je zien: staat er
+// eentje in een muur of half op de rijbaan, dan is dat hier meteen duidelijk.
+const shops = createShopfronts(true);
+shops.update(0.016);
+scene.add(shops.group);
+
 const loot = createLootField((rarity) =>
   rarity === 'legendary' ? '#fbbf24' : rarity === 'rare' ? '#38bdf8' : '#4ade80',
 );
@@ -180,6 +187,24 @@ const views: View[] = [
     // Dit beeld bestaat omdat het misging: de prullenbak werd in de
     // kijkrichting van de lantaarn gezet en die buigt naar de weg toe, dus
     // stond hij op de rijbaan. Op een overzichtsbeeld zie je dat niet.
+    name: 'pandjeshuis',
+    hour: 14,
+    height: 380,
+    fov: 40,
+    focus: [shopSpots()[0]!.x, shopSpots()[0]!.z],
+    place: (c) => {
+      const shop = shopSpots()[0]!;
+      // Schuin van voren, vanaf de straatkant: zo zie je de luifel, het bord
+      // en of de verkoper op de stoep staat in plaats van op de rijbaan.
+      c.position.set(
+        shop.x + Math.sin(shop.rotY) * 6.5 + 2.4,
+        2.6,
+        shop.z + Math.cos(shop.rotY) * 6.5 + 1.2,
+      );
+      c.lookAt(shop.x, 1.5, shop.z);
+    },
+  },
+  {
     name: 'stoeprand van opzij',
     hour: 15,
     height: 380,

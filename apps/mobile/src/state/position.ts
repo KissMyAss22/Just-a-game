@@ -31,6 +31,23 @@ export const moveInput = { x: 0, y: 0, active: false };
  */
 export const flyInput = { altitude: 0, climb: 0 };
 
+/**
+ * Waar de speler naartoe wil, of null als er geen bestemming is.
+ *
+ * Staat hier omdat de HUD de richting elke frame opnieuw moet uitrekenen. De
+ * winkelwijzer vult hem nu automatisch met het dichtstbijzijnde pandjeshuis
+ * zodra je rugzak vol raakt; straks kan de kaart er ook een bestemming in
+ * zetten. Eén wijzer, meerdere bronnen — twee pijlen op één scherm is geen
+ * navigatie meer.
+ */
+export interface NavigationTarget {
+  x: number;
+  z: number;
+  label: string;
+}
+
+export const navigationTarget: { current: NavigationTarget | null } = { current: null };
+
 /** Afstand die nog niet naar de server is gemeld. */
 export const travelBuffer = { meters: 0 };
 

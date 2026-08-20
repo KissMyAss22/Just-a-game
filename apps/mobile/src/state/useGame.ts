@@ -26,7 +26,12 @@ interface GameStore {
   boot: () => Promise<void>;
   refresh: () => Promise<void>;
   syncSpawns: () => Promise<void>;
-  pushPosition: () => Promise<void>;
+  /**
+   * Meldt je positie aan de server. `force` stuurt hem ook als je nauwelijks
+   * bewogen hebt — nodig vlak voor een handeling die op je positie wordt
+   * getoetst.
+   */
+  pushPosition: (force?: boolean) => Promise<void>;
   collect: (spawn: SpawnDto) => Promise<void>;
   claimVault: () => Promise<void>;
   sellAll: (maxRarity: string) => Promise<void>;
@@ -112,9 +117,9 @@ export const useGame = create<GameStore>((set, get) => ({
     }
   },
 
-  async pushPosition() {
+  async pushPosition(force = false) {
     const distance = travelBuffer.meters;
-    if (distance < 1) return;
+    if (!force && distance < 1) return;
     travelBuffer.meters = 0;
     try {
       await api.reportPosition(playerPosition.x, playerPosition.z, distance);
@@ -171,6 +176,12 @@ export const useGame = create<GameStore>((set, get) => ({
     if (get().busy) return;
     set({ busy: true });
     try {
+      // De server toetst of je bij een pandjeshuis staat, en gebruikt daarvoor
+      // de positie die hij zelf heeft opgeslagen. Die komt maar elke twee
+      // seconden binnen — bij looptempo is dat zo acht meter achterstand, en
+      // dan sta je de verkoper aan te kijken terwijl hij zegt dat je te ver
+      // weg bent. Vandaar eerst bijwerken.
+      await get().pushPosition(true);
       const result = await api.sellAll(maxRarity);
       get().toast('Verkocht', `${result.itemsSold} items voor ${result.earned}`, 'legendary');
       await get().refresh();
@@ -185,6 +196,8 @@ export const useGame = create<GameStore>((set, get) => ({
     if (get().busy) return;
     set({ busy: true });
     try {
+      // Zie sellAll: de server kijkt naar zijn eigen kopie van je positie.
+      await get().pushPosition(true);
       const item = getItem(itemId);
       const result = await api.sellItem(itemId, quantity);
       get().toast(`${quantity}x ${item.name} verkocht`, formatMoney(result.earned), item.rarity);

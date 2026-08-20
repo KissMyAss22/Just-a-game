@@ -232,3 +232,20 @@ Je begint in een kraakpand in de Oude Stad, zonder geld.
 
 Werkt iets niet zoals je verwacht, dan is dat nuttige informatie: de balans is
 gemeten met een simulatie, maar nooit door een mens gespeeld.
+
+## Waar verkoop ik mijn spullen?
+
+Bij een **pandjeshuis**. Er staan er drie in de stad — herkenbaar aan de rode luifel en
+het bord met drie koperen ballen:
+
+- **Oude Stad**, een meter of veertig van waar je begint;
+- **Industrieterrein**, aan de westkant;
+- **Buitenwijk**, aan de oostkant.
+
+Loop je erlangs, dan verschijnt links onderin een knop "Verkopen". Waar je ook staat in de
+stad, er is er altijd eentje binnen een paar honderd meter.
+
+In je rugzak zelf kun je spullen alleen **weggooien**. Dat klinkt onhandig maar is de
+bedoeling: zo is de stad een plek waar je naartoe gaat in plaats van een decor waar je
+doorheen loopt. Raakt je rugzak boven de tachtig procent, dan verschijnt vanzelf een pijl
+naar de dichtstbijzijnde winkel.
