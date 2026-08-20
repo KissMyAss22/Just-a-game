@@ -13,6 +13,7 @@ import * as THREE from 'three';
 import { createCharacter } from './city/character';
 import { NIGHT_UNIFORM } from './city/materials';
 import { createVehicle } from './city/vehicle';
+import { localPresence } from '../net/presence';
 import { cameraState, driveState, moveInput, playerPosition, travelBuffer } from '../state/position';
 import { parkBeside, useDriving } from '../state/useDriving';
 import { useGame } from '../state/useGame';
@@ -156,6 +157,12 @@ export function PlayerRig() {
     }
 
     travelBuffer.meters += travelled;
+    // Wat de andere spelers van jou te zien krijgen. De verbinding stuurt dit
+    // tien keer per seconde door; hier houden we het alleen bij.
+    localPresence.x = playerPosition.x;
+    localPresence.z = playerPosition.z;
+    localPresence.heading = facing.current;
+    localPresence.driving = driving ? 1 : 0;
     const wanted = delta > 0 ? travelled / delta : 0;
     speedRef.current += (wanted - speedRef.current) * Math.min(1, delta * 9);
     character.update(delta, driving ? 0 : speedRef.current, playerPosition.x, playerPosition.z);

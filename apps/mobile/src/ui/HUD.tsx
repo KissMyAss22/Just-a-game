@@ -9,6 +9,7 @@ import {
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { onCrowdChange, realtime } from '../net/presence';
 import { driveState, playerPosition } from '../state/position';
 import { driving, useDriving } from '../state/useDriving';
 import { useGame } from '../state/useGame';
@@ -39,6 +40,34 @@ function useSurroundings() {
   }, [spawns]);
 
   return info;
+}
+
+/**
+ * Wie er nog meer in de buurt lopen.
+ *
+ * Ook nul is informatie: dan weet je dat de verbinding staat en dat je alleen
+ * bent, in plaats van je af te vragen of het wel werkt.
+ */
+function Crowd() {
+  const [nearby, setNearby] = useState(0);
+  const [connected, setConnected] = useState(realtime.connected);
+
+  useEffect(() => {
+    const stop = onCrowdChange(setNearby);
+    const timer = setInterval(() => setConnected(realtime.connected), 1000);
+    return () => {
+      stop();
+      clearInterval(timer);
+    };
+  }, []);
+
+  return (
+    <View style={styles.chip}>
+      <Text style={[styles.chipValue, !connected && { color: theme.color.textDim }]}>
+        {connected ? `👥 ${nearby}` : '👥 –'}
+      </Text>
+    </View>
+  );
 }
 
 /**
@@ -113,6 +142,7 @@ export function HUD() {
         <View style={styles.chip}>
           <Text style={[styles.chipValue, { color: theme.color.gems }]}>💎 {player.gems}</Text>
         </View>
+        <Crowd />
         <View style={[styles.chip, styles.levelChip]}>
           <Text style={styles.chipLabel}>lvl {player.level}</Text>
           <Bar

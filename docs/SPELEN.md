@@ -136,6 +136,17 @@ Werk de Expo-pakketten dus niet zomaar bij: dan kun je het spel niet meer met
 Expo Go openen en heb je een eigen development build nodig. Zie
 `apps/mobile/package.json` - daar staat waarom.
 
+### Samen spelen
+
+Laat je vriend dezelfde QR-code scannen met Expo Go, op hetzelfde
+wifi-netwerk. Hij krijgt een eigen account (dat hangt aan zijn toestel, niet
+aan de code) en verschijnt in dezelfde stad. Boven in beeld staat 👥 met het
+aantal spelers binnen 170 meter; staat daar een streepje, dan is de verbinding
+met de server weg.
+
+Chat is er nog niet — je ziet elkaar lopen en rijden, maar praten gaat
+voorlopig nog gewoon naast de telefoon.
+
 ### Hoe rijd ik?
 
 Zodra je een scooter of auto hebt, staat er rechtsonder een knop **Instappen**.

@@ -79,6 +79,11 @@ async function loadToken(): Promise<string | null> {
   return token;
 }
 
+/** Het huidige token, voor de WebSocket die geen headers kan meesturen. */
+export async function currentToken(): Promise<string | null> {
+  return loadToken();
+}
+
 async function request<T>(
   path: string,
   options: { method?: 'GET' | 'POST'; body?: unknown; auth?: boolean } = {},

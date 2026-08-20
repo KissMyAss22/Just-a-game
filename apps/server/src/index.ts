@@ -10,6 +10,7 @@ import { authRoutes } from './routes/auth.js';
 import { craftRoutes } from './routes/craft.js';
 import { economyRoutes } from './routes/economy.js';
 import { profileRoutes } from './routes/profile.js';
+import { realtimeRoutes } from './realtime/city.js';
 import { rebirthRoutes } from './routes/rebirth.js';
 import { seasonRoutes } from './routes/season.js';
 import { shopRoutes } from './routes/shop.js';
@@ -62,6 +63,9 @@ async function main(): Promise<void> {
   await app.register(craftRoutes);
   await app.register(profileRoutes);
   await app.register(rebirthRoutes);
+  // De gedeelde wereld draait in hetzelfde proces als de REST-API: één
+  // commando om te starten, en dezelfde poort voor de telefoon.
+  await app.register(realtimeRoutes);
 
   await prisma.$connect();
 

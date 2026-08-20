@@ -4,6 +4,7 @@ import {
   DISTRICTS_BY_ID,
   findSpawnPoint,
   getItem,
+  moveBudget,
   mulberry32,
   pickItemForDistrict,
   weightedPick,
@@ -192,7 +193,7 @@ export async function collectSpawn(
     MAX_POSITION_GAP_SECONDS,
     Math.max(0, now.getTime() - player.positionAt.getTime()) / 1000,
   );
-  const maxDistance = stats.moveSpeed * 1.6 * sincePosition + SPEED_TOLERANCE_M;
+  const maxDistance = moveBudget(stats.moveSpeed, sincePosition, SPEED_TOLERANCE_M);
   const travelled = Math.hypot(claimedX - player.x, claimedZ - player.z);
   if (travelled > maxDistance) {
     throw new GameError('Je bewoog te snel.', 400, 'position_rejected');

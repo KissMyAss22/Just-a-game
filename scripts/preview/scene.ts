@@ -12,6 +12,8 @@
 import { getVehicle, spawnPosition } from '@game/shared';
 import * as THREE from 'three';
 import { createCharacter } from '../../apps/mobile/src/game3d/city/character';
+import { createCrowd } from '../../apps/mobile/src/game3d/city/crowd';
+import { ingestSnapshot } from '../../apps/mobile/src/net/presence';
 import { createLootField } from '../../apps/mobile/src/game3d/city/loot';
 import { QUALITY } from '../../apps/mobile/src/game3d/city/quality';
 import { createVehicle } from '../../apps/mobile/src/game3d/city/vehicle';
@@ -79,6 +81,20 @@ const scooter = createVehicle(getVehicle('scooter'), '#2f6f5e');
 scooter.place(4, 5, 0.2);
 scooter.update(0.016, 4, -0.2, false, 0);
 scene.add(scooter.group);
+
+// Twee nepspelers in de gedeelde wereld, zodat ook die code hier draait: één
+// die loopt en één die rijdt. De renderproef praat niet met de server; hij zet
+// de momentopname er rechtstreeks in.
+const crowd = createCrowd(true);
+scene.add(crowd.group);
+ingestSnapshot({
+  t: 'snapshot',
+  at: Date.now(),
+  players: [
+    { id: 'p1', n: 'Sanne', x: player.x - 4.5, z: player.z + 6, h: 2.6, d: 0, v: 'on_foot', level: 12, s: 2, o: 3, a: 1 },
+    { id: 'p2', n: 'Joost', x: 4, z: player.z + 26, h: 0, d: 1, v: 'hatchback', level: 27, s: 0, o: 1, a: 4 },
+  ],
+});
 
 const loot = createLootField((rarity) =>
   rarity === 'legendary' ? '#fbbf24' : rarity === 'rare' ? '#38bdf8' : '#4ade80',
@@ -151,6 +167,7 @@ for (const view of views) {
   camera.updateProjectionMatrix();
   view.place(camera);
   world.update(camera, 12, player.x, player.z);
+  crowd.update(camera, canvas.width, view.height, 0.016, hour > 19 || hour < 6 ? 1 : 0);
   renderer.setViewport(0, offset, canvas.width, view.height);
   renderer.setScissor(0, offset, canvas.width, view.height);
   try {
@@ -173,6 +190,7 @@ if (overlay) {
     `tekenopdrachten ${renderer.info.render.calls} | driehoeken ${renderer.info.render.triangles}` +
       ` | programmas ${renderer.info.programs?.length ?? 0}`,
     `uren van boven naar beneden: ${views.map((v) => `${v.name} ${v.hour}`).join(' / ')}`,
+    `naambordjes: ${crowd.plates.map((p) => `${p.name} lvl${p.level} @${Math.round(p.x)},${Math.round(p.y)}`).join(' | ')}`,
     errors.length ? `FOUTEN: ${errors.join(' | ')}` : 'geen fouten',
   ].join('\n');
 }

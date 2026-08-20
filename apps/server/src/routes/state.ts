@@ -1,4 +1,4 @@
-import { reportPositionSchema, resolveMovement } from '@game/shared';
+import { moveBudget, reportPositionSchema, resolveMovement } from '@game/shared';
 import type { FastifyInstance } from 'fastify';
 import { authenticate, playerIdOf } from '../lib/auth.js';
 import { prisma } from '../lib/prisma.js';
@@ -30,7 +30,7 @@ export async function stateRoutes(app: FastifyInstance): Promise<void> {
     return prisma.$transaction(async (tx) => {
       const loaded = await loadPlayer(tx, playerId);
       const elapsed = Math.max(0, now.getTime() - loaded.player.positionAt.getTime()) / 1000;
-      const maxDistance = loaded.stats.moveSpeed * 1.6 * elapsed + 30;
+      const maxDistance = moveBudget(loaded.stats.moveSpeed, elapsed, 30);
 
       // Accepteer alleen een geloofwaardige verplaatsing, en zorg dat de
       // positie sowieso op begaanbaar terrein ligt.

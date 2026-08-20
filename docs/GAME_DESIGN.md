@@ -376,6 +376,62 @@ voorspelbaarder en werkt overal gelijk.
 
 ---
 
+## 6b. De gedeelde stad
+
+Je loopt niet meer alleen. Iedereen die tegelijk in de stad is, ziet elkaar
+lopen en rijden — met naam, niveau, eigen kleding en eigen voertuig.
+
+### Hoe het werkt
+
+Tien keer per seconde meldt je app waar je staat; tien keer per seconde krijg
+je terug wie er binnen 170 meter is, maximaal 24 tegelijk. Het scherm tekent
+zestig keer per seconde, dus daartussen wordt geïnterpoleerd. De client loopt
+bewust één pakket achter: dan is er altijd een volgende stand om naartoe te
+bewegen, in plaats van te moeten raden waar iemand heen gaat.
+
+De verbinding draait op dezelfde poort als de rest van de server, in hetzelfde
+proces. Eén commando om te starten, één adres in te stellen.
+
+### Geen Colyseus, en waarom niet
+
+Het oorspronkelijke plan noemde Colyseus. Dat is niet gebeurd, en dat is een
+bewuste keuze: de toestand is klein — een handvol spelers met zes getallen — en
+de winst van Colyseus zit in delta-encoding en matchmaking die we hier geen van
+beide nodig hebben. Een platte WebSocket scheelt een grote afhankelijkheid en
+houdt het protocol leesbaar. Wordt het later druk of complex, dan is
+`packages/shared/src/realtime.ts` de enige plek die om moet.
+
+Wat er nu bewust simpel is en later slimmer moet: naam en uiterlijk gaan bij
+elke momentopname mee in plaats van één keer bij binnenkomst. Dat is een paar
+honderd bytes per seconde meer en het scheelt aan beide kanten een
+administratie van "wie kent wie al". Bij tientallen spelers is dat de goede
+ruil, bij honderden niet meer.
+
+### Wat de server niet van de client aanneemt
+
+Naam, niveau, uiterlijk en voertuig komen uit de database, niet uit het
+bericht. De gemelde positie gaat door dezelfde `resolveMovement` als de
+REST-laag en langs hetzelfde snelheidsbudget (`moveBudget`, één formule voor
+alle drie de plekken waar hij gebruikt wordt). Past een sprong daar niet in,
+dan blijft die speler voor iedereen staan waar hij stond — hij wordt niet
+weggegooid, want een haperende verbinding is geen valsspelen.
+
+Verder is deze laag met opzet machteloos: geld, items en je opgeslagen positie
+blijven bij de REST-laag. Hier gaat het puur over "wie loopt waar op dit
+moment", en dat hoeft niet in de database.
+
+### Wat er nog niet is
+
+**Chat.** Bewust nog niet: zodra spelers elkaar berichten kunnen sturen, eist
+Apple filtering, blokkeren en rapporteren. Dat is een eigen ronde werk, geen
+tekstveld dat er even bij kan.
+
+Ook nog niet: emotes, profielkaarten, vrienden, elkaars woning bezoeken en
+leaderboards. En handel tussen spelers blijft bewust ver weg — dat is de
+grootste bron van economie-exploits die er is.
+
+---
+
 ## 7. Season pass
 
 - Seizoen = **28 dagen**, 50 tiers, 1.000 season-XP per tier.
@@ -621,7 +677,8 @@ In deze volgorde, want elke knop hierboven beïnvloedt de volgende:
 | 2d | Balansronde met simulatie (hoofdstuk 11) | 🚧 volgende |
 | 2e | Visuele ronde: straten, gevels, licht, rijtjes, dag en nacht | ✅ af |
 | 3 | Rijdbare wegvoertuigen | ✅ af · varen, vliegen, geluid en LOD nog niet |
-| 4 | Roleplay en multiplayer (Colyseus) — zie hieronder | ⬜ |
+| 4a | Gedeelde stad: andere spelers zien lopen en rijden | ✅ af |
+| 4b | Chat met moderatie, emotes, profielen, vrienden, leaderboards | ⬜ |
 | 5 | Live-ops: seizoenen configureren zonder deploy, events, admin-tooling | ⬜ |
 | 6 | Echte IAP (RevenueCat), analytics, Sentry, privacybeleid, App Store | ⬜ |
 

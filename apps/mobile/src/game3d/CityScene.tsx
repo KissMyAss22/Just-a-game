@@ -5,6 +5,7 @@ import { QUALITY, type QualityLevel } from './city/quality';
 import { createWorld } from './city/world';
 import { playerPosition } from '../state/position';
 import { useSettings } from '../state/useSettings';
+import { Crowd } from './Crowd';
 import { PlayerRig } from './PlayerRig';
 import { SpawnField } from './SpawnField';
 
@@ -54,6 +55,7 @@ export function CityScene() {
     >
       <World level={level} />
       <SpawnField />
+      <Crowd />
       <PlayerRig />
     </Canvas>
   );

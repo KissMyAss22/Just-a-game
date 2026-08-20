@@ -19,7 +19,7 @@
     "preview": "node scripts/render-preview.mjs",
     "sdk:check": "node scripts/sdk-check.mjs",
     "setup": "node scripts/setup.mjs",
-    "test": "pnpm --filter @game/shared test",
+    "test": "pnpm -r --if-present test",
     "typecheck": "pnpm -r typecheck"
   },
   "devDependencies": {
