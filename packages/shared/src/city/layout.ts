@@ -373,7 +373,7 @@ function wingDepth(span: number, scale: number): number {
   return Math.max(6.5, Math.min(span - COURTYARD_MIN, span * scale));
 }
 
-export function buildingAtCell(cx: number, cz: number): BuildingLot | null {
+function berekenPandOpCel(cx: number, cz: number): BuildingLot | null {
   const anchor = lotAnchor(cx, cz);
   if (!anchor) return null;
   const { anchorX, anchorZ } = anchor;
@@ -539,6 +539,35 @@ export function buildingAtCell(cx: number, cz: number): BuildingLot | null {
     roofUnits,
     district: district.id,
   };
+}
+
+/**
+ * Onthouden wat er op een cel staat.
+ *
+ * `buildingAtCell` is een zuivere functie van de cel en de stadsseed: dezelfde
+ * cel geeft altijd hetzelfde pand. Hij wordt alleen wél heel vaak gevraagd —
+ * `isWalkable` doet er vijfentwintig per aanroep, en `isWalkable` draait bij
+ * elke stap van de speler, bij elke positiemelding op de server en bij elke cel
+ * van een routezoektocht. Gemeten kostte dat vijfentwintigduizend cellen
+ * doorrekenen 768 milliseconden; met deze tabel is het eenmalig werk.
+ *
+ * De uitkomst wordt gedeeld, dus een pand is leesdata: wie eraan sleutelt,
+ * verandert het voor iedereen. Alle aanroepers lezen alleen, en dat hoort zo te
+ * blijven.
+ *
+ * Buiten het raster wordt niets onthouden — daar is geen plek voor in de tabel,
+ * en het antwoord is er toch altijd `null`.
+ */
+const pandPerCel: (BuildingLot | null | undefined)[] = [];
+
+export function buildingAtCell(cx: number, cz: number): BuildingLot | null {
+  if (!isInsideCity(cx, cz)) return berekenPandOpCel(cx, cz);
+  const index = cz * CITY.gridSize + cx;
+  const onthouden = pandPerCel[index];
+  if (onthouden !== undefined) return onthouden;
+  const pand = berekenPandOpCel(cx, cz);
+  pandPerCel[index] = pand;
+  return pand;
 }
 
 export function cellType(cx: number, cz: number): CellType {

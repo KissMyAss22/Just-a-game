@@ -3,7 +3,6 @@ import {
   DOOR_REACH,
   SHOP_REACH,
   districtAtWorld,
-  findRoute,
   formatDuration,
   formatMoney,
   getVehicle,
@@ -19,7 +18,14 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { onCrowdChange, realtime } from '../net/presence';
 import { renderStats } from '../state/devWorld';
-import { cameraState, driveState, flyInput, navigationTarget, playerPosition } from '../state/position';
+import {
+  cameraState,
+  driveState,
+  flyInput,
+  navigationTarget,
+  playerPosition,
+  routeStore,
+} from '../state/position';
 import { driving, useDriving } from '../state/useDriving';
 import { useSettings } from '../state/useSettings';
 import { useGame } from '../state/useGame';
@@ -217,17 +223,19 @@ function Compass({ bottom }: { bottom: number }) {
       }
       const dx = target.x - playerPosition.x;
       const dz = target.z - playerPosition.z;
-      // Vier keer per seconde een route zoeken zou zonde zijn; de lijn in de
-      // wereld rekent hem toch al uit. Hier alleen kijken óf hij bestaat, en
-      // dat verandert pas als je een andere bestemming kiest.
-      const route = findRoute({ x: playerPosition.x, z: playerPosition.z }, target);
+      // Alleen lezen, niet rekenen. Hier stond een `findRoute` — vier keer per
+      // seconde, terwijl het commentaar erboven zei dat dat zonde zou zijn.
+      // Gemeten kostte één zoektocht tot 1,9 seconde, en dat was precies waarom
+      // de app vastliep zodra je ergens heen navigeerde. `RouteLijn` rekent hem
+      // uit; wij kijken alleen wat eruit kwam.
+      const route = routeStore.doel === target.label ? routeStore.current : null;
       setState({
         label: target.label,
         distance: Math.hypot(dx, dz),
         // atan2 geeft de richting in de wereld; de camerahoek eraf haalt het
         // om naar "links of rechts van waar je kijkt".
         angle: Math.atan2(dx, dz) - cameraState.yaw,
-        route: route.bereikbaar ? route.lengte : null,
+        route: route?.bereikbaar ? route.lengte : null,
       });
     }, 250);
     return () => clearInterval(timer);
@@ -280,11 +288,17 @@ function DebugPanel({ top }: { top: number }) {
 
   return (
     <View style={[styles.debugPanel, { top }]} pointerEvents="none">
-      <Text style={styles.debugText}>{Math.round(snapshot.fps)} fps</Text>
+      <Text style={styles.debugText}>
+        {Math.round(snapshot.fps)} fps · piek {Math.round(snapshot.worstFrameMs)} ms
+      </Text>
       <Text style={styles.debugText}>
         {snapshot.calls} calls · {Math.round(snapshot.triangles / 1000)}k tri
       </Text>
       <Text style={styles.debugText}>{snapshot.programs} shaders</Text>
+      <Text style={styles.debugText}>
+        routes {snapshot.routesPerSec}/s · {snapshot.routeMs.toFixed(1)} ms
+      </Text>
+      <Text style={styles.debugText}>{snapshot.lootMeshes} loot-meshes</Text>
       <Text style={styles.debugText}>
         x {Math.round(snapshot.x)} · z {Math.round(snapshot.z)}
       </Text>

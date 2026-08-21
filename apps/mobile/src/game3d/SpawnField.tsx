@@ -4,6 +4,7 @@ import { createLootField } from './city/loot';
 import { playerPosition } from '../state/position';
 import { rarityColor } from '../ui/theme';
 import { useGame } from '../state/useGame';
+import { renderStats } from '../state/devWorld';
 
 /** Minimale tijd tussen twee oppak-verzoeken, zodat we de server niet spammen. */
 const PICKUP_COOLDOWN_MS = 420;
@@ -28,6 +29,7 @@ export function SpawnField() {
   useFrame((state) => {
     const { spawns, state: playerState, collect } = useGame.getState();
     const pickupRadius = playerState?.stats.pickupRadius ?? 2.2;
+    renderStats.lootMeshes = field.meshCount();
     const closest = field.update(
       spawns,
       playerPosition.x,

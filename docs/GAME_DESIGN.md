@@ -213,6 +213,49 @@ De lijn zelf is een lint van driehoeken (`game3d/city/route.ts`) en geen
 `THREE.Line`: lijnbreedte werkt op de meeste mobiele GL-implementaties niet, dus
 dat zou altijd één pixel worden.
 
+**De route wordt één keer uitgerekend, niet drie keer.** Dat was hij wel: het
+lint op straat, de wijzer in de HUD en de lijn op de kaart riepen alle drie hun
+eigen `findRoute` aan, en de HUD deed dat vier keer per seconde — met een
+commentaar erboven dat letterlijk zei dat dat zonde zou zijn. Nu vult
+`RouteLijn` één `routeStore` in `state/position.ts` en lezen de andere twee mee.
+Dat is niet alleen goedkoper: drie plekken die hetzelfde uitrekenen kunnen uit
+elkaar gaan lopen, en dan wijst je telefoon een andere kant op dan de lijn voor
+je voeten.
+
+De zoeker zelf is drie dingen kwijtgeraakt die hem traag maakten. Gemeten, van
+het startpunt:
+
+| Bestemming | Voor | Na |
+|---|---|---|
+| Dichtbij (82 m) | 7 ms | 0,08 ms |
+| Pandjeshuis Industrie (381 m) | 36 ms | 0,10 ms |
+| Pandjeshuis Centrum (245 m) | 82 ms | 0,37 ms |
+| Het park, dwars over de kaart (752 m) | 654 ms | 1,35 ms |
+| Het privé-eiland (onbereikbaar) | 1.900 ms | 0,00 ms |
+
+- **Een binaire hoop** in plaats van een array waarin elke stap lineair naar het
+  minimum zocht en het er met `splice` uithaalde. Het commentaar erbij zei dat
+  een echte prioriteitswachtrij "meer code is dan hij oplevert, bij een paar
+  honderd cellen"; gemeten waren het er tienduizenden, en dan is dat kwadratisch.
+- **Een tabel met gebiednummers**, één keer gevuld met een vlekkenvuller over het
+  celraster. Liggen start en doel niet in hetzelfde aaneengesloten gebied, dan is
+  er geen route en hoeft er niet gezocht te worden. Daarvoor liep een route naar
+  het eiland eerst vierentwintigduizend cellen leeg om tot dezelfde conclusie te
+  komen.
+- **`buildingAtCell` onthoudt zijn antwoord.** Die functie is zuiver — dezelfde
+  cel geeft altijd hetzelfde pand — maar `isWalkable` roept hem vijfentwintig
+  keer per aanroep aan, en `isWalkable` draait bij elke stap van de speler, bij
+  elke positiemelding op de server en bij elke cel van een zoektocht. Het hele
+  raster doorrekenen kostte 768 ms; nu is dat eenmalig werk. Dit is de enige van
+  de drie die ook búiten het routeren merkbaar is.
+
+De schatting is bewust níét aangepast. `manhattan × 1` is al de scherpste
+schatting die mag: een stap over straat kost precies één, dus een route die
+helemaal over straat loopt kost werkelijk zoveel, en hoger schatten zou een
+kortere route kunnen wegstrepen. Een test in `packages/shared` legt een
+bovengrens op de kosten, ruim boven het gemeten getal — hij hoort om te vallen
+als er iets structureels terugkomt, niet als de machine even traag is.
+
 ### Beeldkwaliteit in drie standen
 
 Een telefoon van vier jaar oud en een nieuwe iPhone zitten een factor tien uit
@@ -241,6 +284,28 @@ shader compileerde niet en de straat werd domweg niet getekend. En de eerste
 versie van de dag-nachtcyclus liet alle vier de beelden op de echte kloktijd
 zien in plaats van op het ingestelde uur — meteen zichtbaar, want alles was
 nacht.
+
+### De meter
+
+De renderproef vangt wat er fout *staat*; de meter in het testgereedschap vangt
+wat er traag *loopt*. Hij toont per halve seconde:
+
+| Waarde | Waarom hij er staat |
+|---|---|
+| fps | Het gemiddelde. Bruikbaar, maar het verbergt precies waar je last van hebt. |
+| **piek** | De langste frame van de afgelopen seconde, in ms. Eén stilstand van 650 ms trekt een voortschrijdend gemiddelde nauwelijks omlaag, en dát is nou juist wat je voelt. Alles boven 33 ms is een gemiste frame. |
+| calls · tri | Tekenopdrachten en driehoeken: de eerste vraag bij "waarom is dit zwaar". |
+| shaders | Hoeveel programma's er in het geheugen staan. Loopt dit op, dan wordt er ergens per frame een materiaal aangemaakt. |
+| **routes/s · ms** | Hoeveel routes er per seconde worden uitgerekend en wat de laatste kostte. Hier hoort een enkele piek te staan bij het kiezen van een bestemming, niet een continue stroom. |
+| **loot-meshes** | Hoeveel per-item meshes het lootveld aanhoudt. Hoort te stabiliseren op wat er nú ligt. |
+
+Die laatste twee staan er omdat ze allebei een echte fout zouden hebben laten
+zien. De routeteller zou de vier zoektochten per seconde meteen hebben verraden.
+En het lootveld maakte per itemsoort een `InstancedMesh` aan zodra je die soort
+voor het eerst tegenkwam, en ruimde hem nooit op — achtenveertig soorten, die
+elke frame állemaal `instanceMatrix.needsUpdate` kregen, ook de veertig die leeg
+waren. Het spel werd dus meetbaar trager naarmate je meer verschillende items
+was tegengekomen, en dat is een lek dat je alleen ziet als je ernaar kúnt kijken.
 
 ---
 

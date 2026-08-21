@@ -1,9 +1,9 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber/native';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { QUALITY, type QualityLevel } from './city/quality';
 import { createWorld } from './city/world';
-import { playerPosition } from '../state/position';
+import { playerPosition, routeStore } from '../state/position';
 import { renderStats, worldClock } from '../state/devWorld';
 import { currentHour } from './city/sky';
 import { useSettings } from '../state/useSettings';
@@ -38,19 +38,37 @@ function World({ level }: { level: QualityLevel }) {
     };
   }, [scene, camera, world]);
 
+  /** Loopvenster van één seconde voor de slechtste frame en de routetellers. */
+  const meetvenster = useRef({ worst: 0, tijd: 0, routes: 0 });
+
   useFrame((state, delta) => {
     world.update(state.camera, state.clock.elapsedTime, playerPosition.x, playerPosition.z);
 
     // Meetwaarden voor de debug-overlay. Dit kost niets zolang niemand kijkt:
-    // het zijn vier getallen uit tellers die three toch al bijhoudt.
+    // het zijn getallen uit tellers die three en de routestore toch al bijhouden.
     const info = state.gl.info;
     renderStats.calls = info.render.calls;
     renderStats.triangles = info.render.triangles;
     renderStats.programs = info.programs?.length ?? 0;
+    renderStats.routeMs = routeStore.kosten;
     if (delta > 0) {
       // Voortschrijdend gemiddelde: een losse frame zegt niets, en een teller
       // die staat te knipperen is niet af te lezen.
       renderStats.fps = renderStats.fps * 0.9 + (1 / delta) * 0.1;
+    }
+
+    // En naast dat gemiddelde de slechtste frame van de afgelopen seconde.
+    // Precies wat het gemiddelde wegpoetst: één stilstand van een halve seconde
+    // trekt de fps-teller nauwelijks omlaag, maar je voelt hem wel.
+    const venster = meetvenster.current;
+    venster.worst = Math.max(venster.worst, delta * 1000);
+    venster.tijd += delta;
+    if (venster.tijd >= 1) {
+      renderStats.worstFrameMs = venster.worst;
+      renderStats.routesPerSec = routeStore.aantal - venster.routes;
+      venster.routes = routeStore.aantal;
+      venster.worst = 0;
+      venster.tijd = 0;
     }
   });
 

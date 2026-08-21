@@ -1,4 +1,4 @@
-import { CITY, districtAtWorld, findRoute, nearestShop, shopSpots } from '@game/shared';
+import { CITY, districtAtWorld, nearestShop, shopSpots } from '@game/shared';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import * as api from '../../net/api';
@@ -9,7 +9,9 @@ import {
   cameraState,
   navigationTarget,
   playerPosition,
+  routeStore,
   setPlayerPosition,
+  vernieuwRoute,
 } from '../../state/position';
 import { useGame } from '../../state/useGame';
 import { useSettings } from '../../state/useSettings';
@@ -139,17 +141,27 @@ export function MapApp() {
   };
 
   /**
-   * Dezelfde route als op straat, maar dan van bovenaf.
+   * Dezelfde route als op straat, maar dan van bovenaf — letterlijk dezelfde.
    *
-   * Het is bewust dezelfde `findRoute` als de 3D-wereld gebruikt: zou de kaart
-   * zijn eigen lijn trekken, dan wijzen de twee vroeg of laat een andere kant
-   * op en weet je niet meer welke te geloven.
+   * Hier stond een eigen `findRoute` in een `useMemo` op je positie, dus hij
+   * rekende opnieuw zo vaak als de kaart hertekende. Nu leest hij wat de lijn in
+   * de wereld heeft uitgerekend. Dat is niet alleen goedkoper: twee plekken die
+   * hetzelfde uitrekenen kunnen uit elkaar gaan lopen, en dan wijst je telefoon
+   * een andere kant op dan de lijn voor je voeten.
    */
-  const route = useMemo(() => {
+  const route = routeStore.doel === chosen ? routeStore.current : null;
+
+  // Normaal vult `RouteLijn` de store, en die draait zolang het stadsscherm
+  // eronder staat. Open je de telefoon vanaf een ander scherm, dan is er geen
+  // 3D-wereld en zou de kaart geen lijn tonen. Dan rekent de kaart hem zelf uit
+  // — met dezelfde functie en in dezelfde store, dus het blijft één route en
+  // niet twee die uit elkaar kunnen lopen. Eén keer per keuze, in een effect en
+  // niet in de tekening.
+  useEffect(() => {
     const doel = navigationTarget.current;
-    if (!doel) return null;
-    return findRoute({ x: me.x, z: me.z }, { x: doel.x, z: doel.z });
-  }, [me.x, me.z, chosen]);
+    if (!doel || routeStore.doel === doel.label) return;
+    vernieuwRoute(doel);
+  }, [chosen]);
 
   // ---------------------------------------------------------------------
   // Knijpen, slepen en zoomen.

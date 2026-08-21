@@ -32,7 +32,7 @@ export interface Route {
 /** Hoe ver de speler van de lijn mag raken voordat er opnieuw gerekend wordt. */
 export const ROUTE_TOLERANTIE = 12;
 
-/** Hoeveel cellen we hooguit bekijken. Voorkomt een vastloper op een eiland. */
+/** Hoeveel cellen we hooguit bekijken. Een vangnet, geen werkgrens. */
 const MAX_BEZOCHT = 24_000;
 
 /** De straal waarmee gelopen wordt; dezelfde als in `resolveMovement`. */
@@ -54,16 +54,94 @@ const LOOPSTRAAL = 0.45;
 const KOSTEN_STRAAT = 1;
 const KOSTEN_OVERIG = 4;
 
+const CELLEN = CITY.gridSize * CITY.gridSize;
+
 function sleutel(cx: number, cz: number): number {
   return cz * CITY.gridSize + cx;
+}
+
+// ---------------------------------------------------------------------------
+// Het begaanbare raster, één keer uitgerekend
+//
+// `isWalkable` per cel opvragen is niet gratis, en A* vraagt het voor elke
+// buurcel opnieuw — een cel wordt vanuit vier kanten bekeken. Belangrijker nog:
+// zonder te weten wélk aaneengesloten gebied een cel hoort, moet een route naar
+// het privé-eiland eerst vierentwintigduizend cellen leeglopen voordat hij mag
+// opgeven. Gemeten kostte dat 1,9 seconde, en de uitkomst stond van tevoren
+// vast: er is geen weg naar een eiland.
+//
+// Eén tabel beantwoordt allebei die vragen. Per cel staat er het nummer van het
+// aaneengesloten begaanbare gebied waarin hij ligt, of −1 als je er niet kunt
+// staan. "Is deze cel open?" is dan `>= 0`, en "kan ik daar komen?" is
+// "hebben start en doel hetzelfde nummer?".
+// ---------------------------------------------------------------------------
+
+let gebieden: Int32Array | null = null;
+
+/**
+ * Vier richtingen, en dat moet exact dezelfde verzameling zijn als `STAPPEN`
+ * hieronder. Zou de vlekkenvuller diagonaal mogen en de zoeker niet, dan zegt
+ * deze tabel "bereikbaar" over een plek waar A* nooit komt — en dan hangt hij
+ * alsnog tot `MAX_BEZOCHT`.
+ */
+const STAPPEN = [
+  { dx: 1, dz: 0 },
+  { dx: -1, dz: 0 },
+  { dx: 0, dz: 1 },
+  { dx: 0, dz: -1 },
+] as const;
+
+function gebiedRaster(): Int32Array {
+  if (gebieden) return gebieden;
+
+  const raster = new Int32Array(CELLEN).fill(-2); // −2 = nog niet bekeken
+  const grid = CITY.gridSize;
+
+  for (let cz = 0; cz < grid; cz++) {
+    for (let cx = 0; cx < grid; cx++) {
+      if (isWaterCell(cx, cz)) {
+        raster[sleutel(cx, cz)] = -1;
+        continue;
+      }
+      const wereld = cellToWorld(cx, cz);
+      if (!isWalkable(wereld.x, wereld.z, LOOPSTRAAL)) raster[sleutel(cx, cz)] = -1;
+    }
+  }
+
+  // Vlekken vullen met een eigen stapel; recursie zou hier tienduizenden
+  // niveaus diep gaan.
+  const stapel = new Int32Array(CELLEN);
+  let gebied = 0;
+  for (let start = 0; start < CELLEN; start++) {
+    if (raster[start] !== -2) continue;
+    let top = 0;
+    stapel[top++] = start;
+    raster[start] = gebied;
+    while (top > 0) {
+      const index = stapel[--top]!;
+      const cz = Math.floor(index / grid);
+      const cx = index - cz * grid;
+      for (const stap of STAPPEN) {
+        const bx = cx + stap.dx;
+        const bz = cz + stap.dz;
+        if (bx < 0 || bz < 0 || bx >= grid || bz >= grid) continue;
+        const buur = sleutel(bx, bz);
+        if (raster[buur] !== -2) continue;
+        raster[buur] = gebied;
+        stapel[top++] = buur;
+      }
+    }
+    gebied++;
+  }
+
+  gebieden = raster;
+  return raster;
 }
 
 /** Is deze cel begaanbaar? Gemeten in het midden, zoals je er ook loopt. */
 function open(cx: number, cz: number): boolean {
   if (cx < 0 || cz < 0 || cx >= CITY.gridSize || cz >= CITY.gridSize) return false;
-  if (isWaterCell(cx, cz)) return false;
-  const wereld = cellToWorld(cx, cz);
-  return isWalkable(wereld.x, wereld.z, LOOPSTRAAL);
+  return gebiedRaster()[sleutel(cx, cz)]! >= 0;
 }
 
 /**
@@ -86,20 +164,91 @@ function dichtstbijOpen(cx: number, cz: number, ringen = 4): { cx: number; cz: n
   return null;
 }
 
-/**
- * Vier richtingen en niet acht.
- *
- * Diagonaal lopen ziet er op een raster kort uit, maar snijdt hoeken af die in
- * de stad bebouwd zijn — en dan loopt de lijn schuin door een bouwblok terwijl
- * jij eromheen moet. Vier richtingen geeft een route die de straten volgt, en
- * dat is precies wat je wil kunnen volgen.
- */
-const STAPPEN = [
-  { dx: 1, dz: 0 },
-  { dx: -1, dz: 0 },
-  { dx: 0, dz: 1 },
-  { dx: 0, dz: -1 },
-] as const;
+// ---------------------------------------------------------------------------
+// De wachtrij
+//
+// Hier stond een gewone array waarin elke stap lineair naar het laagste element
+// zocht en het er met `splice` uithaalde. Het commentaar erbij zei dat een
+// echte prioriteitswachtrij "meer code is dan hij oplevert, bij een paar
+// honderd cellen". Dat klopte niet: gemeten zijn het er tienduizenden, en dan
+// is lineair zoeken plus opschuiven kwadratisch. Een route dwars over de kaart
+// kostte zo 654 milliseconden.
+//
+// Een binaire hoop is het hele verschil tussen A* en Dijkstra in de praktijk.
+// ---------------------------------------------------------------------------
+
+class Hoop {
+  private cellen: number[] = [];
+  private f: number[] = [];
+  /** Bij gelijke f wint de cel die dichter bij het doel ligt. */
+  private h: number[] = [];
+
+  get size(): number {
+    return this.cellen.length;
+  }
+
+  leeg(): void {
+    this.cellen.length = 0;
+    this.f.length = 0;
+    this.h.length = 0;
+  }
+
+  private beter(a: number, b: number): boolean {
+    if (this.f[a] !== this.f[b]) return this.f[a]! < this.f[b]!;
+    return this.h[a]! < this.h[b]!;
+  }
+
+  private wissel(a: number, b: number): void {
+    [this.cellen[a], this.cellen[b]] = [this.cellen[b]!, this.cellen[a]!];
+    [this.f[a], this.f[b]] = [this.f[b]!, this.f[a]!];
+    [this.h[a], this.h[b]] = [this.h[b]!, this.h[a]!];
+  }
+
+  push(cel: number, f: number, h: number): void {
+    this.cellen.push(cel);
+    this.f.push(f);
+    this.h.push(h);
+    let i = this.cellen.length - 1;
+    while (i > 0) {
+      const ouder = (i - 1) >> 1;
+      if (!this.beter(i, ouder)) break;
+      this.wissel(i, ouder);
+      i = ouder;
+    }
+  }
+
+  pop(): number {
+    const top = this.cellen[0]!;
+    const laatste = this.cellen.length - 1;
+    this.wissel(0, laatste);
+    this.cellen.pop();
+    this.f.pop();
+    this.h.pop();
+    let i = 0;
+    for (;;) {
+      const links = i * 2 + 1;
+      const rechts = links + 1;
+      let beste = i;
+      if (links < this.cellen.length && this.beter(links, beste)) beste = links;
+      if (rechts < this.cellen.length && this.beter(rechts, beste)) beste = rechts;
+      if (beste === i) break;
+      this.wissel(i, beste);
+      i = beste;
+    }
+    return top;
+  }
+}
+
+// De werktabellen worden hergebruikt tussen aanroepen: ze zijn zo groot als de
+// hele stad, en die elke keer opnieuw aanmaken en wegwerpen is precies het soort
+// afval waar een telefoon van gaat haperen. `bezocht` draagt een stempel per
+// zoektocht, zodat we ze niet hoeven leeg te maken.
+const gKosten = new Float64Array(CELLEN);
+const vanwaar = new Int32Array(CELLEN);
+const bezocht = new Int32Array(CELLEN);
+const gesloten = new Int32Array(CELLEN);
+const hoop = new Hoop();
+let stempel = 0;
 
 /**
  * Punten op één lijn samenvoegen.
@@ -143,9 +292,11 @@ function lengteVan(punten: RoutePunt[]): number {
 /**
  * Zoekt een looproute met A* over het celraster.
  *
- * Ruim vijfentwintigduizend cellen klinkt veel, maar A* bekijkt er in de
- * praktijk een paar honderd. Wel te duur om elke frame te doen — vandaar
- * `ROUTE_TOLERANTIE`: pas opnieuw rekenen als je echt van de lijn af bent.
+ * De schatting is `manhattan × KOSTEN_STRAAT`. Strakker mág niet: een stap over
+ * straat kost precies één, dus een route die helemaal over straat loopt kost
+ * werkelijk zoveel. Elke hogere schatting zou een kortere route kunnen
+ * wegstrepen. De winst zit dan ook niet in de schatting maar in de wachtrij en
+ * in het niet zoeken naar wat onbereikbaar is.
  */
 export function findRoute(van: RoutePunt, naar: RoutePunt): Route {
   const startCel = worldToCell(van.x, van.z);
@@ -160,34 +311,37 @@ export function findRoute(van: RoutePunt, naar: RoutePunt): Route {
   };
   if (!start || !doel) return rechtdoor;
 
+  const raster = gebiedRaster();
+  const startSleutel = sleutel(start.cx, start.cz);
   const doelSleutel = sleutel(doel.cx, doel.cz);
-  const vanwaar = new Map<number, number>();
-  const kosten = new Map<number, number>([[sleutel(start.cx, start.cz), 0]]);
-  // Een eenvoudige lijst als wachtrij: bij een paar honderd cellen is een
-  // echte prioriteitswachtrij meer code dan hij oplevert.
-  const open_: { cx: number; cz: number; prioriteit: number }[] = [
-    { cx: start.cx, cz: start.cz, prioriteit: 0 },
-  ];
-  const gezien = new Set<number>();
 
-  while (open_.length > 0 && gezien.size < MAX_BEZOCHT) {
-    let beste = 0;
-    for (let i = 1; i < open_.length; i++) {
-      if (open_[i]!.prioriteit < open_[beste]!.prioriteit) beste = i;
-    }
-    const hier = open_.splice(beste, 1)[0]!;
-    const hierSleutel = sleutel(hier.cx, hier.cz);
-    if (gezien.has(hierSleutel)) continue;
-    gezien.add(hierSleutel);
+  // Liggen ze niet in hetzelfde aaneengesloten gebied, dan is er geen route en
+  // heeft zoeken geen zin. Dit is het geval van het privé-eiland.
+  if (raster[startSleutel] !== raster[doelSleutel]) return rechtdoor;
+
+  const grid = CITY.gridSize;
+  stempel++;
+  hoop.leeg();
+  gKosten[startSleutel] = 0;
+  vanwaar[startSleutel] = -1;
+  bezocht[startSleutel] = stempel;
+  hoop.push(startSleutel, 0, 0);
+
+  let gezien = 0;
+  while (hoop.size > 0 && gezien < MAX_BEZOCHT) {
+    const hierSleutel = hoop.pop();
+    if (gesloten[hierSleutel] === stempel) continue;
+    gesloten[hierSleutel] = stempel;
+    gezien++;
 
     if (hierSleutel === doelSleutel) {
       const cellen: RoutePunt[] = [];
-      let loper: number | undefined = hierSleutel;
-      while (loper !== undefined) {
-        const cz = Math.floor(loper / CITY.gridSize);
-        const cx = loper - cz * CITY.gridSize;
+      let loper = hierSleutel;
+      while (loper !== -1) {
+        const cz = Math.floor(loper / grid);
+        const cx = loper - cz * grid;
         cellen.unshift(cellToWorld(cx, cz));
-        loper = vanwaar.get(loper);
+        loper = vanwaar[loper]!;
       }
       // Begin- en eindpunt zijn waar je écht staat en waar je écht heen wil,
       // niet het middelpunt van de cel waarin dat toevallig valt.
@@ -195,19 +349,27 @@ export function findRoute(van: RoutePunt, naar: RoutePunt): Route {
       return { punten, lengte: lengteVan(punten), bereikbaar: true };
     }
 
+    const cz = Math.floor(hierSleutel / grid);
+    const cx = hierSleutel - cz * grid;
+    const hierKosten = gKosten[hierSleutel]!;
+
     for (const stap of STAPPEN) {
-      const bx = hier.cx + stap.dx;
-      const bz = hier.cz + stap.dz;
-      if (!open(bx, bz)) continue;
+      const bx = cx + stap.dx;
+      const bz = cz + stap.dz;
+      if (bx < 0 || bz < 0 || bx >= grid || bz >= grid) continue;
       const buurSleutel = sleutel(bx, bz);
-      const nieuw =
-        (kosten.get(hierSleutel) ?? 0) + (isRoadCell(bx, bz) ? KOSTEN_STRAAT : KOSTEN_OVERIG);
-      if (nieuw >= (kosten.get(buurSleutel) ?? Number.POSITIVE_INFINITY)) continue;
-      kosten.set(buurSleutel, nieuw);
-      vanwaar.set(buurSleutel, hierSleutel);
+      if (raster[buurSleutel]! < 0) continue;
+      if (gesloten[buurSleutel] === stempel) continue;
+
+      const nieuw = hierKosten + (isRoadCell(bx, bz) ? KOSTEN_STRAAT : KOSTEN_OVERIG);
+      if (bezocht[buurSleutel] === stempel && nieuw >= gKosten[buurSleutel]!) continue;
+
+      bezocht[buurSleutel] = stempel;
+      gKosten[buurSleutel] = nieuw;
+      vanwaar[buurSleutel] = hierSleutel;
       // Toelaatbaar: nooit duurder schatten dan de goedkoopste echte stap.
       const rest = (Math.abs(doel.cx - bx) + Math.abs(doel.cz - bz)) * KOSTEN_STRAAT;
-      open_.push({ cx: bx, cz: bz, prioriteit: nieuw + rest });
+      hoop.push(buurSleutel, nieuw + rest, rest);
     }
   }
 

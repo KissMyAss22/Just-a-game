@@ -41,6 +41,14 @@ function glowTexture(): THREE.DataTexture {
 
 export interface LootField {
   group: THREE.Group;
+  /**
+   * Hoeveel per-item meshes er op dit moment in de groep hangen.
+   *
+   * Dit getal hoort te stabiliseren op het aantal soorten dat er nu écht ligt.
+   * Loopt het door richting het aantal itemsoorten in het spel, dan is het lek
+   * van hieronder terug.
+   */
+  meshCount: () => number;
   /** Tekent alles in de buurt en geeft terug wat het dichtstbij ligt. */
   update: (
     spawns: readonly SpawnDto[],
@@ -54,6 +62,15 @@ export interface LootField {
 
 /** Zoveel exemplaren van hetzelfde item kunnen tegelijk in beeld staan. */
 const PER_ITEM = 24;
+
+/**
+ * Hoe lang een soort leeg mag staan voordat zijn mesh wordt opgeruimd.
+ *
+ * Niet meteen: je loopt zo weer terug, en een mesh opnieuw opbouwen kost meer
+ * dan hem even laten staan. Een halve minuut is ruim genoeg om heen en weer te
+ * lopen en kort genoeg om niet op te lopen.
+ */
+const OPRUIMEN_NA = 30;
 
 export function createLootField(colorFor: (rarity: string) => string): LootField {
   const group = new THREE.Group();
@@ -71,6 +88,16 @@ export function createLootField(colorFor: (rarity: string) => string): LootField
   });
   const meshes = new Map<string, THREE.InstancedMesh>();
   const counters = new Map<string, number>();
+  /**
+   * Wanneer een soort voor het laatst in beeld lag.
+   *
+   * Hier zat het lek waardoor het spel trager werd naarmate je langer speelde.
+   * Elke itemsoort die je ooit tegenkwam kreeg een eigen `InstancedMesh` die er
+   * nooit meer uit ging — achtenveertig soorten, en elke frame kregen ze
+   * állemaal `instanceMatrix.needsUpdate`, ook de veertig die leeg waren. Met
+   * `frustumCulled = false` stonden ze bovendien permanent in de renderlijst.
+   */
+  const laatstGezien = new Map<string, number>();
 
   function meshFor(itemId: string): THREE.InstancedMesh {
     const existing = meshes.get(itemId);
@@ -115,6 +142,7 @@ export function createLootField(colorFor: (rarity: string) => string): LootField
 
   return {
     group,
+    meshCount: () => meshes.size,
     update(spawns, playerX, playerZ, time, pickupRadius) {
       counters.clear();
       for (const mesh of meshes.values()) mesh.count = 0;
@@ -159,8 +187,31 @@ export function createLootField(colorFor: (rarity: string) => string): LootField
       }
 
       for (const [itemId, mesh] of meshes) {
-        mesh.count = counters.get(itemId) ?? 0;
-        mesh.instanceMatrix.needsUpdate = true;
+        const aantal = counters.get(itemId) ?? 0;
+        mesh.count = aantal;
+        // Een lege mesh hoeft niets naar de GPU te sturen en hoort ook niet in
+        // de renderlijst: `visible = false` slaat hem in één keer over.
+        mesh.visible = aantal > 0;
+        if (aantal > 0) {
+          mesh.instanceMatrix.needsUpdate = true;
+          laatstGezien.set(itemId, time);
+          continue;
+        }
+        // Leeg. Vanaf wanneer? Een mesh die nog nooit gevuld is geweest — er
+        // lagen er meer dan `PER_ITEM` van dezelfde soort — heeft nog geen
+        // tijdstip, en zonder dit zou juist díé nooit opgeruimd worden.
+        const sinds = laatstGezien.get(itemId);
+        if (sinds === undefined) {
+          laatstGezien.set(itemId, time);
+        } else if (time - sinds > OPRUIMEN_NA) {
+          // Al een tijd niets van deze soort in beeld. Weg ermee — de geometrie
+          // is gedeeld en blijft in de cache van `itemModels.ts` staan, dus dit
+          // ruimt alleen de mesh op en niet het model.
+          group.remove(mesh);
+          mesh.dispose();
+          meshes.delete(itemId);
+          laatstGezien.delete(itemId);
+        }
       }
       glows.count = glowCount;
       glows.instanceMatrix.needsUpdate = true;
@@ -169,6 +220,15 @@ export function createLootField(colorFor: (rarity: string) => string): LootField
       return closest;
     },
     dispose() {
+      // De per-item meshes hoorden hier ook al thuis; die bleven achter.
+      // De geometrieën niet: die zijn gedeeld en horen bij `itemModels.ts`.
+      for (const mesh of meshes.values()) {
+        group.remove(mesh);
+        mesh.dispose();
+      }
+      meshes.clear();
+      laatstGezien.clear();
+      glows.dispose();
       material.dispose();
       glowGeometry.dispose();
       glowMaterial.dispose();

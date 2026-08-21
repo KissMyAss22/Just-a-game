@@ -213,6 +213,29 @@ kaartstand aan, dan brengt een tik op de kaart in je telefoon je erheen.
 Daarvoor moet je server wel met `DEV_TOOLS=1` draaien — zie `apps/server/.env`;
 zonder dat weigert hij de teleport en duwt de snelheidscontrole je terug.
 
+### Het hapert — waar zie ik dat aan?
+
+Zet in het testgereedschap de meter aan. Die staat rechtsboven en toont per halve
+seconde vijf regels. De belangrijkste is de tweede helft van de eerste:
+
+- **fps · piek** — het gemiddelde, en daarnaast de lángste frame van de afgelopen
+  seconde in milliseconden. Kijk naar die piek: het gemiddelde blijft er mooi
+  uitzien terwijl één stilstand van een halve seconde het spel onspeelbaar maakt.
+  Alles boven de 33 ms is een frame die je gemist hebt.
+- **calls · tri** — hoeveel tekenopdrachten en driehoeken er per frame doorheen gaan.
+- **shaders** — hoeveel shaderprogramma's er in het geheugen staan. Dat getal hoort
+  stil te staan.
+- **routes/s · ms** — hoeveel looproutes er per seconde worden uitgerekend en wat de
+  laatste kostte. Bij het kiezen van een bestemming hoor je hier één piek te zien
+  en daarna niets meer.
+- **loot-meshes** — hoeveel soorten items de wereld op dit moment klaar heeft staan.
+  Dit getal hoort te stabiliseren; loopt het langzaam op naar de veertig, dan
+  bouwt de scene zich vol.
+
+Deze regels staan er niet voor de sier: het spel werd trager naarmate je langer
+speelde, en langzamer zodra je ergens heen navigeerde. Allebei die oorzaken zijn
+gerepareerd, en allebei zouden ze hier meteen te zien zijn geweest.
+
 ### Hoe rijd ik?
 
 Zodra je een scooter of auto hebt, staat er rechtsonder een knop **Instappen**.
