@@ -10,7 +10,7 @@
     "db:push": "prisma db push",
     "db:reset": "prisma migrate reset --force",
     "db:studio": "prisma studio",
-    "dev": "tsx watch src/index.ts",
+    "dev": "prisma migrate deploy && tsx watch src/index.ts",
     "postinstall": "prisma generate",
     "seed": "tsx prisma/seed.ts",
     "start": "tsx src/index.ts",

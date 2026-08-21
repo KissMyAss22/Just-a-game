@@ -100,6 +100,30 @@ adres is dat `pnpm setup` liet zien.
   - **gasten-wifi.** Veel routers laten apparaten op het gastnetwerk niet met
     elkaar praten. Zet beide op het gewone netwerk.
 
+### "Er ging iets mis op de server."
+
+Let op het verschil met de melding hierboven: die zegt dat je de server niet
+*kunt bereiken*, deze dat hij wél antwoordt maar met een fout. Je netwerk is dus
+in orde, en zoeken in je wifi-instellingen is zonde van je tijd.
+
+Meestal is er een **tabel bijgekomen** die jouw database nog niet heeft. Zodra
+een ronde iets nieuws opslaat — parkbuit bijvoorbeeld — komt er een migratie mee
+in de code, en die moet je database nog uitvoeren. Tot dat gebeurd is loopt elke
+aanroep stuk op een tabel die niet bestaat.
+
+```
+pnpm db:up        # alleen als je Postgres nog niet draait
+pnpm db:migrate
+```
+
+Sinds kort doet `pnpm dev:server` dit zelf bij het starten, dus normaal merk je
+er niets van. Kwam je van een oudere versie, dan is dit de eerste keer die je met
+de hand moet doen.
+
+Draait je Postgres niet, dan start de server nu ook niet meer — met een duidelijke
+melding van Prisma in plaats van een app die pas bij het eerste verzoek stukgaat.
+Dat is met opzet: een server zonder database werkt toch niet.
+
 ### "Docker is geinstalleerd maar draait niet"
 
 Start Docker Desktop en wacht tot het icoon niet meer beweegt. Draai daarna
