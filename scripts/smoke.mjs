@@ -61,7 +61,10 @@ try {
   );
 }
 if (gezond.ok !== true) faal('/health zegt niet ok', JSON.stringify(gezond));
-ok('server bereikbaar', gezond.service);
+ok(
+  'server bereikbaar',
+  `versie ${gezond.version ?? 'onbekend'}, gestart ${gezond.startedAt ?? 'onbekend'}`,
+);
 
 // 2. Een verse speler. Een eigen toestel-id per rit, zodat een tweede rit geen
 //    halve toestand van de vorige erft.

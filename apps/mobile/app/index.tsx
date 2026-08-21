@@ -1,6 +1,7 @@
 import { Redirect } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { API_URL } from '../src/net/api';
+import { API_URL, fetchHealth } from '../src/net/api';
 import { useGame } from '../src/state/useGame';
 import { Button } from '../src/ui/components';
 import { theme } from '../src/ui/theme';
@@ -10,6 +11,25 @@ export default function Boot() {
   const error = useGame((s) => s.error);
   const errorKind = useGame((s) => s.errorKind);
   const boot = useGame((s) => s.boot);
+
+  // Bij een fout ophalen wélke server daar draait. Dat is de vraag waar deze
+  // week de meeste tijd in ging zitten: praat je met de code die je net hebt
+  // binnengehaald, of met een venster dat al een uur openstaat?
+  const [versie, setVersie] = useState<string | null>(null);
+  useEffect(() => {
+    if (status !== 'error') return;
+    let leeft = true;
+    void fetchHealth()
+      .then((gezond) => {
+        if (leeft) setVersie(gezond.version ?? 'onbekend');
+      })
+      .catch(() => {
+        if (leeft) setVersie(null);
+      });
+    return () => {
+      leeft = false;
+    };
+  }, [status]);
 
   if (status === 'ready') return <Redirect href="/(game)/city" />;
 
@@ -44,6 +64,7 @@ export default function Boot() {
               apps/mobile/.env.
             </Text>
           )}
+          {versie ? <Text style={styles.hint}>Server draait versie {versie}.</Text> : null}
           <Button label="Opnieuw proberen" onPress={() => void boot()} />
         </>
       )}

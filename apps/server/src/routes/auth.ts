@@ -1,6 +1,7 @@
 import { STARTER_PROPERTY_ID, STARTER_VEHICLE_ID, guestLoginSchema, spawnPosition } from '@game/shared';
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../lib/prisma.js';
+import { VERSION } from '../version.js';
 
 /**
  * Gast-accounts: de app verzint één keer een device-id en gebruikt dat om in
@@ -52,5 +53,10 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     ok: true,
     serverTime: Date.now(),
     service: 'just-a-game',
+    // Welke code draait hier, en sinds wanneer. Zonder dit is niet te zien of
+    // je met de server praat die je net hebt herstart of met eentje van een uur
+    // geleden die nog op de poort zit.
+    version: VERSION.commit,
+    startedAt: VERSION.startedAt,
   }));
 }

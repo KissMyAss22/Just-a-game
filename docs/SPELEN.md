@@ -81,7 +81,14 @@ Android met de scanner in Expo Go zelf.
 Dit staat in de app zelf. Test in deze volgorde:
 
 **1. Draait de server?** In het venster van `pnpm dev:server` moet staan:
-`Server listening at http://0.0.0.0:4000`.
+`Server listening at http://0.0.0.0:4000`, met daarboven een regel als
+`Draait versie a1b2c3d, gestart om …`.
+
+Let op die versieregel als er iets niet klopt. Staat er een oude hash, of een
+starttijd van een uur geleden, dan kijk je naar een venster dat nog van vóór je
+laatste pull is — en dan zoek je een fout die in de nieuwe code allang weg is.
+Sluit in dat geval álle oude vensters; twee servers op dezelfde poort geeft
+gegarandeerd verwarring, want maar één van de twee krijgt de poort.
 
 **2. Kan je computer zichzelf bereiken?** Open in je browser:
 `http://localhost:4000/health` — je hoort `{"ok":true,...}` te zien.
@@ -106,19 +113,29 @@ Let op het verschil met de melding hierboven: die zegt dat je de server niet
 *kunt bereiken*, deze dat hij wél antwoordt maar met een fout. Je netwerk is dus
 in orde, en zoeken in je wifi-instellingen is zonde van je tijd.
 
-Meestal is er een **tabel bijgekomen** die jouw database nog niet heeft. Zodra
-een ronde iets nieuws opslaat — parkbuit bijvoorbeeld — komt er een migratie mee
-in de code, en die moet je database nog uitvoeren. Tot dat gebeurd is loopt elke
-aanroep stuk op een tabel die niet bestaat.
+De melding zelf zegt nu wát er misging. Twee oorzaken komen het vaakst voor, en
+je herkent ze aan de tekst:
+
+**"The table `public.…` does not exist in the current database."** — er is een
+**tabel bijgekomen** die jouw database nog niet heeft. Zodra een ronde iets
+nieuws opslaat, komt er een migratie mee in de code die je database nog moet
+uitvoeren.
+
+**"Unknown field `…` for include statement on model `…`"** — de database is
+prima, maar de **gegenereerde Prisma-client** kent de wijziging nog niet. Die
+wordt gemaakt door `prisma generate`, en dat gebeurde alleen bij `pnpm install`.
+Sinds kort doet `pnpm dev:server` het ook bij elke start.
+
+Allebei worden ze opgelost door hetzelfde commando:
 
 ```
 pnpm db:up        # alleen als je Postgres nog niet draait
 pnpm db:migrate
 ```
 
-Sinds kort doet `pnpm dev:server` dit zelf bij het starten, dus normaal merk je
-er niets van. Kwam je van een oudere versie, dan is dit de eerste keer die je met
-de hand moet doen.
+Sinds kort doet `pnpm dev:server` dit zelf bij het starten — eerst `generate`,
+dan `migrate deploy` — dus normaal merk je er niets van. Kwam je van een oudere
+versie, dan is dit de eerste keer die je met de hand moet doen.
 
 **Twijfel je of alles het weer doet?** Draai `pnpm smoke` terwijl je server
 draait. Dat loopt in één keer de weg af die de app ook aflegt — aanmelden,

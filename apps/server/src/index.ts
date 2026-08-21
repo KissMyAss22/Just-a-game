@@ -19,6 +19,7 @@ import { stateRoutes } from './routes/state.js';
 import { worldRoutes } from './routes/world.js';
 import { pruneExpiredBoosts } from './services/boosts.js';
 import { ensureSpawns } from './services/spawner.js';
+import { VERSION } from './version.js';
 
 /**
  * De kern uit een foutmelding van meerdere regels.
@@ -123,6 +124,9 @@ async function main(): Promise<void> {
   process.on('SIGTERM', () => void close('SIGTERM'));
 
   await app.listen({ host: env.host, port: env.port });
+  // De versie meteen in beeld. Draaien er meerdere vensters, dan zie je hier in
+  // welk venster je kijkt en of het de code van je laatste pull is.
+  app.log.info(`Draait versie ${VERSION.commit}, gestart om ${VERSION.startedAt}`);
   app.log.info(
     `Server draait. Zet in apps/mobile/.env: EXPO_PUBLIC_API_URL=http://<jouw-lan-ip>:${env.port}`,
   );

@@ -455,6 +455,15 @@ export const unlockPremium = () =>
 // dev-scherm kan uitleggen wat er moet gebeuren in plaats van te blijven
 // hangen.
 
+/**
+ * Wélke server praat hier, en sinds wanneer.
+ *
+ * Vraagt geen inlog, want juist als er iets misgaat wil je dit kunnen opvragen
+ * zonder eerst binnen te hoeven komen.
+ */
+export const fetchHealth = () =>
+  request<{ ok: boolean; service: string; version?: string; startedAt?: string }>('/health');
+
 export const fetchDevStatus = () =>
   request<{ enabled: boolean; serverTime: number }>('/dev');
 
