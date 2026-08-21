@@ -14,6 +14,7 @@ export * from './season';
 export * from './schemas';
 export * from './city/districts';
 export * from './city/layout';
+export * from './city/stadskaart';
 export * from './city/park';
 export * from './route';
 export * from './city/streets';

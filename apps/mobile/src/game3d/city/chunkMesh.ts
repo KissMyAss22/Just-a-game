@@ -8,6 +8,7 @@ import {
   isParkCell,
   isWaterCell,
   parkLandIn,
+  specialAreasIn,
   worldToCell,
   type ChunkContent,
 } from '@game/shared';
@@ -428,6 +429,48 @@ function buildParkPlateau(content: ChunkContent): THREE.Object3D | null {
   return mesh;
 }
 
+/**
+ * Het stadspark en het marktplein als vlak over de stoep.
+ *
+ * Materiaal per chunk kiezen kan hier niet: een gebied is kleiner dan een chunk
+ * en ligt er middenin. Dus krijgt het gebied zelf een vlak, net boven het
+ * stoepplateau waar de stad toch al op ligt.
+ */
+function buildSpecialAreas(content: ChunkContent): THREE.Object3D | null {
+  const half = content.size / 2;
+  const vakken = specialAreasIn(
+    content.centerX - half,
+    content.centerZ - half,
+    content.centerX + half,
+    content.centerZ + half,
+  );
+  if (vakken.length === 0) return null;
+
+  const groep = new THREE.Group();
+  for (const vak of vakken) {
+    grassMaterial ??= createGrassMaterial();
+    sidewalkMaterial ??= createSidewalkMaterial();
+    const geometry = new THREE.PlaneGeometry(vak.maxX - vak.minX, vak.maxZ - vak.minZ);
+    // De kanteling in de geometrie en niet in de mesh: het grasmateriaal kijkt
+    // naar de normaal in objectruimte om zode van aarde te scheiden, en een
+    // gekantelde mesh houdt die normaal op +z. Dat maakte het park ooit één
+    // grote kale aardkluit.
+    geometry.rotateX(-Math.PI / 2);
+    const mesh = new THREE.Mesh(
+      geometry,
+      vak.area.kind === 'park' ? grassMaterial : sidewalkMaterial,
+    );
+    mesh.position.set(
+      (vak.minX + vak.maxX) / 2,
+      SIDEWALK_HEIGHT + 0.01,
+      (vak.minZ + vak.maxZ) / 2,
+    );
+    mesh.receiveShadow = true;
+    groep.add(mesh);
+  }
+  return groep;
+}
+
 export function buildChunkObject(content: ChunkContent, quality: ChunkQuality): THREE.Group {
   const group = new THREE.Group();
   group.name = `chunk:${content.key}`;
@@ -468,6 +511,7 @@ export function buildChunkObject(content: ChunkContent, quality: ChunkQuality): 
     // net goed zolang de parkgrenzen op chunkgrenzen vallen. Zo'n stilzwijgende
     // afhankelijkheid is precies wat er omvalt zodra de grenzen verschuiven.
     buildParkPlateau(content),
+    buildSpecialAreas(content),
     buildGreen(content, quality),
     buildContactShadows(content),
     buildBuildings(content, quality),

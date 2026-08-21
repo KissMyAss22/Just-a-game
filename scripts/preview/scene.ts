@@ -19,6 +19,8 @@ import {
   findRoute,
   shopSpots,
   spawnPosition,
+  specialArea,
+  specialAreaCenter,
   streetPropsIn,
   worldToCell,
   type StreetProp,
@@ -210,6 +212,9 @@ function telling(props: StreetProp[]): string {
  * stap begaanbaar is. Of hij leesbaar over het wegdek loopt en niet in de
  * belijning verdwijnt, zie je alleen door ervoor te gaan staan.
  */
+const parkMidden = specialAreaCenter(specialArea('stadspark'));
+const pleinMidden = specialAreaCenter(specialArea('plein'));
+
 const routeStart = spawnPosition();
 const routeDoel = shopSpots()[0];
 const proefRoute = routeDoel
@@ -336,6 +341,28 @@ const views: View[] = [
       const brug = cellToWorld(130, 62);
       c.position.set(brug.x - 34, 14, brug.z + 20);
       c.lookAt(brug.x + 24, 0, brug.z - 4);
+    },
+  },
+  {
+    // Het stadspark: gras midden tussen de bouwblokken, met de straten eromheen.
+    name: 'het stadspark',
+    hour: 13,
+    height: 380,
+    focus: [parkMidden.x, parkMidden.z],
+    place: (c) => {
+      c.position.set(parkMidden.x - 62, 26, parkMidden.z + 62);
+      c.lookAt(parkMidden.x, 0, parkMidden.z);
+    },
+  },
+  {
+    // Het marktplein met de kramen: één winkel en drie plekken die wachten.
+    name: 'het marktplein',
+    hour: 13,
+    height: 380,
+    focus: [pleinMidden.x, pleinMidden.z],
+    place: (c) => {
+      c.position.set(pleinMidden.x, 4.6, pleinMidden.z + 26);
+      c.lookAt(pleinMidden.x, 1.2, pleinMidden.z + 10);
     },
   },
   {

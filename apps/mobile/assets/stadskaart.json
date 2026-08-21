@@ -5,5 +5,6 @@
   "originCell": 64,
   "size": 2048,
   "perMeter": 1.6,
-  "parkX0": 132
+  "parkX0": 132,
+  "special": "plein:plein:56,36,65,45|stadspark:park:71,56,90,75"
 }

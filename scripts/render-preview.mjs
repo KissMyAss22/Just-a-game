@@ -13,7 +13,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 // Via tsx, zodat het stempel van de kaart uit dezelfde constanten komt als de
 // kaart zelf in plaats van hier nog eens ingetypt te worden.
-import { CITY, PARK_BOUNDS } from '../packages/shared/src/index.ts';
+import { kaartStempel } from '../packages/shared/src/index.ts';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const previewDir = join(root, 'scripts/preview');
@@ -125,19 +125,12 @@ execFileSync(
   { stdio: 'inherit', cwd: root },
 );
 
-/** Het stempel dat bij deze stad hoort; zie de kaart hieronder. */
-function kaartStempel() {
-  const perMeter = 1.6;
-  return {
-    seed: CITY.seed,
-    gridSize: CITY.gridSize,
-    cellSize: CITY.cellSize,
-    originCell: CITY.originCell,
-    size: Math.round(CITY.gridSize * CITY.cellSize * perMeter),
-    perMeter,
-    parkX0: PARK_BOUNDS.x0,
-  };
-}
+/**
+ * Hoeveel pixels er op een wereldmeter gaan. Moet gelijk zijn aan `PER_METER`
+ * in `scripts/preview/citymap.ts` — dat is het enige getal dat hier nog naast
+ * staat, en het bepaalt hoe groot de plaat wordt.
+ */
+const KAART_PER_METER = 1.6;
 
 /** Rendert één pagina naar een PNG. */
 function shoot(page, file, width, height) {
@@ -173,7 +166,7 @@ function shootTo(page, target, width, height) {
 }
 
 console.log('Renderen...');
-shoot('index.html', 'stad.png', 900, 4590);
+shoot('index.html', 'stad.png', 900, 5350);
 shoot('items.html', 'items.png', 1100, 1060);
 shoot('map.html', 'kaart.png', 660, 800);
 shoot('home.html', 'woning.png', 820, 1220);
@@ -189,10 +182,11 @@ shoot('home.html', 'woning.png', 820, 1220);
 console.log('Stadskaart tekenen...');
 const kaartMap = join(root, 'apps/mobile/assets');
 mkdirSync(kaartMap, { recursive: true });
-const kaartMaat = kaartStempel().size;
+const stempel = kaartStempel(KAART_PER_METER);
+const kaartMaat = stempel.size;
 shootTo('citymap.html', join(kaartMap, 'stadskaart.png'), kaartMaat, kaartMaat);
 writeFileSync(
   join(kaartMap, 'stadskaart.json'),
-  `${JSON.stringify(kaartStempel(), null, 2)}\n`,
+  `${JSON.stringify(stempel, null, 2)}\n`,
 );
 console.log(`Klaar: ${join(kaartMap, 'stadskaart.png')} (${kaartMaat}x${kaartMaat})`);

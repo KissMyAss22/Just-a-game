@@ -1,4 +1,4 @@
-import { SIDEWALK_HEIGHT, shopSpots } from '@game/shared';
+import { SIDEWALK_HEIGHT, marketStalls, shopSpots } from '@game/shared';
 import * as THREE from 'three';
 import { createCharacter } from './character';
 import { mergeParts, standingBox, standingCylinder, type Part } from './geometry';
@@ -6,8 +6,9 @@ import { mergeParts, standingBox, standingCylinder, type Part } from './geometry
 /**
  * De pandjeshuizen in de stad: een winkelpui met een verkoper ervoor.
  *
- * Bewust géén instanced mesh zoals het straatmeubilair. Er staan er drie in de
- * hele stad; instancing kost daar meer code dan het oplevert. En de verkoper
+ * Bewust géén instanced mesh zoals het straatmeubilair. Er staan er twee in de
+ * hele stad, plus een paar lege kramen op het plein; instancing kost daar meer
+ * code dan het oplevert. En de verkoper
  * is sowieso een eigen groep, want die ademt.
  *
  * De pui staat met zijn rug tegen de gevel: alles wat naar de straat wijst
@@ -75,6 +76,24 @@ export interface Shopfronts {
   dispose: () => void;
 }
 
+/**
+ * Een kraam die nog geen winkel is: vier poten en een leeg blad.
+ *
+ * Bewust herkenbaar als kraam en niet als decor — het is een plek die wacht,
+ * en dat hoort te zien te zijn.
+ */
+function emptyStallGeometry(): THREE.BufferGeometry {
+  const hout = '#6b5940';
+  const parts: Part[] = [
+    { geometry: standingBox(0.10, 0.95, 0.10), color: hout, position: [-0.85, 0, -0.35] },
+    { geometry: standingBox(0.10, 0.95, 0.10), color: hout, position: [0.85, 0, -0.35] },
+    { geometry: standingBox(0.10, 0.95, 0.10), color: hout, position: [-0.85, 0, 0.35] },
+    { geometry: standingBox(0.10, 0.95, 0.10), color: hout, position: [0.85, 0, 0.35] },
+    { geometry: standingBox(1.90, 0.09, 0.80), color: '#7d6a4d', position: [0, 0.95, 0] },
+  ];
+  return mergeParts(parts);
+}
+
 export function createShopfronts(castShadow = true): Shopfronts {
   const group = new THREE.Group();
   const geometry = shopfrontGeometry();
@@ -109,6 +128,19 @@ export function createShopfronts(castShadow = true): Shopfronts {
     clerk.group.rotation.y = spot.rotY;
     group.add(clerk.group);
     clerks.push({ character: clerk, x: cx, z: cz });
+  }
+
+  // De lege plekken op het marktplein: een kraam zonder luifel en zonder
+  // verkoper. Zonder die kramen is het plein een leeg vlak met één winkel erop;
+  // mét zie je dat er ruimte is voor wat er later bij komt.
+  const leegGeometry = emptyStallGeometry();
+  for (const kraam of marketStalls()) {
+    if (kraam.shopId !== null) continue;
+    const leeg = new THREE.Mesh(leegGeometry, material);
+    leeg.position.set(kraam.x, SIDEWALK_HEIGHT, kraam.z);
+    leeg.rotation.y = kraam.rotY;
+    leeg.castShadow = castShadow;
+    group.add(leeg);
   }
 
   return {

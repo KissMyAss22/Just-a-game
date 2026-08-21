@@ -313,20 +313,44 @@ gemeten met een simulatie, maar nooit door een mens gespeeld.
 
 ## Waar verkoop ik mijn spullen?
 
-Bij een **pandjeshuis**. Er staan er drie in de stad — herkenbaar aan de rode luifel en
-het bord met drie koperen ballen:
+Bij een **pandjeshuis**. Er staan er twee in de stad:
 
-- **Oude Stad**, een meter of veertig van waar je begint;
-- **Industrieterrein**, aan de westkant;
-- **Buitenwijk**, aan de oostkant.
+- **Pandjeshuis Centrum**, een kraam op het Marktplein, een paar straten ten noorden van
+  je startpunt. Zo'n honderdtachtig meter lopen — een halve minuut.
+- **Pandjeshuis Industrie**, een pui met een rode luifel en het bord met drie koperen
+  ballen, aan de westkant van de stad.
 
-Loop je erlangs, dan verschijnt links onderin een knop "Verkopen". Waar je ook staat in de
-stad, er is er altijd eentje binnen een paar honderd meter.
+Loop je erlangs, dan verschijnt links onderin een knop "Verkopen".
+
+**Waarom er twee zijn en niet drie.** Er stonden er drie, maar geen van de drie stond
+ergens om een reden: de plek werd gezocht door vanaf een punt naar buiten te lopen tot er
+een stuk stoep vrij was, en dan sta je tegen een willekeurig woonblok. Twee winkels die
+ergens hóren is beter dan drie die er toevallig staan. De prijs is dat de verste hoek van
+de stad — de Jachthaven — nu op 773 meter ligt in plaats van een paar honderd. Dat is ruim
+twee minuten lopen, en een stuk minder met een voertuig.
 
 In je rugzak zelf kun je spullen alleen **weggooien**. Dat klinkt onhandig maar is de
 bedoeling: zo is de stad een plek waar je naartoe gaat in plaats van een decor waar je
 doorheen loopt. Raakt je rugzak boven de tachtig procent, dan verschijnt vanzelf een pijl
 naar de dichtstbijzijnde winkel.
+
+## Het Stadspark en het Marktplein
+
+Midden in de stad liggen twee plekken die geen bouwblok zijn.
+
+Het **Stadspark** is honderdvijftig bij honderdvijftig meter gras, één bouwblok ten oosten
+van waar je begint: bomen, grindpaden en banken, en de straten lopen er netjes omheen in
+plaats van erdoorheen. Er ligt vanzelf ook spul op het gras, want begaanbaar terrein is
+begaanbaar terrein.
+
+Het **Marktplein** is kleiner en bestraat, een paar straten noordelijker in het Centrum.
+Daar staan vier kramen op een rij. In de eerste zit het Pandjeshuis Centrum; de andere drie
+staan er leeg bij. Dat is met opzet: komt er later een andere soort winkel bij, dan staat
+die dáár, naast de rest, en hoeft er niet weer een gevel voor gezocht te worden.
+
+**Let op het verschil met het park hieronder.** Het Stadspark is gewoon een deel van de
+stad — je buit loopt er geen enkel gevaar. Het Verlaten Park in het oosten is een ander
+verhaal.
 
 ## Het Verlaten Park
 

@@ -1,4 +1,4 @@
-import { CITY, CITY_EAST_EDGE, cellToWorld, isWaterCell } from './layout';
+import { CITY, CITY_EAST_EDGE, cellToWorld, isWaterCell, specialAreaAt } from './layout';
 import { valueAt } from '../rng';
 
 /**
@@ -91,10 +91,13 @@ export function nearestRoadAxis(v: number): number {
  * gras zestien centimeter omhoog en weer omlaag.
  */
 export function isAsphalt(x: number, z: number): boolean {
-  // Exact dezelfde grens als `isRoadCell`, en bewust via dezelfde constante:
-  // twee plekken die allebei "hier houdt de stad op" moeten weten, mogen niet
-  // uit elkaar kunnen lopen. Dit dekt het park, de landtong én de zee ertussen.
-  if (worldCell(x, z).cx >= CITY_EAST_EDGE) return false;
+  // Exact dezelfde grenzen als `isRoadCell`, en bewust via dezelfde functies:
+  // twee plekken die allebei moeten weten waar de straat ophoudt, mogen niet uit
+  // elkaar kunnen lopen. Doen ze dat wel, dan krijg je onzichtbare stoepranden
+  // in het gras — precies wat het oostelijke park al een keer had.
+  const cell = worldCell(x, z);
+  if (cell.cx >= CITY_EAST_EDGE) return false;
+  if (specialAreaAt(cell.cx, cell.cz)) return false;
   return distanceToRoadAxis(x) < ASPHALT_HALF_WIDTH || distanceToRoadAxis(z) < ASPHALT_HALF_WIDTH;
 }
 
@@ -266,7 +269,12 @@ export function streetPropsIn(
   // uitkomst vangt elke proprij in één keer; per rij redeneren vangt alleen de
   // rijen waar je aan gedacht hebt.
   return out.filter((prop) => {
-    if (worldCell(prop.x, prop.z).cx >= CITY_EAST_EDGE) return false;
+    const cell = worldCell(prop.x, prop.z);
+    if (cell.cx >= CITY_EAST_EDGE) return false;
+    // Geen lantaarns en geen geparkeerde auto's midden in het stadspark of op
+    // het plein: die rijen komen uit de wegassen, en die lopen er dwars
+    // doorheen.
+    if (specialAreaAt(cell.cx, cell.cz)) return false;
     return prop.kind === 'car' || !isAsphalt(prop.x, prop.z);
   });
 }

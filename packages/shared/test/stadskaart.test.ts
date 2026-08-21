@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { CITY, PARK_BOUNDS, cellToWorld, shopSpots, spawnPosition } from '../src/index';
+import { CITY, PARK_BOUNDS, cellToWorld, kaartStempel, shopSpots, spawnPosition } from '../src/index';
 
 /**
  * De stadskaart is vooraf getekend en gaat als afbeelding mee met de app.
@@ -27,6 +27,7 @@ const stempel = JSON.parse(
   size: number;
   perMeter: number;
   parkX0: number;
+  special: string;
 };
 
 describe('de stadskaart die de app meekrijgt', () => {
@@ -44,6 +45,19 @@ describe('de stadskaart die de app meekrijgt', () => {
       originCell: CITY.originCell,
       parkX0: PARK_BOUNDS.x0,
     });
+  });
+
+  /**
+   * En bij dézelfde bijzondere gebieden.
+   *
+   * Dit hoorde er vanaf het begin bij en zat er niet in. Het stempel bestond uit
+   * maten, en geen van die maten verandert als er een park of een plein in de
+   * stad komt. Toen het stadspark en het marktplein erbij kwamen bleef het
+   * stempelbestand dan ook byte-identiek terwijl de plaat wél anders was — de
+   * bewaking zou dus groen zijn gebleven met een kaart zonder park erop.
+   */
+  it('hoort bij dezelfde parken en pleinen', () => {
+    expect(stempel.special).toBe(kaartStempel(stempel.perMeter).special);
   });
 
   it('is vierkant en dekt de hele wereld', () => {

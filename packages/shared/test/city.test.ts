@@ -15,6 +15,9 @@ import {
   PARK_CAUSEWAY,
   isParkSide,
   isRoadCell,
+  SPECIAL_AREAS,
+  specialAreaAt,
+  specialAreasIn,
   isWalkable,
   isWaterCell,
   lotCenter,
@@ -299,10 +302,22 @@ describe('gebouwvormen', () => {
   });
 
   it('zet groen alleen op onbebouwde percelen', () => {
-    const chunk = buildChunk(4, 4);
+    // Bewust een chunk zonder stadspark of plein erin. Daar ís groen namelijk
+    // wél de regel, en dan zegt de vergelijking hieronder niets meer.
+    const chunk = buildChunk(6, 6);
+    expect(specialAreasIn(
+      chunk.centerX - chunk.size / 2,
+      chunk.centerZ - chunk.size / 2,
+      chunk.centerX + chunk.size / 2,
+      chunk.centerZ + chunk.size / 2,
+    )).toEqual([]);
     for (const lot of chunk.green) {
-      const { cx, cz } = worldToCell(lot.x, lot.z);
-      expect(buildingAtCell(cx, cz)).toBeNull();
+      // Op open grond, niet "in een cel zonder pand". Dat verschil is echt:
+      // `buildingAtCell` geeft het pérceel terug, en bij een L-vormig hoekpand
+      // ligt de binnentuin buiten de voetafdruk maar wél in dat perceel. De
+      // vraag die ertoe doet is of je er kunt staan.
+      expect({ x: Math.round(lot.x), z: Math.round(lot.z), open: isWalkable(lot.x, lot.z, 0.3) })
+        .toEqual({ x: Math.round(lot.x), z: Math.round(lot.z), open: true });
     }
     // Groen is een uitzondering, geen regel: vroeger werd elke lege cel groen.
     expect(chunk.green.length).toBeLessThan(chunk.buildings.length);
@@ -592,5 +607,87 @@ describe('een route om te volgen', () => {
     const route = findRoute(start, { x: start.x + 200, z: start.z });
     expect(afstandTotRoute(route, start)).toBeCloseTo(0, 1);
     expect(afstandTotRoute(route, { x: start.x + 100, z: start.z + 30 })).toBeGreaterThan(20);
+  });
+});
+
+
+/**
+ * Het stadspark en het marktplein: plekken in de stad die geen bouwblok zijn.
+ *
+ * De stad is verder overal hetzelfde raster, en dat maakte dat een winkel
+ * nergens hóórde — hij werd met een ringzoeker tegen de eerste de beste gevel
+ * gezet. Deze twee vakken zijn wél gekozen. Wat hieronder getoetst wordt is niet
+ * of ze er zijn maar of ze *gaten* zijn: geen straat, geen pand, geen stoeprand
+ * en geen straatmeubilair — en de straten eromheen nog wel, want een vak dat de
+ * hele buurt platlegt is net zo fout als geen vak.
+ */
+describe('bijzondere gebieden', () => {
+  it('legt er geen straat aan en zet er geen pand neer', () => {
+    for (const vak of SPECIAL_AREAS) {
+      for (let cx = vak.x0; cx < vak.x1; cx++) {
+        for (let cz = vak.z0; cz < vak.z1; cz++) {
+          expect({
+            vak: vak.id,
+            cel: `${cx},${cz}`,
+            weg: isRoadCell(cx, cz),
+            pand: buildingAtCell(cx, cz) !== null,
+          }).toEqual({ vak: vak.id, cel: `${cx},${cz}`, weg: false, pand: false });
+        }
+      }
+    }
+  });
+
+  it('laat de straten eromheen gewoon liggen', () => {
+    // De cellen net buiten het vak zijn de omringende straten. Zou een vak die
+    // ook opslokken, dan lag er een gat in het stratennet en kwam je er niet meer
+    // langs.
+    for (const vak of SPECIAL_AREAS) {
+      expect({ vak: vak.id, west: isRoadCell(vak.x0 - 1, vak.z0 + 2) }).toEqual({
+        vak: vak.id,
+        west: true,
+      });
+      expect({ vak: vak.id, oost: isRoadCell(vak.x1, vak.z0 + 2) }).toEqual({
+        vak: vak.id,
+        oost: true,
+      });
+    }
+  });
+
+  /**
+   * Dit is letterlijk de fout die het oostelijke park al een keer had: `isAsphalt`
+   * volgde `isRoadCell` niet, en dan stap je elke veertig meter over een
+   * stoeprand die er niet is. Items, personages en voertuigen gebruiken diezelfde
+   * `groundHeightAt`, dus het zweeft allemaal mee.
+   */
+  it('houdt de grond er vlak — geen onzichtbare stoepranden', () => {
+    for (const vak of SPECIAL_AREAS) {
+      const hoogtes = new Set<number>();
+      for (let cx = vak.x0; cx < vak.x1; cx++) {
+        for (let cz = vak.z0; cz < vak.z1; cz++) {
+          const wereld = cellToWorld(cx, cz);
+          hoogtes.add(Math.round(groundHeightAt(wereld.x, wereld.z) * 1000));
+        }
+      }
+      // Eén hoogte over het hele vak, en verder niets.
+      expect({ vak: vak.id, verschillendeHoogtes: hoogtes.size }).toEqual({
+        vak: vak.id,
+        verschillendeHoogtes: 1,
+      });
+    }
+  });
+
+  it('zet er geen lantaarns, banken of geparkeerde auto\'s neer', () => {
+    // Hetzelfde vangnet dat 707 stuks straatmeubilair uit het oostelijke park
+    // hield. `streetPropsIn` bouwt zijn rijen uit de wegassen, en die lopen
+    // gewoon door een park heen; alleen het eindfilter houdt ze tegen.
+    for (const vak of SPECIAL_AREAS) {
+      const west = cellToWorld(vak.x0, vak.z0);
+      const oost = cellToWorld(vak.x1 - 1, vak.z1 - 1);
+      const props = streetPropsIn(west.x, west.z, oost.x, oost.z).filter((prop) => {
+        const cel = worldToCell(prop.x, prop.z);
+        return specialAreaAt(cel.cx, cel.cz)?.id === vak.id;
+      });
+      expect({ vak: vak.id, meubilair: props.length }).toEqual({ vak: vak.id, meubilair: 0 });
+    }
   });
 });

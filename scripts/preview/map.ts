@@ -3,11 +3,20 @@
  *
  * Dit beeld toetst de omrekening, niet de plaat. De plaat komt uit
  * `citymap.ts`; hier wordt hij op vensterformaat gelegd en worden bekende
- * punten erop gezet — het startpunt, de drie pandjeshuizen, de landtong. Staan
+ * punten erop gezet — het startpunt, de pandjeshuizen, het stadspark, het
+ * marktplein en de landtong. Staan
  * die op de goede plek, dan klopt de omrekening die de app ook gebruikt, en
  * dát was de klacht: wat je op de kaart ziet klopte niet met waar je loopt.
  */
-import { CITY, PARK_CAUSEWAY, cellToWorld, shopSpots, spawnPosition } from '@game/shared';
+import {
+  CITY,
+  PARK_CAUSEWAY,
+  SPECIAL_AREAS,
+  cellToWorld,
+  shopSpots,
+  spawnPosition,
+  specialAreaCenter,
+} from '@game/shared';
 
 const VENSTER = 620;
 
@@ -45,6 +54,21 @@ for (const winkel of shopSpots()) marker(winkel.x, winkel.z, '#f5c451', winkel.n
 
 const landtong = cellToWorld(PARK_CAUSEWAY.x0 + 1, PARK_CAUSEWAY.z0 + 1);
 marker(landtong.x, landtong.z, '#7fd0ff', 'landtong');
+
+// De bijzondere plekken, zodat te zien is of ze op de plaat staan waar ze in de
+// data staan. Een rechthoek en niet een stip: bij een gebied gaat het om de vorm.
+for (const vak of SPECIAL_AREAS) {
+  const west = cellToWorld(vak.x0, vak.z0);
+  const oost = cellToWorld(vak.x1 - 1, vak.z1 - 1);
+  const el = document.createElement('div');
+  el.style.cssText =
+    `position:absolute;left:${toMap(west.x)}px;top:${toMap(west.z)}px;` +
+    `width:${toMap(oost.x) - toMap(west.x)}px;height:${toMap(oost.z) - toMap(west.z)}px;` +
+    `border:1px dashed ${vak.kind === 'park' ? '#8fe07a' : '#f5c451'};box-sizing:border-box`;
+  map.appendChild(el);
+  const midden = specialAreaCenter(vak);
+  marker(midden.x, midden.z, vak.kind === 'park' ? '#8fe07a' : '#f5c451', vak.name, 9);
+}
 
 const info = document.getElementById('info');
 if (info) {

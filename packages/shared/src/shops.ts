@@ -1,14 +1,25 @@
 import type { DistrictId } from './city/districts';
 import { frontageSpots } from './city/frontage';
+import { specialArea, specialAreaCenter } from './city/layout';
 
 /**
  * De pandjeshuizen: de enige plek waar je spullen kunt verkopen.
  *
  * Dat verkopen ergens moet gebeuren is een ontwerpkeuze, geen beperking. Een
  * knop in je rugzak maakt de stad een decor waar je doorheen loopt; een
- * bestemming maakt hem een plek waar je naartoe gaat. Drie stuks, verspreid
- * over de kaart, zodat je nooit een halve stad hoeft te lopen — met één winkel
- * zou een volle rugzak op het Vliegveld een straf zijn.
+ * bestemming maakt hem een plek waar je naartoe gaat.
+ *
+ * Er zijn er twee, en dat is minder dan de drie waarmee dit begon. Die drie
+ * werden alle drie door een ringzoeker tegen de eerste de beste gevel gezet: de
+ * plek stond vast, maar zag er niet uit alsof iemand hem gekozen had, en dat
+ * voelde alsof winkels net als items ergens neergevallen waren. Nu staat er één
+ * als kraam op het Marktplein — een plek die je herkent — en één tegen een gevel
+ * op het Industrieterrein voor de westkant van de stad.
+ *
+ * De prijs daarvan is eerlijk: de verste hoek van de stad ligt nu op 773 meter
+ * in plaats van een paar honderd. Dat is ruim twee minuten lopen en veel minder
+ * met een voertuig, en een test bewaakt die grens zodat het een keuze blijft en
+ * geen sluipende verslechtering.
  *
  * Ze staan hier en niet in de database om dezelfde reden als de rest van de
  * stad: client en server moeten het eens zijn over waar ze staan, anders wijst
@@ -27,13 +38,63 @@ export interface PawnShopDef {
 }
 
 export const PAWN_SHOPS: readonly PawnShopDef[] = [
-  // Vlak bij waar je begint (cel 64,64), zodat je er vanaf het eerste uur een hebt.
-  { id: 'oldtown', name: 'Pandjeshuis Oude Stad', district: 'oldTown', preferred: { cx: 61, cz: 61 } },
   // Westkant: dekt het Industrieterrein, de Strip en het Vliegveld.
   { id: 'industrial', name: 'Pandjeshuis Industrie', district: 'industrial', preferred: { cx: 21, cz: 64 } },
-  // Oostkant: dekt de Buitenwijk, de Heuvels en de Jachthaven.
-  { id: 'suburbs', name: 'Pandjeshuis Buitenwijk', district: 'suburbs', preferred: { cx: 106, cz: 66 } },
 ] as const;
+
+/**
+ * De kramen op het Marktplein.
+ *
+ * Waarom dit anders werkt dan een winkelpui: een pui hangt aan een gevel, en op
+ * een plein staan geen gevels. Belangrijker nog — een winkel die door een
+ * ringzoeker tegen het eerste het beste woonblok wordt gezet, stáát er niet, hij
+ * belandt er. Vier vaste kramen op een rij zijn wél gekozen, en er is meteen
+ * plek voor wat er later bij komt.
+ *
+ * De plekken worden afgeleid uit het middelpunt van het plein, dus ze schuiven
+ * mee als het plein ooit verhuist.
+ */
+export interface MarketStall {
+  /** 0..3, van west naar oost. */
+  slot: number;
+  x: number;
+  z: number;
+  /** De kraam kijkt naar het midden van het plein. */
+  rotY: number;
+  /** De winkel die hier staat, of null zolang de plek vrij is. */
+  shopId: string | null;
+  name: string | null;
+}
+
+/** Hoeveel kramen er op het plein passen. */
+export const MARKET_STALLS = 4;
+/** Onderlinge afstand in meters. Ruim genoeg om ertussen te lopen. */
+const STALL_SPACING = 9;
+
+/** Welke kraam welke winkel is. Nu één; de rest wacht op nieuwe winkelsoorten. */
+const STALL_SHOPS: Record<number, { id: string; name: string }> = {
+  0: { id: 'plein', name: 'Pandjeshuis Centrum' },
+};
+
+export function marketStalls(): MarketStall[] {
+  const plein = specialArea('plein');
+  const midden = specialAreaCenter(plein);
+  const out: MarketStall[] = [];
+  for (let slot = 0; slot < MARKET_STALLS; slot++) {
+    // Op een rij ten zuiden van het midden, kijkend naar het plein toe.
+    const offset = (slot - (MARKET_STALLS - 1) / 2) * STALL_SPACING;
+    const winkel = STALL_SHOPS[slot] ?? null;
+    out.push({
+      slot,
+      x: midden.x + offset,
+      z: midden.z + 12,
+      rotY: Math.PI,
+      shopId: winkel?.id ?? null,
+      name: winkel?.name ?? null,
+    });
+  }
+  return out;
+}
 
 /** Binnen deze afstand kun je handelen, in meters. */
 export const SHOP_REACH = 6;
@@ -84,7 +145,21 @@ let cached: ShopSpot[] | null = null;
 /** Alle winkels met hun echte plek. Wordt één keer uitgerekend. */
 export function shopSpots(): ShopSpot[] {
   if (!cached) {
-    cached = PAWN_SHOPS.map(shopSpot).filter((spot): spot is ShopSpot => spot !== null);
+    const gevels = PAWN_SHOPS.map(shopSpot).filter((spot): spot is ShopSpot => spot !== null);
+    // De kramen op het plein tellen gewoon mee als winkel: voor de HUD, de
+    // kaart en de afstandscontrole op de server is er geen verschil tussen een
+    // pui en een kraam.
+    const kramen = marketStalls()
+      .filter((kraam) => kraam.shopId !== null)
+      .map((kraam) => ({
+        id: kraam.shopId!,
+        name: kraam.name!,
+        district: 'downtown' as const,
+        x: kraam.x,
+        z: kraam.z,
+        rotY: kraam.rotY,
+      }));
+    cached = [...kramen, ...gevels];
   }
   return cached;
 }

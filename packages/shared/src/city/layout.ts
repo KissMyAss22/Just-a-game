@@ -204,12 +204,111 @@ export function isRoadCell(cx: number, cz: number): boolean {
   // In het park liggen geen straten. Een park met stoepranden en een
   // stratenraster is geen park.
   if (cx >= CITY_EAST_EDGE) return false;
+  // En in het stadspark en op het plein evenmin: die liggen tussen de straten
+  // in, niet eroverheen.
+  if (specialAreaAt(cx, cz)) return false;
   return cx % CITY.blockSize === 0 || cz % CITY.blockSize === 0;
 }
 
 /** Doorgaande wegen — puur visueel (bredere belijning). */
 export function isMainRoadCell(cx: number, cz: number): boolean {
   return cx % 32 === 0 || cz % 32 === 0;
+}
+
+/**
+ * Plekken in de stad die geen bouwblok zijn.
+ *
+ * De stad is één raster: overal straten om de vijf cellen en overal panden
+ * ertussen. Dat maakt hem samenhangend maar ook eentonig, en het maakt vooral
+ * dat een winkel nergens *hoort*. Een pandjeshuis werd tot nu toe met een
+ * ringzoeker tegen een willekeurige gevel gezet; de plek stond vast, maar zag
+ * er niet uit alsof iemand hem gekozen had.
+ *
+ * Deze gebieden zijn wél gekozen. Binnen zo'n vak liggen geen straten en staan
+ * geen panden — de straten lopen eromheen, precies zoals in het echt. De
+ * randcellen blijven bewust straat: dat zijn de straten die het vak omsluiten.
+ *
+ * Let op het verschil met Het Verlaten Park hieronder. Dát gebied draagt
+ * spelregels: wat je er oppakt komt in je buidel en wordt pas gebankt als je de
+ * landtong over loopt. Deze vakken gaan alleen over de vórm van de stad. Ze door
+ * elkaar halen zou het stadspark per ongeluk PvP-gebied maken.
+ */
+export interface SpecialArea {
+  id: string;
+  name: string;
+  /** Gras of bestrating; bepaalt hoe het eruitziet en wat er staat. */
+  kind: 'park' | 'plein';
+  /** Celgrenzen, x1/z1 uitgezonderd. Dit is het bínnengebied, zonder de omringende straten. */
+  x0: number;
+  z0: number;
+  x1: number;
+  z1: number;
+}
+
+export const SPECIAL_AREAS: readonly SpecialArea[] = [
+  // Vier bij vier bouwblokken één blok ten oosten van je startpunt (cel 64,64),
+  // met de straten op 70 en 90 eromheen. Negentien cellen breed en niet twintig,
+  // want de twintigste is die omringende straat.
+  //
+  // Eén blok verderop en niet pal ernaast: begon het park op zestien meter van
+  // het startpunt, dan was het eerste wat je zag gras in plaats van een straat,
+  // en verdwenen de gevels rond je beginpunt. Nu loop je er in een halve minuut
+  // heen en blijft je startstraat een straat.
+  { id: 'stadspark', name: 'Stadspark', kind: 'park', x0: 71, z0: 56, x1: 90, z1: 75 },
+  // Twee bij twee bouwblokken, een paar straten noordelijker in het Centrum.
+  { id: 'plein', name: 'Marktplein', kind: 'plein', x0: 56, z0: 36, x1: 65, z1: 45 },
+] as const;
+
+/** In welk bijzonder gebied ligt deze cel, of geen. */
+export function specialAreaAt(cx: number, cz: number): SpecialArea | null {
+  for (const vak of SPECIAL_AREAS) {
+    if (cx >= vak.x0 && cx < vak.x1 && cz >= vak.z0 && cz < vak.z1) return vak;
+  }
+  return null;
+}
+
+/** Het gebied met dit id; handig voor winkels en de renderproef. */
+export function specialArea(id: string): SpecialArea {
+  const vak = SPECIAL_AREAS.find((a) => a.id === id);
+  if (!vak) throw new Error(`Onbekend gebied: ${id}`);
+  return vak;
+}
+
+/** Het middelpunt van een gebied, in wereldmeters. */
+export function specialAreaCenter(vak: SpecialArea): { x: number; z: number } {
+  const west = cellToWorld(vak.x0, vak.z0);
+  const oost = cellToWorld(vak.x1 - 1, vak.z1 - 1);
+  return { x: (west.x + oost.x) / 2, z: (west.z + oost.z) / 2 };
+}
+
+/**
+ * De bijzondere gebieden binnen een vak, geknipt op dat vak.
+ *
+ * De renderer bouwt per chunk, en een gebied is kleiner dan een chunk. Materiaal
+ * kiezen per chunk werkt dus niet — er moet een vlak over het gebied zelf, en
+ * dat vlak wordt hier uitgerekend en niet in de renderer. Reden: het is de vorm
+ * van de wereld, en daar rekent de server ook mee.
+ */
+export function specialAreasIn(
+  minX: number,
+  minZ: number,
+  maxX: number,
+  maxZ: number,
+): { area: SpecialArea; minX: number; minZ: number; maxX: number; maxZ: number }[] {
+  const half = CITY.cellSize / 2;
+  const out: { area: SpecialArea; minX: number; minZ: number; maxX: number; maxZ: number }[] = [];
+  for (const vak of SPECIAL_AREAS) {
+    const west = cellToWorld(vak.x0, vak.z0);
+    const oost = cellToWorld(vak.x1 - 1, vak.z1 - 1);
+    const geknipt = {
+      minX: Math.max(west.x - half, minX),
+      minZ: Math.max(west.z - half, minZ),
+      maxX: Math.min(oost.x + half, maxX),
+      maxZ: Math.min(oost.z + half, maxZ),
+    };
+    if (geknipt.maxX > geknipt.minX && geknipt.maxZ > geknipt.minZ) out.push({ area: vak, ...geknipt });
+  }
+  return out;
 }
 
 /** De grenzen van Het Verlaten Park, in cellen. */
@@ -380,6 +479,10 @@ function berekenPandOpCel(cx: number, cz: number): BuildingLot | null {
 
   const district = districtAt(anchorX, anchorZ);
   const frontage = lotFrontage(anchorX, anchorZ);
+
+  // In het stadspark en op het plein staat niets. Dat is het hele punt: een
+  // plek in de stad die geen bouwblok is.
+  if (specialAreaAt(anchorX, anchorZ)) return null;
 
   // De aanloop naar de landtong, aan de stádskant, blijft vrij.
   //
@@ -714,7 +817,11 @@ export function buildChunk(chunkX: number, chunkZ: number): ChunkContent {
       // is daar toch al gras, dus deze percelen dienen vooral als plek waar
       // `treesOnLot` bomen neerzet. Driekwart geeft een bos met open plekken;
       // alles vol zou een muur van bomen zijn.
-      const share = isParkCell(cx, cz) ? 0.75 : GREEN_SHARE;
+      // In het stadspark is bijna alles groen; op het plein juist niets, want
+      // dat is bestrating.
+      const vak = specialAreaAt(cx, cz);
+      const share =
+        isParkCell(cx, cz) || vak?.kind === 'park' ? 0.85 : vak ? 0 : GREEN_SHARE;
       if (seed < share) {
         const { x, z } = lotCenter(anchor.anchorX, anchor.anchorZ);
         const span = lotSize(anchor.anchorX, anchor.anchorZ);

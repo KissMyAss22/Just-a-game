@@ -22,6 +22,7 @@ import {
   isParkCell,
   isRoadCell,
   isWaterCell,
+  specialAreaAt,
   lotAnchor,
   PARK_PATH_SIZE,
   parkPropsIn,
@@ -71,6 +72,7 @@ const KLEUR = {
   groen: '#41613a',
   parkgras: '#41582f',
   pad: '#7d7767',
+  bestrating: '#8e8878',
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -88,9 +90,15 @@ for (let cz = 0; cz < CITY.gridSize; cz++) {
     const y = px(wereld.z) - cel / 2;
     // Het park is gras; de rest krijgt de tint van zijn wijk, wat opgelicht
     // omdat die kleuren gemaakt zijn om onder een 3D-zon te liggen.
-    ctx.fillStyle = isParkCell(cx, cz)
-      ? KLEUR.parkgras
-      : tint(districtAt(cx, cz).groundColor, 2.45);
+    // Het stadspark en het marktplein hebben hun eigen grond: zonder dit zijn
+    // het gaten in het bouwblokkenpatroon in plaats van herkenbare plekken.
+    const vak = specialAreaAt(cx, cz);
+    ctx.fillStyle =
+      isParkCell(cx, cz) || vak?.kind === 'park'
+        ? KLEUR.parkgras
+        : vak
+          ? KLEUR.bestrating
+          : tint(districtAt(cx, cz).groundColor, 2.45);
     ctx.fillRect(x, y, cel + 1, cel + 1);
   }
 }
@@ -235,15 +243,7 @@ for (let c = 0; c < CITY.gridSize; c++) {
 }
 ctx.setLineDash([]);
 
-// Het stempel waarop de app en de test kunnen controleren dat deze plaat bij
-// deze stad hoort.
-const stempel = {
-  seed: CITY.seed,
-  gridSize: CITY.gridSize,
-  cellSize: CITY.cellSize,
-  originCell: CITY.originCell,
-  size: MAP_SIZE,
-  perMeter: PER_METER,
-  parkX0: PARK_BOUNDS.x0,
-};
-document.title = `kaart ${JSON.stringify(stempel)}`;
+// Geen stempel meer op deze pagina. Er stond er een in `document.title` die
+// nooit gelezen werd, terwijl `scripts/render-preview.mjs` zijn eigen kopie
+// schreef — twee definities van dezelfde waarheid, en die zijn ook uit elkaar
+// gelopen. Het stempel komt nu uit `kaartStempel()` in gedeelde code.

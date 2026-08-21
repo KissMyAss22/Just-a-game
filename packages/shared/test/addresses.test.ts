@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ADDRESSES, atDoor, homeAddress, relevantAddresses, DOOR_REACH } from '../src/addresses';
-import { districtAtWorld, isWalkable } from '../src/city/layout';
+import { districtAtWorld, isWalkable, specialAreaAt, worldToCell } from '../src/city/layout';
 import { isAsphalt } from '../src/city/streets';
 import { PROPERTIES } from '../src/properties';
 import { shopSpots } from '../src/shops';
@@ -82,6 +82,23 @@ describe('woonadressen', () => {
   it('geeft een eigen huis geen huisnummer', () => {
     expect(homeAddress('villa', seed)!.unit).toBe('');
     expect(homeAddress('townhouse', seed)!.unit).toBe('');
+  });
+
+  /**
+   * Het stadspark en het marktplein zijn gaten in de bebouwing geworden, en
+   * `homeAddress` zoekt gevels. Stond een woning toevallig in wat nu park is,
+   * dan hoort hij opgeschoven te zijn — en niet stilletjes midden in het gras te
+   * blijven staan waar geen pand meer is om binnen te lopen.
+   */
+  it('zet geen voordeur midden in het park of op het plein', () => {
+    for (const property of PROPERTIES) {
+      const address = homeAddress(property.id, seed)!;
+      const cel = worldToCell(address.x, address.z);
+      expect({ woning: property.id, vak: specialAreaAt(cel.cx, cel.cz)?.id ?? null }).toEqual({
+        woning: property.id,
+        vak: null,
+      });
+    }
   });
 
   it('zet geen voordeur bovenop een pandjeshuis', () => {

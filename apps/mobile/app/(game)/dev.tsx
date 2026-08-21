@@ -6,6 +6,8 @@ import {
   getItem,
   homeAddress,
   parkRect,
+  SPECIAL_AREAS,
+  specialAreaCenter,
   shopSpots,
   spawnPosition,
 } from '@game/shared';
@@ -63,10 +65,16 @@ function namedPlaces(
     if (thuis) out.push({ key: 'thuis', label: 'Je voordeur', x: thuis.x, z: thuis.z });
   }
 
+  // Het stadspark en het marktplein: de twee plekken in de stad die geen
+  // bouwblok zijn. Zonder deze twee is die ronde alleen te voet te bekijken.
+  for (const vak of SPECIAL_AREAS) {
+    out.push({ key: vak.id, label: vak.name, ...specialAreaCenter(vak) });
+  }
+
   const park = parkRect();
   out.push({
     key: 'park',
-    label: 'Het park',
+    label: 'Het Verlaten Park',
     x: (park.minX + park.maxX) / 2,
     z: (park.minZ + park.maxZ) / 2,
   });

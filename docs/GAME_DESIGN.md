@@ -69,6 +69,42 @@ Alles wordt afgeleid uit `CITY.seed` met een deterministische generator
 (`mulberry32`), dus de stad ziet er op elk toestel en op de server exact
 hetzelfde uit. Er wordt nergens `Math.random()` gebruikt voor werelddata.
 
+### Bijzondere gebieden
+
+Een raster dat overal hetzelfde is, is samenhangend maar eentonig — en het maakt
+vooral dat niets ergens *hoort*. Een pandjeshuis werd met een ringzoeker tegen de
+eerste de beste gevel gezet: de plek stond vast, maar zag er niet uit alsof
+iemand hem gekozen had.
+
+`SPECIAL_AREAS` in `city/layout.ts` is daarom één begrip voor "hier geen raster":
+
+| Gebied | Waar | Wat |
+|---|---|---|
+| Stadspark | cel 71–89 × 56–74, één blok ten oosten van het startpunt | 152 × 152 m gras, bomen, grindpaden en banken |
+| Marktplein | cel 56–64 × 36–44, in het Centrum | 72 × 72 m bestrating met vier kramen op een rij |
+
+Binnen zo'n vak geeft `isRoadCell` false en zet `buildingAtCell` niets neer; de
+straten lopen eromheen. Belangrijk is dat álle drie de functies die de vorm van
+de stad bepalen ernaar kijken — `isRoadCell`, `buildingAtCell` én `isAsphalt` —
+plus het eindfilter van `streetPropsIn`. Loopt er één uit de pas, dan krijg je
+precies de fouten die het oostelijke park al gehad heeft: onzichtbare stoepranden
+in het gras omdat `groundHeightAt` de wegassen volgt in plaats van de straten, en
+zevenhonderd lantaarns en geparkeerde auto's op een plek waar geen weg ligt. Dit
+is dezelfde reden als waarom `CITY_EAST_EDGE` een naam heeft in plaats van een
+ingetypte 128.
+
+**Dit gaat alleen over de vórm van de stad.** Het Verlaten Park in het oosten
+houdt zijn eigen `PARK_BOUNDS` en `isParkSide`, en dat lijkt dubbelop maar is het
+niet: dáár hangen spelregels aan — wat je oppakt komt in je buidel en wordt pas
+gebankt als je de landtong over loopt. Die twee door elkaar halen zou het
+stadspark en het marktplein per ongeluk PvP-gebied maken.
+
+Op het plein staan **vier vaste kramen**, afgeleid uit het middelpunt van het
+vak. Kraam nul is het Pandjeshuis Centrum; de andere drie staan er leeg bij, klaar
+voor wat er later komt. Dat is goedkoper dan per nieuwe winkelsoort weer een
+geschikte gevel zoeken, en het geeft de stad één plek waar je heen gaat om te
+handelen.
+
 ### Districten
 
 | District | Sfeer | Loot | Unlock |
@@ -106,6 +142,7 @@ Wat er per onderdeel gebeurt:
 | Daken | Bitumen in plaats van gevelkleur, met een dakrand en één tot drie dakopbouwen (liftschacht, installaties). |
 | Straatmeubilair | Lantaarns, bomen, banken, prullenbakken, brandkranen en geparkeerde auto's. Per soort één instanced mesh voor het hele zichtveld. Auto's parkeren aan één kant van de straat — aan twee kanten stond je met je eigen auto klem. |
 | Parkmeubilair | Grindpaden, verweerde banken en omgevallen lantaarnpalen, uit een eigen generator (`city/park.ts`). Nodig omdat het straatmeubilair uit de wegassen komt en die gewoon doorlopen tot voorbij de oostrand: het park stond vol lantaarns en geparkeerde auto's terwijl er geen straat lag. De paden liggen op 34 meter en niet op 40, anders krijg je het stratenraster terug in grind. |
+| Marktkramen | Vier houten kramen op een rij op het Marktplein, afgeleid uit het middelpunt van het vak (`marketStalls()` in `shops.ts`). Eén heeft een luifel en een bord — dat is het pandjeshuis; de andere drie staan leeg. |
 | Parkgrond | Gras in plaats van asfalt, en het land ligt als een eigen plateau op stoephoogte. Niet als opgetild grondvlak: dat vlak loopt door over de zeecellen en dekte de zee af, waarna de landtong een weiland werd. |
 | Straatniveau | Winkelpuien, voordeuren, gestreepte luifels, cordonlijsten en een kroonlijst onder de dakrand. Dat is het detail dat een gevel van een blok een gebouw maakt. |
 | Lucht | Een bol met een verloop, zon en meeschuivende wolken. Wordt als eerste getekend met de dieptetest uit, zodat de far-plane van de camera kort kan blijven. |
@@ -170,9 +207,10 @@ verkeerde plek en het was ook de reden dat ze niet te vinden waren.
 gebouwen gaat met pijlen om te stijgen en te dalen.
 
 **Teleport.** Naar losse coördinaten, naar een wijk, of naar een benoemde plek:
-het startpunt, de drie pandjeshuizen, je eigen voordeur, het park en de landtong
-ernaartoe. Die plekken worden afgeleid uit dezelfde gedeelde functies als de
-wereld zelf (`shopSpots`, `homeAddress`, `parkRect`, `PARK_CAUSEWAY`) en staan
+het startpunt, de pandjeshuizen, je eigen voordeur, het stadspark, het marktplein,
+Het Verlaten Park en de landtong ernaartoe. Die plekken worden afgeleid uit
+dezelfde gedeelde functies als de wereld zelf (`shopSpots`, `homeAddress`,
+`specialAreaCenter`, `parkRect`, `PARK_CAUSEWAY`) en staan
 nergens als coördinaat ingetypt — anders wijzen ze de verkeerde kant op zodra de
 kaart verandert. De server haalt elke sprong door `nearestWalkable`, dus je landt
 nooit in een muur of in het water.

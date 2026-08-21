@@ -18,8 +18,8 @@ import { LAMP_OFFSET, distanceToRoadAxis, nearestRoadAxis } from './streets';
  *
  * De eerste versie berekende zo'n plek uit het perceel en zijn gevelkant. Dat
  * viel om op precies de panden die je wilt hebben: hoekpanden zijn L-vormig, en
- * die vleugel zet net die stoep dicht. Twee van de drie winkels kwamen zo
- * nergens terecht. Uitproberen of een punt begaanbaar is, is korter én
+ * die vleugel zet net die stoep dicht. Van de drie winkels die er toen waren
+ * kwamen er twee zo nergens terecht. Uitproberen of een punt begaanbaar is, is korter én
  * betrouwbaarder dan alle vormen naspelen, en het blijft kloppen als de
  * stadsgenerator weer verandert.
  */
