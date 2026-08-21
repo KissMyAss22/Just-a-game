@@ -161,15 +161,35 @@ weerspiegeling ziet niemand.
 
 ### Ontwikkelgereedschap
 
-In het profielscherm staat een blokje **Ontwikkelgereedschap**: loopsnelheid
-maal 1, 2, 4 of 8, en een vliegmodus die dwars door gebouwen gaat met pijlen
-om te stijgen en te dalen. Handig om de stad te bekijken en om te zien waar hij
-ophoudt.
+Alles staat op één scherm, bereikbaar via **Opties → Testgereedschap openen**.
+De knoppen voor loopsnelheid en vliegmodus stonden eerst op het profielscherm
+zelf, tussen de grafische instellingen van een gewone speler; dat was de
+verkeerde plek en het was ook de reden dat ze niet te vinden waren.
+
+**Bewegen.** Loopsnelheid maal 1, 2, 4 of 8, en een vliegmodus die dwars door
+gebouwen gaat met pijlen om te stijgen en te dalen.
+
+**Teleport.** Naar losse coördinaten, naar een wijk, of naar een benoemde plek:
+het startpunt, de drie pandjeshuizen, je eigen voordeur, het park en de landtong
+ernaartoe. Die plekken worden afgeleid uit dezelfde gedeelde functies als de
+wereld zelf (`shopSpots`, `homeAddress`, `parkRect`, `PARK_CAUSEWAY`) en staan
+nergens als coördinaat ingetypt — anders wijzen ze de verkeerde kant op zodra de
+kaart verandert. De server haalt elke sprong door `nearestWalkable`, dus je landt
+nooit in een muur of in het water.
+
+Er is ook een stand waarin een tik op de kaart in je telefoon je daarheen laat
+springen. Die staat standaard uit: de kaart is ook een scherm dat een gewone
+speler openslaat.
 
 Dit werkt alleen als de server met `DEV_TOOLS=1` draait. Zonder dat duwt de
 snelheidscontrole je gewoon terug — en dat hoort ook zo: één regel in een `.env`
 mag niet de hele anti-cheat uitschakelen. De vlag doet in productie sowieso
 niets.
+
+Let op wat er dán gebeurt: de controle wordt niet overgeslagen maar verruimd.
+`moveBudget` vermenigvuldigt je topsnelheid met `DEV_SPEED_ALLOWANCE`, dus het
+budget wordt 6 × 60 = 360 m/s terwijl acht keer rennen plus de ×3 van de
+vliegmodus op 144 m/s uitkomt. Ruim genoeg, en het blijft een controle.
 
 ### Beeldkwaliteit in drie standen
 

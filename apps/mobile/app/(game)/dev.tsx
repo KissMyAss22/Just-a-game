@@ -1,11 +1,21 @@
-import { ITEMS, formatMoney, getItem } from '@game/shared';
+import {
+  ITEMS,
+  PARK_CAUSEWAY,
+  cellToWorld,
+  formatMoney,
+  getItem,
+  homeAddress,
+  parkRect,
+  shopSpots,
+  spawnPosition,
+} from '@game/shared';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import * as api from '../../src/net/api';
 import { playerPosition, setPlayerPosition } from '../../src/state/position';
 import { useGame } from '../../src/state/useGame';
-import { useSettings } from '../../src/state/useSettings';
+import { WALK_BOOSTS, useSettings } from '../../src/state/useSettings';
 import { Button, Panel, Row, Screen, SectionTitle } from '../../src/ui/components';
 import { rarityColor, theme } from '../../src/ui/theme';
 
@@ -30,6 +40,49 @@ const HOURS: { label: string; hour: number | null }[] = [
   { label: '21:00', hour: 21 },
   { label: '01:00', hour: 1 },
 ];
+
+/**
+ * De plekken waar je tijdens het testen steeds naartoe wil.
+ *
+ * Allemaal afgeleid en niets ingetypt. Een lijst met coördinaten in een scherm
+ * is precies wat er stukgaat zodra de kaart verandert — en die is deze maand al
+ * twee keer veranderd. Wat hier staat verschuift vanzelf mee.
+ */
+function namedPlaces(
+  propertyId: string | undefined,
+  seed: number | undefined,
+): { key: string; label: string; x: number; z: number }[] {
+  const out = [{ key: 'spawn', label: 'Startpunt', ...spawnPosition() }];
+
+  for (const shop of shopSpots()) {
+    out.push({ key: shop.id, label: shop.name, x: shop.x, z: shop.z });
+  }
+
+  if (propertyId !== undefined && seed !== undefined) {
+    const thuis = homeAddress(propertyId, seed);
+    if (thuis) out.push({ key: 'thuis', label: 'Je voordeur', x: thuis.x, z: thuis.z });
+  }
+
+  const park = parkRect();
+  out.push({
+    key: 'park',
+    label: 'Het park',
+    x: (park.minX + park.maxX) / 2,
+    z: (park.minZ + park.maxZ) / 2,
+  });
+
+  // Het middelpunt van de landtong: de enige doorgang naar het park.
+  const west = cellToWorld(PARK_CAUSEWAY.x0, PARK_CAUSEWAY.z0);
+  const oost = cellToWorld(PARK_CAUSEWAY.x1 - 1, PARK_CAUSEWAY.z1 - 1);
+  out.push({
+    key: 'landtong',
+    label: 'De landtong',
+    x: (west.x + oost.x) / 2,
+    z: (west.z + oost.z) / 2,
+  });
+
+  return out;
+}
 
 const CASH_STEPS = [10_000, 250_000, 5_000_000];
 const LEVELS = [1, 5, 10, 20, 35, 50];
@@ -85,6 +138,12 @@ export default function DevScreen() {
   const setDevHour = useSettings((s) => s.setDevHour);
   const debugOverlay = useSettings((s) => s.debugOverlay);
   const setDebugOverlay = useSettings((s) => s.setDebugOverlay);
+  const walkBoost = useSettings((s) => s.walkBoost);
+  const setWalkBoost = useSettings((s) => s.setWalkBoost);
+  const fly = useSettings((s) => s.fly);
+  const setFly = useSettings((s) => s.setFly);
+  const mapTeleport = useSettings((s) => s.mapTeleport);
+  const setMapTeleport = useSettings((s) => s.setMapTeleport);
 
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [options, setOptions] = useState<{
@@ -94,6 +153,13 @@ export default function DevScreen() {
   const [busy, setBusy] = useState(false);
   const [search, setSearch] = useState('');
   const [amount, setAmount] = useState('10');
+  const [teleX, setTeleX] = useState('');
+  const [teleZ, setTeleZ] = useState('');
+
+  const places = useMemo(
+    () => namedPlaces(state?.player.propertyId, state?.player.seed),
+    [state?.player.propertyId, state?.player.seed],
+  );
 
   useEffect(() => {
     let alive = true;
@@ -134,6 +200,26 @@ export default function DevScreen() {
     [toast],
   );
 
+  /**
+   * Springen naar een plek, een coördinaat of een wijk.
+   *
+   * De server kiest met `nearestWalkable` de dichtstbijzijnde begaanbare grond,
+   * dus je landt nooit in een muur of in het water. Dat is geen anti-cheat maar
+   * gezond verstand: een teleport die je klem zet is geen gereedschap.
+   */
+  const jump = useCallback(
+    (target: { x?: number; z?: number; districtId?: string }) =>
+      run('Verplaatst', async () => {
+        const spot = await api.devTeleport(target);
+        // De 3D-wereld leest deze positie rechtstreeks; zo sta je er meteen
+        // zodra je terug bent op het stadsscherm.
+        setPlayerPosition(spot.x, spot.z);
+        await syncSpawns();
+        return `Je staat nu op ${Math.round(spot.x)}, ${Math.round(spot.z)}`;
+      }),
+    [run, syncSpawns],
+  );
+
   const query = search.trim().toLowerCase();
   const matches = query
     ? ITEMS.filter((item) => item.name.toLowerCase().includes(query)).slice(0, 8)
@@ -172,6 +258,35 @@ export default function DevScreen() {
           Zet de dag- en nachtcyclus stil op een vast uur. Handig om de straatverlichting en de
           gevels bij avondlicht te bekijken zonder tot vanavond te wachten. "echt" geeft de klok
           van je telefoon terug.
+        </Text>
+      </Panel>
+
+      <SectionTitle hint="in de app">Bewegen</SectionTitle>
+      <Panel>
+        <Choices
+          label="Loopsnelheid"
+          options={WALK_BOOSTS.map((boost) => ({
+            key: String(boost),
+            label: `${boost}×`,
+            value: boost,
+          }))}
+          selected={String(walkBoost)}
+          onSelect={(boost) => void setWalkBoost(boost)}
+        />
+
+        <View style={{ height: 12 }} />
+        <Button
+          label={fly ? '🛩️ Vliegmodus staat aan' : 'Vliegmodus'}
+          tone={fly ? 'accent' : 'ghost'}
+          onPress={() => void setFly(!fly)}
+        />
+        <Text style={styles.note}>
+          Vliegen gaat dwars door gebouwen heen; met de pijlen rechts in beeld ga je omhoog en
+          omlaag. Handig om de stad van boven te bekijken en om te zien waar hij ophoudt.
+          {'\n\n'}
+          Loopsnelheid en vliegen zitten in de app, maar de server telt wel mee hoe hard je
+          gaat. Zonder DEV_TOOLS=1 duwt de snelheidscontrole je gewoon terug — die staat er
+          niet voor niets.
         </Text>
       </Panel>
 
@@ -338,22 +453,68 @@ export default function DevScreen() {
       <SectionTitle hint="server">Verplaatsen</SectionTitle>
       <Panel>
         <Choices
+          label="Spring naar een plek"
+          options={places.map((place) => ({
+            key: place.key,
+            label: place.label,
+            value: place,
+          }))}
+          onSelect={(place) => void jump({ x: place.x, z: place.z })}
+        />
+
+        <View style={{ height: 12 }} />
+        <Text style={styles.hint}>Naar een coördinaat</Text>
+        <Row style={{ gap: 8, alignItems: 'center' }}>
+          <TextInput
+            value={teleX}
+            onChangeText={setTeleX}
+            keyboardType="numbers-and-punctuation"
+            placeholder="x"
+            placeholderTextColor={theme.color.textDim}
+            style={[styles.input, { flex: 1 }]}
+          />
+          <TextInput
+            value={teleZ}
+            onChangeText={setTeleZ}
+            keyboardType="numbers-and-punctuation"
+            placeholder="z"
+            placeholderTextColor={theme.color.textDim}
+            style={[styles.input, { flex: 1 }]}
+          />
+          <Button
+            label="Ga"
+            compact
+            disabled={!Number.isFinite(Number(teleX)) || !Number.isFinite(Number(teleZ))}
+            onPress={() => void jump({ x: Number(teleX), z: Number(teleZ) })}
+          />
+        </Row>
+        <Text style={styles.note}>
+          Je hoeft geen begaanbare plek te raken: de server zet je op de dichtstbijzijnde
+          stoep of berm. Je huidige plek staat op {Math.round(playerPosition.x)},{' '}
+          {Math.round(playerPosition.z)}.
+        </Text>
+
+        <View style={{ height: 12 }} />
+        <Button
+          label={mapTeleport ? '🗺️ Tikken op de kaart springt' : 'Tikken op de kaart laten springen'}
+          tone={mapTeleport ? 'accent' : 'ghost'}
+          onPress={() => void setMapTeleport(!mapTeleport)}
+        />
+        <Text style={styles.note}>
+          Staat dit aan, dan brengt een tik op de kaart in je telefoon je daarheen. Staat het
+          uit, dan doet de kaart precies wat hij altijd deed — dat is met opzet, want de kaart
+          is ook een scherm dat je gewoon opent om te kijken waar je bent.
+        </Text>
+
+        <View style={{ height: 12 }} />
+        <Choices
           label="Spring naar een wijk"
           options={(options?.districts ?? []).map((district) => ({
             key: district.id,
             label: district.name,
             value: district.id,
           }))}
-          onSelect={(districtId) =>
-            void run('Verplaatst', async () => {
-              const spot = await api.devTeleport({ districtId });
-              // De 3D-wereld leest deze positie rechtstreeks; zo sta je er
-              // meteen zodra je terug bent op het stadsscherm.
-              setPlayerPosition(spot.x, spot.z);
-              await syncSpawns();
-              return `Je staat nu op ${Math.round(spot.x)}, ${Math.round(spot.z)}`;
-            })
-          }
+          onSelect={(districtId) => void jump({ districtId })}
         />
         <View style={{ height: 10 }} />
         <Button

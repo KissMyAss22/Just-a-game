@@ -16,6 +16,7 @@ const SLEUTEL_SNELHEID = 'instellingen.loopboost';
 const SLEUTEL_VLIEGEN = 'instellingen.vliegen';
 const SLEUTEL_UUR = 'instellingen.uur';
 const SLEUTEL_METERS = 'instellingen.meters';
+const SLEUTEL_KAARTSPRONG = 'instellingen.kaartsprong';
 
 /** De standen van de loopsnelheidsknop in het ontwikkelgereedschap. */
 export const WALK_BOOSTS = [1, 2, 4, 8] as const;
@@ -31,6 +32,14 @@ interface SettingsState {
    */
   walkBoost: WalkBoost;
   fly: boolean;
+  /**
+   * Springt een tik op de kaart je daarheen?
+   *
+   * Staat standaard uit, en dat is geen detail: de kaart is een scherm dat een
+   * gewone speler ook openslaat, en die wil bij een verkeerde veeg niet ineens
+   * aan de andere kant van de stad staan.
+   */
+  mapTeleport: boolean;
   /** Vast uur voor de dag- en nachtcyclus; null is de echte klok. */
   devHour: number | null;
   /** Toont fps, tekenopdrachten en je positie over het beeld heen. */
@@ -39,6 +48,7 @@ interface SettingsState {
   setQuality: (quality: QualityLevel) => Promise<void>;
   setWalkBoost: (boost: WalkBoost) => Promise<void>;
   setFly: (fly: boolean) => Promise<void>;
+  setMapTeleport: (on: boolean) => Promise<void>;
   setDevHour: (hour: number | null) => Promise<void>;
   setDebugOverlay: (on: boolean) => Promise<void>;
 }
@@ -48,16 +58,18 @@ export const useSettings = create<SettingsState>((set) => ({
   loaded: false,
   walkBoost: 1,
   fly: false,
+  mapTeleport: false,
   devHour: null,
   debugOverlay: false,
   async load() {
     try {
-      const [stored, boost, fly, uur, meters] = await Promise.all([
+      const [stored, boost, fly, uur, meters, kaartsprong] = await Promise.all([
         AsyncStorage.getItem(SLEUTEL),
         AsyncStorage.getItem(SLEUTEL_SNELHEID),
         AsyncStorage.getItem(SLEUTEL_VLIEGEN),
         AsyncStorage.getItem(SLEUTEL_UUR),
         AsyncStorage.getItem(SLEUTEL_METERS),
+        AsyncStorage.getItem(SLEUTEL_KAARTSPRONG),
       ]);
       const parsed = Number(boost);
       const hour = uur === null || uur === '' ? null : Number(uur);
@@ -74,6 +86,7 @@ export const useSettings = create<SettingsState>((set) => ({
           ? (parsed as WalkBoost)
           : 1,
         fly: fly === '1',
+        mapTeleport: kaartsprong === '1',
         loaded: true,
       });
       return;
@@ -104,6 +117,15 @@ export const useSettings = create<SettingsState>((set) => ({
     set({ fly });
     try {
       await AsyncStorage.setItem(SLEUTEL_VLIEGEN, fly ? '1' : '0');
+    } catch {
+      // Zie hierboven.
+    }
+  },
+
+  async setMapTeleport(on) {
+    set({ mapTeleport: on });
+    try {
+      await AsyncStorage.setItem(SLEUTEL_KAARTSPRONG, on ? '1' : '0');
     } catch {
       // Zie hierboven.
     }

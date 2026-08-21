@@ -155,10 +155,15 @@ zuidkant en rond het privé-eiland ligt ook zee; daar kun je niet heen lopen, en
 varen kan nog niet. Loop je vast tegen water, dan is dat de kust en niet een
 fout.
 
-Wil je zelf zien hoe groot hij is: zet in **Profiel → Ontwikkelgereedschap** de
-vliegmodus aan. Je gaat dan dwars door alles heen en met de pijlen rechts in
-beeld omhoog. Daarvoor moet je server wel met `DEV_TOOLS=1` draaien — zie
-`apps/server/.env`.
+Wil je zelf zien hoe groot hij is: open **Opties → Testgereedschap** en zet
+onder *Bewegen* de vliegmodus aan. Je gaat dan dwars door alles heen en met de
+pijlen rechts in beeld omhoog. In datzelfde scherm staat ook de loopsnelheid
+(1×, 2×, 4× of 8×) en een teleport naar het startpunt, de pandjeshuizen, je
+eigen voordeur, het park of een coördinaat dat je zelf intypt. Zet je de
+kaartstand aan, dan brengt een tik op de kaart in je telefoon je erheen.
+
+Daarvoor moet je server wel met `DEV_TOOLS=1` draaien — zie `apps/server/.env`;
+zonder dat weigert hij de teleport en duwt de snelheidscontrole je terug.
 
 ### Hoe rijd ik?
 

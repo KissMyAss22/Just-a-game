@@ -1,9 +1,16 @@
 import { CITY, districtAtWorld, nearestShop, shopSpots } from '@game/shared';
+import * as api from '../../net/api';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { remotePlayers } from '../../net/presence';
-import { cameraState, navigationTarget, playerPosition } from '../../state/position';
+import {
+  cameraState,
+  navigationTarget,
+  playerPosition,
+  setPlayerPosition,
+} from '../../state/position';
 import { useGame } from '../../state/useGame';
+import { useSettings } from '../../state/useSettings';
 import { Button } from '../components';
 import { rarityColor, theme } from '../theme';
 import { districtRects, mainRoadRects, waterRects, type MapRect } from './mapShapes';
@@ -24,6 +31,10 @@ const scale = (cells: number): number => (cells / CITY.gridSize) * SIZE;
 
 /** Van wereldcoördinaat naar celcoördinaat, met decimalen. */
 const toCell = (world: number): number => world / CITY.cellSize + CITY.originCell;
+
+/** En terug: van een punt op de kaart naar een wereldcoördinaat. */
+const toWorld = (point: number): number =>
+  ((point / SIZE) * CITY.gridSize - CITY.originCell) * CITY.cellSize;
 
 function Rects({ rects }: { rects: MapRect[] }) {
   return (
@@ -58,6 +69,9 @@ interface Marker {
 
 export function MapApp() {
   const spawns = useGame((s) => s.spawns);
+  const syncSpawns = useGame((s) => s.syncSpawns);
+  const toast = useGame((s) => s.toast);
+  const mapTeleport = useSettings((s) => s.mapTeleport);
   const shops = useMemo(() => shopSpots(), []);
   const shapes = useMemo(
     () => ({ districts: districtRects(), water: waterRects(), roads: mainRoadRects() }),
@@ -132,9 +146,43 @@ export function MapApp() {
     setChosen(marker.label);
   };
 
+  /**
+   * Tikken op de kaart om erheen te springen.
+   *
+   * Alleen als de teleportstand in het testgereedschap aanstaat. De kaart is
+   * ook een scherm voor een gewone speler, en die wil bij een misser niet aan
+   * de andere kant van de stad wakker worden. De server toetst het los van dit
+   * alles nog een keer: zonder DEV_TOOLS=1 weigert hij gewoon.
+   */
+  const tapToJump = (px: number, py: number): void => {
+    if (!mapTeleport) return;
+    void (async () => {
+      try {
+        const spot = await api.devTeleport({ x: toWorld(px), z: toWorld(py) });
+        setPlayerPosition(spot.x, spot.z);
+        await syncSpawns();
+        toast(`Gesprongen naar ${Math.round(spot.x)}, ${Math.round(spot.z)}`);
+      } catch (error) {
+        toast('Springen mislukt', error instanceof Error ? error.message : String(error));
+      }
+    })();
+  };
+
   return (
     <View>
-      <View style={styles.map}>
+      {/*
+        Geen `disabled` maar helemaal geen `onPress` als de stand uit staat: een
+        uitgeschakelde knop meldt zich bij een schermlezer nog steeds als knop,
+        en de kaart is geen knop. Zo is hij gewoon een vlak, precies als eerst.
+      */}
+      <Pressable
+        style={styles.map}
+        onPress={
+          mapTeleport
+            ? (event) => tapToJump(event.nativeEvent.locationX, event.nativeEvent.locationY)
+            : undefined
+        }
+      >
         <Rects rects={shapes.districts} />
         <Rects rects={shapes.water} />
         <Rects rects={shapes.roads} />
@@ -190,12 +238,15 @@ export function MapApp() {
             ➤
           </Text>
         </View>
-      </View>
+      </Pressable>
 
       <Text style={styles.here}>
         Je staat in {district.name}
         {shop ? ` · ${shop.spot.name} op ${Math.round(shop.distance)} m` : ''}
       </Text>
+      {mapTeleport ? (
+        <Text style={styles.here}>Tik ergens op de kaart om erheen te springen.</Text>
+      ) : null}
       <Text style={styles.legend}>
         🟡 pandjeshuis · 🔵 andere speler · gekleurde stipjes zijn items die om je heen liggen
       </Text>

@@ -16,7 +16,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { QUALITY, QUALITY_LEVELS } from '../../src/game3d/city/quality';
 import { useGame } from '../../src/state/useGame';
-import { WALK_BOOSTS, useSettings } from '../../src/state/useSettings';
+import { useSettings } from '../../src/state/useSettings';
 import { Button, Panel, Row, Screen, SectionTitle } from '../../src/ui/components';
 import { theme } from '../../src/ui/theme';
 
@@ -55,10 +55,6 @@ export default function ProfileScreen() {
   const router = useRouter();
   const quality = useSettings((s) => s.quality);
   const setQuality = useSettings((s) => s.setQuality);
-  const walkBoost = useSettings((s) => s.walkBoost);
-  const setWalkBoost = useSettings((s) => s.setWalkBoost);
-  const fly = useSettings((s) => s.fly);
-  const setFly = useSettings((s) => s.setFly);
   const state = useGame((s) => s.state);
   const busy = useGame((s) => s.busy);
   const saveProfile = useGame((s) => s.saveProfile);
@@ -180,56 +176,20 @@ export default function ProfileScreen() {
 
       <SectionTitle hint="voor testen">Ontwikkelgereedschap</SectionTitle>
       <Panel>
-        <Text style={styles.qualityHint}>Loopsnelheid</Text>
-        <View style={styles.qualityRow}>
-          {WALK_BOOSTS.map((boost) => (
-            <Pressable
-              key={boost}
-              onPress={() => void setWalkBoost(boost)}
-              style={({ pressed }) => [
-                styles.qualityOption,
-                boost === walkBoost && styles.qualityOptionActive,
-                pressed && { opacity: 0.7 },
-              ]}
-            >
-              <Text style={[styles.qualityLabel, boost === walkBoost && styles.qualityLabelActive]}>
-                {boost}×
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-
-        <View style={{ height: 14 }} />
-        <Pressable
-          onPress={() => void setFly(!fly)}
-          style={({ pressed }) => [
-            styles.qualityOption,
-            fly && styles.qualityOptionActive,
-            pressed && { opacity: 0.7 },
-          ]}
-        >
-          <Text style={[styles.qualityLabel, fly && styles.qualityLabelActive]}>
-            {fly ? '🛩️ Vliegmodus staat aan' : 'Vliegmodus'}
-          </Text>
-        </Pressable>
-
-        <Text style={styles.qualityNote}>
-          Vliegen gaat dwars door gebouwen heen; met de pijlen rechts in beeld ga je omhoog en
-          omlaag. Handig om de stad te bekijken en om te zien waar hij ophoudt.
-          {'\n\n'}
-          Let op: je server moet hiervoor met DEV_TOOLS=1 draaien. Zonder dat duwt de
-          snelheidscontrole je gewoon weer terug — die staat er niet voor niets.
-        </Text>
-
-        <View style={{ height: 14 }} />
+        {/*
+          De dev-knoppen stonden hier, tussen de grafische instellingen van een
+          gewone speler. Dat is de verkeerde plek — en het was ook de reden dat
+          ze niet te vinden waren. Ze staan nu allemaal bij elkaar achter deze
+          knop.
+        */}
         <Button
-          label="Meer testgereedschap →"
+          label="Testgereedschap openen →"
           tone="ghost"
           onPress={() => router.push('/(game)/dev')}
         />
         <Text style={styles.qualityNote}>
-          Items toveren, geld en level zetten, naar een wijk springen, de klok van de stad
-          vastzetten en een fps-meter.
+          Teleporteren, vliegen, sneller lopen, items toveren, geld en level zetten, de klok
+          van de stad vastzetten en een fps-meter.
         </Text>
       </Panel>
 
