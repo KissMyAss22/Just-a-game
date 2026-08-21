@@ -334,6 +334,23 @@ neerhaalt. Zodra spelers elkaar in het park kunnen aanvallen verandert dat, en
 dan valt precies dié buidel op de grond als je neergaat. Je base, je meubels,
 je cash en je gewone rugzak blijven daar altijd buiten.
 
+## De kaart en de weg ernaartoe
+
+De kaart in je telefoon is een echte plattegrond van de stad: straten,
+bouwblokken, de kustlijn, het havenbassin, het privé-eiland en het park met zijn
+landtong. Knijpen zoomt in, slepen schuift op, en met **Op mij** en **Hele stad**
+spring je terug.
+
+**Navigeren gaat met een lijn, niet met een pijl.** Tik een pandjeshuis, een
+speler of je eigen deur aan en kies hem als bestemming; op straat ligt dan een
+groene lijn voor je die de weg wijst. Die volgt de straten en houdt rekening met
+gebouwen — een pijl deed dat niet en wees net zo vrolijk dwars door een gevel.
+Loop je een andere kant op, dan rekent hij zichzelf opnieuw uit.
+
+Is er geen looproute — het privé-eiland ligt in zee en er is nog geen boot — dan
+wordt de lijn rood en krijg je alsnog een pijl met de afstand hemelsbreed. Dat is
+eerlijker dan een lijn het water op trekken.
+
 ## De telefoon
 
 Onderin staat één knop: je telefoon. Daar zit alles in.

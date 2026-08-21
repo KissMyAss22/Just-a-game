@@ -16,6 +16,7 @@ import {
   isParkSide,
   parkPropsIn,
   parkRect,
+  findRoute,
   shopSpots,
   spawnPosition,
   streetPropsIn,
@@ -32,6 +33,7 @@ import { createVehicle } from '../../apps/mobile/src/game3d/city/vehicle';
 import { createDoorways } from '../../apps/mobile/src/game3d/city/doorway';
 import { createShopfronts } from '../../apps/mobile/src/game3d/city/shopfront';
 import { createWorld } from '../../apps/mobile/src/game3d/city/world';
+import { buildRoute } from '../../apps/mobile/src/game3d/city/route';
 
 declare global {
   interface Window {
@@ -201,6 +203,21 @@ function telling(props: StreetProp[]): string {
   return [...perSoort].map(([kind, aantal]) => `${kind} ${aantal}`).join(' ');
 }
 
+/**
+ * De navigatielijn, zoals hij op straat voor je ligt.
+ *
+ * Of een lijn te volgen is zie je niet aan een test: die zegt alleen dat elke
+ * stap begaanbaar is. Of hij leesbaar over het wegdek loopt en niet in de
+ * belijning verdwijnt, zie je alleen door ervoor te gaan staan.
+ */
+const routeStart = spawnPosition();
+const routeDoel = shopSpots()[0];
+const proefRoute = routeDoel
+  ? findRoute(routeStart, { x: routeDoel.x, z: routeDoel.z })
+  : null;
+const routeLint = proefRoute ? buildRoute(proefRoute) : null;
+if (routeLint) scene.add(routeLint.mesh);
+
 interface View {
   name: string;
   hour: number;
@@ -322,6 +339,27 @@ const views: View[] = [
     },
   },
   {
+    // Op de lijn staan, kijkend naar waar hij heen gaat.
+    name: 'de route naar het pandjeshuis',
+    hour: 13,
+    height: 380,
+    focus: [routeStart.x, routeStart.z],
+    place: (c) => {
+      // Het eerste punt dat ver genoeg weg ligt om een richting uit te halen.
+      // Op het punt waar je staat zelf mikken geeft een camera die naar
+      // zichzelf kijkt, en dan rendert er van alles behalve wat je wil zien.
+      const naar =
+        proefRoute?.punten.find(
+          (punt) => Math.hypot(punt.x - routeStart.x, punt.z - routeStart.z) > 8,
+        ) ?? routeStart;
+      const dx = naar.x - routeStart.x;
+      const dz = naar.z - routeStart.z;
+      const lengte = Math.hypot(dx, dz) || 1;
+      c.position.set(routeStart.x - (dx / lengte) * 7, 2.2, routeStart.z - (dz / lengte) * 7);
+      c.lookAt(naar.x, 0.3, naar.z);
+    },
+  },
+  {
     name: 'je eigen voordeur',
     hour: 13,
     height: 380,
@@ -364,6 +402,7 @@ const views: View[] = [
     },
   },
 ];
+
 
 renderer.setScissorTest(true);
 let offset = canvas.height;

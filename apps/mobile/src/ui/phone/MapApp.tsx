@@ -1,7 +1,9 @@
-import { CITY, districtAtWorld, nearestShop, shopSpots } from '@game/shared';
+import { CITY, districtAtWorld, findRoute, nearestShop, shopSpots } from '@game/shared';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import * as api from '../../net/api';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { remotePlayers } from '../../net/presence';
 import {
   cameraState,
@@ -11,50 +13,44 @@ import {
 } from '../../state/position';
 import { useGame } from '../../state/useGame';
 import { useSettings } from '../../state/useSettings';
-import { Button } from '../components';
+import { Button, Row } from '../components';
 import { rarityColor, theme } from '../theme';
-import { districtRects, mainRoadRects, waterRects, type MapRect } from './mapShapes';
 
 /**
  * De kaart van de stad.
  *
- * Alles komt uit dezelfde stadsdata als de 3D-wereld, dus de kaart kán niet
- * afwijken van waar je loopt. Tik een marker aan om er een bestemming van te
- * maken; de pijl in de HUD wijst er daarna naartoe.
+ * De kaart is één plaat, vooraf getekend uit dezelfde stadsdata als de
+ * 3D-wereld (zie scripts/preview/citymap.ts). Hij kán dus niet afwijken van
+ * waar je loopt. Daarvoor bestond hij uit elf gekleurde vakken en tien lijnen;
+ * dat was een schema van de stad en geen plattegrond, en de lijnen liepen zelfs
+ * over de zee en door het park heen.
+ *
+ * Waarom een plaat en geen tekening ter plekke: straten, bouwblokken en een
+ * kustlijn zijn tienduizenden vormen, en die tekent een telefoon niet als losse
+ * Views. De stad is deterministisch, dus een plaat ervan kan tijdens het spelen
+ * niet verouderen — en een test bewaakt dat hij bij déze stad hoort.
  */
 
-/** Hoe groot de kaart getekend wordt, in punten. */
-const SIZE = 300;
+const KAART = require('../../../assets/stadskaart.png');
+const STEMPEL = require('../../../assets/stadskaart.json') as {
+  seed: number;
+  gridSize: number;
+  size: number;
+};
 
-/** Van celcoördinaat naar plek op de kaart. */
-const scale = (cells: number): number => (cells / CITY.gridSize) * SIZE;
+/** Het venster waarin de kaart past, in punten. */
+const VENSTER = 300;
+/** Hoeveel de plaat op zichzelf staat: 1 = de hele stad past in het venster. */
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 8;
 
-/** Van wereldcoördinaat naar celcoördinaat, met decimalen. */
-const toCell = (world: number): number => world / CITY.cellSize + CITY.originCell;
+/** Van wereldcoördinaat naar een punt op de plaat, bij zoom 1. */
+const toMap = (world: number): number =>
+  ((world / CITY.cellSize + CITY.originCell) / CITY.gridSize) * VENSTER;
 
-/** En terug: van een punt op de kaart naar een wereldcoördinaat. */
+/** En terug. */
 const toWorld = (point: number): number =>
-  ((point / SIZE) * CITY.gridSize - CITY.originCell) * CITY.cellSize;
-
-function Rects({ rects }: { rects: MapRect[] }) {
-  return (
-    <>
-      {rects.map((rect, index) => (
-        <View
-          key={index}
-          style={{
-            position: 'absolute',
-            left: scale(rect.cx),
-            top: scale(rect.cz),
-            width: Math.max(1, scale(rect.w)),
-            height: Math.max(1, scale(rect.h)),
-            backgroundColor: rect.color,
-          }}
-        />
-      ))}
-    </>
-  );
-}
+  ((point / VENSTER) * CITY.gridSize - CITY.originCell) * CITY.cellSize;
 
 interface Marker {
   key: string;
@@ -73,10 +69,6 @@ export function MapApp() {
   const toast = useGame((s) => s.toast);
   const mapTeleport = useSettings((s) => s.mapTeleport);
   const shops = useMemo(() => shopSpots(), []);
-  const shapes = useMemo(
-    () => ({ districts: districtRects(), water: waterRects(), roads: mainRoadRects() }),
-    [],
-  );
 
   // De spelerpositie en de andere spelers leven buiten React; twee keer per
   // seconde een momentopname is ruim genoeg voor een kaart.
@@ -147,6 +139,94 @@ export function MapApp() {
   };
 
   /**
+   * Dezelfde route als op straat, maar dan van bovenaf.
+   *
+   * Het is bewust dezelfde `findRoute` als de 3D-wereld gebruikt: zou de kaart
+   * zijn eigen lijn trekken, dan wijzen de twee vroeg of laat een andere kant
+   * op en weet je niet meer welke te geloven.
+   */
+  const route = useMemo(() => {
+    const doel = navigationTarget.current;
+    if (!doel) return null;
+    return findRoute({ x: me.x, z: me.z }, { x: doel.x, z: doel.z });
+  }, [me.x, me.z, chosen]);
+
+  // ---------------------------------------------------------------------
+  // Knijpen, slepen en zoomen.
+  //
+  // De laag wordt verschoven en geschaald; de markers zitten erin, dus die
+  // gaan vanzelf mee. Reanimated houdt dat buiten React, want tijdens een
+  // gebaar zou een hertekening per frame de kaart laten haperen.
+  // ---------------------------------------------------------------------
+  const zoom = useSharedValue(MIN_ZOOM);
+  const schuifX = useSharedValue(0);
+  const schuifZ = useSharedValue(0);
+  const startZoom = useSharedValue(MIN_ZOOM);
+  const startX = useSharedValue(0);
+  const startZ = useSharedValue(0);
+
+  const laagStijl = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: schuifX.value },
+      { translateY: schuifZ.value },
+      { scale: zoom.value },
+    ],
+  }));
+
+  /** Houdt de kaart binnen het venster, hoe ver je ook sleept. */
+  const klem = (waarde: number, z: number): number => {
+    'worklet';
+    const speling = (VENSTER * (z - 1)) / 2;
+    return Math.min(speling, Math.max(-speling, waarde));
+  };
+
+  const slepen = Gesture.Pan()
+    .onBegin(() => {
+      startX.value = schuifX.value;
+      startZ.value = schuifZ.value;
+    })
+    .onUpdate((e) => {
+      schuifX.value = klem(startX.value + e.translationX, zoom.value);
+      schuifZ.value = klem(startZ.value + e.translationY, zoom.value);
+    });
+
+  const knijpen = Gesture.Pinch()
+    .onBegin(() => {
+      startZoom.value = zoom.value;
+    })
+    .onUpdate((e) => {
+      zoom.value = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, startZoom.value * e.scale));
+      schuifX.value = klem(schuifX.value, zoom.value);
+      schuifZ.value = klem(schuifZ.value, zoom.value);
+    });
+
+  const tikken = Gesture.Tap().onEnd((e) => {
+    // Van schermpunt terug naar een punt op de plaat: eerst de verschuiving
+    // eruit, dan de schaal. Dit is de omgekeerde weg van `laagStijl`.
+    const midden = VENSTER / 2;
+    const opPlaat = {
+      x: (e.x - midden - schuifX.value) / zoom.value + midden,
+      z: (e.y - midden - schuifZ.value) / zoom.value + midden,
+    };
+    if (mapTeleport) tapToJump(opPlaat.x, opPlaat.z);
+  });
+
+  const gebaren = Gesture.Simultaneous(slepen, knijpen, tikken);
+
+  const zoomNaarMij = (): void => {
+    const doel = 3;
+    zoom.value = withTiming(doel);
+    schuifX.value = withTiming(klem((VENSTER / 2 - toMap(me.x)) * doel, doel));
+    schuifZ.value = withTiming(klem((VENSTER / 2 - toMap(me.z)) * doel, doel));
+  };
+
+  const zoomUit = (): void => {
+    zoom.value = withTiming(MIN_ZOOM);
+    schuifX.value = withTiming(0);
+    schuifZ.value = withTiming(0);
+  };
+
+  /**
    * Tikken op de kaart om erheen te springen.
    *
    * Alleen als de teleportstand in het testgereedschap aanstaat. De kaart is
@@ -170,26 +250,47 @@ export function MapApp() {
 
   return (
     <View>
-      {/*
-        Geen `disabled` maar helemaal geen `onPress` als de stand uit staat: een
-        uitgeschakelde knop meldt zich bij een schermlezer nog steeds als knop,
-        en de kaart is geen knop. Zo is hij gewoon een vlak, precies als eerst.
-      */}
-      <Pressable
-        style={styles.map}
-        onPress={
-          mapTeleport
-            ? (event) => tapToJump(event.nativeEvent.locationX, event.nativeEvent.locationY)
-            : undefined
-        }
-      >
-        <Rects rects={shapes.districts} />
-        <Rects rects={shapes.water} />
-        <Rects rects={shapes.roads} />
+      <GestureDetector gesture={gebaren}>
+        <View style={styles.venster}>
+          {/*
+            Alles wat op de kaart hoort zit in één meebewegende laag: de plaat
+            én de markers. Zouden de markers erbuiten staan, dan bleven ze
+            hangen zodra je zoomt of sleept.
+          */}
+          <Animated.View style={[styles.laag, laagStijl]}>
+            <Image source={KAART} style={styles.plaat} resizeMode="contain" />
+
+            {route?.punten.slice(1).map((punt, i) => {
+              const vorige = route.punten[i]!;
+              const x1 = toMap(vorige.x);
+              const z1 = toMap(vorige.z);
+              const x2 = toMap(punt.x);
+              const z2 = toMap(punt.z);
+              const lengte = Math.hypot(x2 - x1, z2 - z1);
+              return (
+                <View
+                  key={`route-${i}`}
+                  pointerEvents="none"
+                  style={{
+                    position: 'absolute',
+                    left: x1,
+                    top: z1 - 1,
+                    width: lengte,
+                    height: 2,
+                    backgroundColor: route.bereikbaar ? theme.color.accent : '#e0704e',
+                    transform: [
+                      { translateX: -lengte / 2 },
+                      { rotate: `${Math.atan2(z2 - z1, x2 - x1)}rad` },
+                      { translateX: lengte / 2 },
+                    ],
+                  }}
+                />
+              );
+            })}
 
         {markers.map((marker) => {
-          const left = scale(toCell(marker.x)) - marker.size / 2;
-          const top = scale(toCell(marker.z)) - marker.size / 2;
+          const left = toMap(marker.x) - marker.size / 2;
+          const top = toMap(marker.z) - marker.size / 2;
           const dot = (
             <View
               style={{
@@ -221,10 +322,7 @@ export function MapApp() {
 
         {/* Jezelf, als laatste zodat je altijd bovenop ligt. */}
         <View
-          style={[
-            styles.marker,
-            { left: scale(toCell(me.x)) - 9, top: scale(toCell(me.z)) - 9 },
-          ]}
+          style={[styles.marker, { left: toMap(me.x) - 9, top: toMap(me.z) - 9 }]}
           pointerEvents="none"
         >
           <Text
@@ -238,7 +336,14 @@ export function MapApp() {
             ➤
           </Text>
         </View>
-      </Pressable>
+          </Animated.View>
+        </View>
+      </GestureDetector>
+
+      <Row style={{ gap: 8, marginTop: 10 }}>
+        <Button label="Op mij" tone="ghost" compact onPress={() => zoomNaarMij()} />
+        <Button label="Hele stad" tone="ghost" compact onPress={() => zoomUit()} />
+      </Row>
 
       <Text style={styles.here}>
         Je staat in {district.name}
@@ -246,6 +351,13 @@ export function MapApp() {
       </Text>
       {mapTeleport ? (
         <Text style={styles.here}>Tik ergens op de kaart om erheen te springen.</Text>
+      ) : null}
+      {route ? (
+        <Text style={styles.here}>
+          {route.bereikbaar
+            ? `Route: ${Math.round(route.lengte)} m lopen`
+            : 'Daar is geen looproute naartoe — dat gaat alleen per boot.'}
+        </Text>
       ) : null}
       <Text style={styles.legend}>
         🟡 pandjeshuis · 🔵 andere speler · gekleurde stipjes zijn items die om je heen liggen
@@ -271,16 +383,18 @@ export function MapApp() {
 }
 
 const styles = StyleSheet.create({
-  map: {
-    width: SIZE,
-    height: SIZE,
+  venster: {
+    width: VENSTER,
+    height: VENSTER,
     alignSelf: 'center',
     borderRadius: theme.radius.md,
     overflow: 'hidden',
-    backgroundColor: '#0a1622',
+    backgroundColor: '#12293a',
     borderWidth: 1,
     borderColor: theme.color.border,
   },
+  laag: { width: VENSTER, height: VENSTER },
+  plaat: { width: VENSTER, height: VENSTER },
   marker: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
   player: { color: theme.color.accent, fontSize: 17 },
   here: { color: theme.color.text, fontSize: 13, fontWeight: '700', marginTop: 12 },

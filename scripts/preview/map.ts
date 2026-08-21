@@ -1,67 +1,59 @@
 /**
- * De kaart uit de telefoon, in een browser getekend.
+ * De kaart zoals de telefoon hem laat zien: de plaat met markers erop.
  *
- * De kaart bestaat uit gewone rechthoeken, dus hij is één op één na te bouwen
- * met divs — en dan zie je meteen of het water op de goede plek ligt, of de
- * wijken kloppen en of de winkels op straat staan. Een omgeklapte as of een
- * halve cel verschuiving zie je niet aan de code, wel aan het plaatje.
+ * Dit beeld toetst de omrekening, niet de plaat. De plaat komt uit
+ * `citymap.ts`; hier wordt hij op vensterformaat gelegd en worden bekende
+ * punten erop gezet — het startpunt, de drie pandjeshuizen, de landtong. Staan
+ * die op de goede plek, dan klopt de omrekening die de app ook gebruikt, en
+ * dát was de klacht: wat je op de kaart ziet klopte niet met waar je loopt.
  */
-import { DISTRICTS, PAWN_SHOPS, shopSpots, spawnPosition, CITY } from '@game/shared';
-import {
-  districtRects,
-  mainRoadRects,
-  waterRects,
-} from '../../apps/mobile/src/ui/phone/mapShapes';
+import { CITY, PARK_CAUSEWAY, cellToWorld, shopSpots, spawnPosition } from '@game/shared';
 
-const SIZE = 620;
-const scale = (cells: number): number => (cells / CITY.gridSize) * SIZE;
-const toCell = (world: number): number => world / CITY.cellSize + CITY.originCell;
+const VENSTER = 620;
+
+/** Exact dezelfde omrekening als `toMap` in de app. */
+const toMap = (world: number): number =>
+  ((world / CITY.cellSize + CITY.originCell) / CITY.gridSize) * VENSTER;
 
 const map = document.getElementById('map') as HTMLDivElement;
-map.style.width = `${SIZE}px`;
-map.style.height = `${SIZE}px`;
+map.style.cssText = `position:relative;width:${VENSTER}px;height:${VENSTER}px;background:#12293a`;
 
-function draw(rects: ReturnType<typeof districtRects>): void {
-  for (const rect of rects) {
-    const el = document.createElement('div');
-    el.style.cssText = `position:absolute;left:${scale(rect.cx)}px;top:${scale(rect.cz)}px;width:${Math.max(1, scale(rect.w))}px;height:${Math.max(1, scale(rect.h))}px;background:${rect.color}`;
-    map.appendChild(el);
-  }
-}
+const plaat = document.createElement('img');
+plaat.src = '../../apps/mobile/assets/stadskaart.png';
+plaat.style.cssText = `position:absolute;left:0;top:0;width:${VENSTER}px;height:${VENSTER}px`;
+map.appendChild(plaat);
 
-draw(districtRects());
-draw(waterRects());
-draw(mainRoadRects());
-
-function dot(x: number, z: number, color: string, size: number, label = ''): void {
+function marker(x: number, z: number, kleur: string, naam: string, maat = 11): void {
   const el = document.createElement('div');
-  el.style.cssText = `position:absolute;left:${scale(toCell(x)) - size / 2}px;top:${scale(toCell(z)) - size / 2}px;width:${size}px;height:${size}px;border-radius:50%;background:${color};border:1px solid rgba(0,0,0,.5)`;
+  el.style.cssText =
+    `position:absolute;left:${toMap(x) - maat / 2}px;top:${toMap(z) - maat / 2}px;` +
+    `width:${maat}px;height:${maat}px;border-radius:50%;background:${kleur};` +
+    'border:1px solid rgba(0,0,0,.6)';
   map.appendChild(el);
-  if (!label) return;
-  const text = document.createElement('div');
-  text.textContent = label;
-  text.style.cssText = `position:absolute;left:${scale(toCell(x)) + size}px;top:${scale(toCell(z)) - 7}px;color:#fff;font:11px monospace;text-shadow:0 1px 2px #000`;
-  map.appendChild(text);
+
+  const tekst = document.createElement('div');
+  tekst.textContent = naam;
+  tekst.style.cssText =
+    `position:absolute;left:${toMap(x) + 9}px;top:${toMap(z) - 8}px;` +
+    'color:#e8eef7;font:11px/1.2 system-ui;text-shadow:0 1px 2px #000';
+  map.appendChild(tekst);
 }
 
-for (const district of DISTRICTS) {
-  const [x0, z0, x1, z1] = district.bounds;
-  const text = document.createElement('div');
-  text.textContent = district.name;
-  text.style.cssText = `position:absolute;left:${scale(x0) + 4}px;top:${scale(z0) + 4}px;color:rgba(255,255,255,.75);font:10px monospace`;
-  map.appendChild(text);
-}
-
-for (const spot of shopSpots()) dot(spot.x, spot.z, '#ffd166', 12, spot.name.replace('Pandjeshuis ', ''));
 const start = spawnPosition();
-dot(start.x, start.z, '#4dd4ac', 12, 'start');
+marker(start.x, start.z, '#4ee0a8', 'start', 13);
+for (const winkel of shopSpots()) marker(winkel.x, winkel.z, '#f5c451', winkel.name);
 
-const overlay = document.getElementById('overlay');
-if (overlay) {
-  overlay.textContent = [
-    `wijken ${districtRects().length} | watervlakken ${waterRects().length} | doorgaande wegen ${mainRoadRects().length}`,
-    `winkels gevonden: ${shopSpots().length} van ${PAWN_SHOPS.length}`,
-    shopSpots().map((s) => `${s.id} @ ${Math.round(s.x)},${Math.round(s.z)}`).join(' | '),
+const landtong = cellToWorld(PARK_CAUSEWAY.x0 + 1, PARK_CAUSEWAY.z0 + 1);
+marker(landtong.x, landtong.z, '#7fd0ff', 'landtong');
+
+const info = document.getElementById('info');
+if (info) {
+  info.textContent = [
+    `venster ${VENSTER} | raster ${CITY.gridSize} cellen van ${CITY.cellSize} m`,
+    `start ${Math.round(start.x)},${Math.round(start.z)} -> ` +
+      `${Math.round(toMap(start.x))},${Math.round(toMap(start.z))} px`,
+    shopSpots()
+      .map((w) => `${w.id} ${Math.round(w.x)},${Math.round(w.z)}`)
+      .join(' | '),
   ].join('\n');
 }
-document.title = shopSpots().length === PAWN_SHOPS.length ? 'ok' : 'FOUT';

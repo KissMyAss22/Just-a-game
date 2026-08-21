@@ -34,6 +34,8 @@ import {
   treesOnLot,
 } from '../src/city/streets';
 import { PARK_PATH_PERIOD, PARK_SEED, parkLandIn, parkPropsIn, parkRect } from '../src/city/park';
+import { afstandTotRoute, findRoute } from '../src/route';
+import { shopSpots } from '../src/shops';
 
 describe('coördinaten', () => {
   it('is heen en weer consistent', () => {
@@ -518,5 +520,77 @@ describe('de inboedel van het park', () => {
     expect(PARK_PATH_PERIOD).not.toBe(ROAD_PERIOD);
     expect(ROAD_PERIOD % PARK_PATH_PERIOD).not.toBe(0);
     expect(PARK_PATH_PERIOD % ROAD_PERIOD).not.toBe(0);
+  });
+});
+
+/**
+ * De route die je op straat als lijn voor je ziet.
+ *
+ * De pijl in de HUD wees alleen een richting; hij hield geen rekening met
+ * gebouwen, dus hij wees net zo vrolijk dwars door een bouwblok. Een lijn moet
+ * wél te belopen zijn, en dat is precies wat hier getoetst wordt.
+ */
+describe('een route om te volgen', () => {
+  const start = spawnPosition();
+
+  it('brengt je naar elk pandjeshuis, over begaanbaar terrein', () => {
+    for (const winkel of shopSpots()) {
+      const route = findRoute(start, { x: winkel.x, z: winkel.z });
+      expect({ winkel: winkel.id, bereikbaar: route.bereikbaar }).toEqual({
+        winkel: winkel.id,
+        bereikbaar: true,
+      });
+      // Elk stuk tussen twee knikpunten moet over land lopen. Zonder deze
+      // controle kun je een route hebben die er goed uitziet en waar je
+      // halverwege tegen een gevel staat.
+      for (let i = 1; i < route.punten.length; i++) {
+        const a = route.punten[i - 1]!;
+        const b = route.punten[i]!;
+        for (let t = 0; t <= 1; t += 0.05) {
+          const x = a.x + (b.x - a.x) * t;
+          const z = a.z + (b.z - a.z) * t;
+          expect({ winkel: winkel.id, loopbaar: isWalkable(x, z, 0.4) }).toEqual({
+            winkel: winkel.id,
+            loopbaar: true,
+          });
+        }
+      }
+    }
+  });
+
+  it('vindt de weg naar het park, over de landtong', () => {
+    const park = cellToWorld(PARK_BOUNDS.x0 + 14, 64);
+    const route = findRoute(start, park);
+    expect(route.bereikbaar).toBe(true);
+    // De enige doorgang is de landtong, dus de route moet er langs. Let op:
+    // aftasten en niet naar de knikpunten kijken — de landtong is een recht
+    // stuk, dus `vereenvoudig` haalt daar juist alle punten weg.
+    let overDeLandtong = false;
+    for (let i = 1; i < route.punten.length && !overDeLandtong; i++) {
+      const a = route.punten[i - 1]!;
+      const b = route.punten[i]!;
+      for (let t = 0; t <= 1; t += 0.02) {
+        const cel = worldToCell(a.x + (b.x - a.x) * t, a.z + (b.z - a.z) * t);
+        if (cel.cx >= PARK_CAUSEWAY.x0 && cel.cx < PARK_CAUSEWAY.x1) {
+          overDeLandtong = true;
+          break;
+        }
+      }
+    }
+    expect(overDeLandtong).toBe(true);
+  });
+
+  it('zegt eerlijk dat het privé-eiland niet te belopen is', () => {
+    // Het eiland ligt los in zee en er is nog geen boot. Een lijn het water op
+    // trekken zou er goed uitzien en nergens toe leiden.
+    const eiland = cellToWorld(20, 111);
+    const route = findRoute(start, eiland);
+    expect(route.bereikbaar).toBe(false);
+  });
+
+  it('meet hoe ver je van de lijn af bent', () => {
+    const route = findRoute(start, { x: start.x + 200, z: start.z });
+    expect(afstandTotRoute(route, start)).toBeCloseTo(0, 1);
+    expect(afstandTotRoute(route, { x: start.x + 100, z: start.z + 30 })).toBeGreaterThan(20);
   });
 });

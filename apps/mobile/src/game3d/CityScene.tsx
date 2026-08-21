@@ -12,6 +12,7 @@ import { PlayerRig } from './PlayerRig';
 import { Homes } from './Homes';
 import { Shops } from './Shops';
 import { SpawnField } from './SpawnField';
+import { RouteLijn } from './Route';
 
 /**
  * De buitenwereld. De scene zelf wordt buiten React opgebouwd (zie
@@ -80,6 +81,7 @@ export function CityScene() {
       <World level={level} />
       <SpawnField />
       <Crowd />
+      <RouteLijn />
       <Shops level={level} />
       <Homes level={level} />
       <PlayerRig />

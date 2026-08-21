@@ -15,6 +15,7 @@ export * from './schemas';
 export * from './city/districts';
 export * from './city/layout';
 export * from './city/park';
+export * from './route';
 export * from './city/streets';
 export * from './shops';
 export * from './addresses';

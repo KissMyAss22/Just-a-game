@@ -1,0 +1,9 @@
+{
+  "seed": 20260818,
+  "gridSize": 160,
+  "cellSize": 8,
+  "originCell": 64,
+  "size": 2048,
+  "perMeter": 1.6,
+  "parkX0": 132
+}

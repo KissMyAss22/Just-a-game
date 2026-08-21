@@ -191,6 +191,28 @@ Let op wat er dán gebeurt: de controle wordt niet overgeslagen maar verruimd.
 budget wordt 6 × 60 = 360 m/s terwijl acht keer rennen plus de ×3 van de
 vliegmodus op 144 m/s uitkomt. Ruim genoeg, en het blijft een controle.
 
+### De kaart en de route
+
+De stadskaart is **vooraf getekend** uit dezelfde stadsdata als de wereld
+(`scripts/preview/citymap.ts`) en gaat als afbeelding mee met de app. Een echte
+plattegrond is tienduizenden vormen; die tekent React Native niet als losse
+Views, en `react-native-svg` erbij halen voor één scherm was de afweging niet
+waard. De stad is deterministisch, dus een plaat ervan kan tijdens het spelen
+niet verouderen. Het risico is dat hij verouderd raakt tússen versies door, en
+daar staat een test op: `stadskaart.json` draagt een stempel met seed, raster en
+celmaat, en dat moet overeenkomen met `CITY`.
+
+De route komt uit `findRoute` in `packages/shared/src/route.ts`: A* over het
+celraster, vier richtingen, en **straten kosten één en al het andere vier**.
+Zonder dat verschil neemt A* de kortste weg over alles wat begaanbaar is, en dat
+liep dwars door binnentuinen — waar volgens `isWalkable` niets mis mee is, maar
+wat geen route is die je herkent. Vier en niet oneindig, want in het park liggen
+geen straten en daar moet hij over het gras kunnen.
+
+De lijn zelf is een lint van driehoeken (`game3d/city/route.ts`) en geen
+`THREE.Line`: lijnbreedte werkt op de meeste mobiele GL-implementaties niet, dus
+dat zou altijd één pixel worden.
+
 ### Beeldkwaliteit in drie standen
 
 Een telefoon van vier jaar oud en een nieuwe iPhone zitten een factor tien uit

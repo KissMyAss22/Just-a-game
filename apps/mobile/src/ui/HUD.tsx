@@ -3,6 +3,7 @@ import {
   DOOR_REACH,
   SHOP_REACH,
   districtAtWorld,
+  findRoute,
   formatDuration,
   formatMoney,
   getVehicle,
@@ -199,7 +200,13 @@ function useDoor(propertyId: string | undefined, seed: number | undefined) {
  * zetten, en twee pijlen op één scherm is geen navigatie meer.
  */
 function Compass({ bottom }: { bottom: number }) {
-  const [state, setState] = useState<{ label: string; distance: number; angle: number } | null>(null);
+  const [state, setState] = useState<{
+    label: string;
+    distance: number;
+    angle: number;
+    /** Lengte van de looproute, of null als er geen route is. */
+    route: number | null;
+  } | null>(null);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -210,12 +217,17 @@ function Compass({ bottom }: { bottom: number }) {
       }
       const dx = target.x - playerPosition.x;
       const dz = target.z - playerPosition.z;
+      // Vier keer per seconde een route zoeken zou zonde zijn; de lijn in de
+      // wereld rekent hem toch al uit. Hier alleen kijken óf hij bestaat, en
+      // dat verandert pas als je een andere bestemming kiest.
+      const route = findRoute({ x: playerPosition.x, z: playerPosition.z }, target);
       setState({
         label: target.label,
         distance: Math.hypot(dx, dz),
         // atan2 geeft de richting in de wereld; de camerahoek eraf haalt het
         // om naar "links of rechts van waar je kijkt".
         angle: Math.atan2(dx, dz) - cameraState.yaw,
+        route: route.bereikbaar ? route.lengte : null,
       });
     }, 250);
     return () => clearInterval(timer);
@@ -224,12 +236,27 @@ function Compass({ bottom }: { bottom: number }) {
   if (!state) return null;
   return (
     <View style={[styles.compass, { bottom }]} pointerEvents="none">
-      <Text style={[styles.compassArrow, { transform: [{ rotate: `${-state.angle}rad` }] }]}>➤</Text>
+      {/*
+        De pijl is terugval geworden. Ligt er een looproute, dan zie je die als
+        lijn op straat en wijst een pijl je alleen maar dwars door een gevel;
+        dan blijft alleen de afstand staan. Kun je er niet lópen — het
+        privé-eiland ligt in zee — dan is een richting het enige dat er is, en
+        dan hoort de pijl er juist wél te staan.
+      */}
+      {state.route ? null : (
+        <Text style={[styles.compassArrow, { transform: [{ rotate: `${-state.angle}rad` }] }]}>
+          ➤
+        </Text>
+      )}
       <View>
         <Text style={styles.compassLabel} numberOfLines={1}>
           {state.label}
         </Text>
-        <Text style={styles.compassDistance}>{Math.round(state.distance)} m</Text>
+        <Text style={styles.compassDistance}>
+          {state.route
+            ? `${Math.round(state.route)} m volg de lijn`
+            : `${Math.round(state.distance)} m hemelsbreed`}
+        </Text>
       </View>
     </View>
   );
