@@ -300,6 +300,10 @@ function DebugPanel({ top }: { top: number }) {
       </Text>
       <Text style={styles.debugText}>{snapshot.lootMeshes} loot-meshes</Text>
       <Text style={styles.debugText}>
+        omgeving {snapshot.omgeving ? 'ja' : 'NEE'} · aniso {snapshot.anisotropie}
+        {snapshot.webgl2 ? '' : ' · GL1'}
+      </Text>
+      <Text style={styles.debugText}>
         x {Math.round(snapshot.x)} · z {Math.round(snapshot.z)}
       </Text>
     </View>

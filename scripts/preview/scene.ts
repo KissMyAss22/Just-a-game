@@ -418,6 +418,21 @@ const views: View[] = [
     },
   },
   {
+    // Elk ander beeld staat op ooghoogte tussen de gevels, en daar zie je van de
+    // lucht alleen een streep vlak boven de horizon — precies waar de nevel het
+    // overneemt. Het verloop, de zon en de wolken uit `sky.ts` waren dus nergens
+    // te beoordelen. Dit beeld kijkt omhoog vanaf het plein.
+    name: 'de lucht vanaf het plein',
+    hour: 13,
+    height: 420,
+    focus: [pleinMidden.x, pleinMidden.z],
+    place: (c) => {
+      c.position.set(pleinMidden.x, 2.0, pleinMidden.z);
+      c.lookAt(pleinMidden.x + 26, 34, pleinMidden.z + 14);
+    },
+    fov: 68,
+  },
+  {
     name: 'stoeprand van opzij',
     hour: 15,
     height: 380,
@@ -432,6 +447,21 @@ const views: View[] = [
 
 
 renderer.setScissorTest(true);
+/**
+ * De hoogte van het canvas staat op drie plekken: hier, in `index.html` en in
+ * het screenshot-commando van `render-preview.mjs`. Dat kan niet anders — de
+ * vensterhoogte moet vaststaan voordat de pagina draait — maar het mag wel
+ * opvallen als het uit elkaar loopt. Klopte het niet, dan verdween er stilletjes
+ * een beeld onderaan, en dat merk je pas als je het mist.
+ */
+const benodigdeHoogte = views.reduce((som, view) => som + view.height, 0);
+if (canvas.height < benodigdeHoogte) {
+  errors.push(
+    `canvas is ${canvas.height} hoog maar de beelden vragen ${benodigdeHoogte};` +
+      ' pas index.html en render-preview.mjs aan',
+  );
+}
+
 let offset = canvas.height;
 for (const view of views) {
   offset -= view.height;
@@ -464,6 +494,12 @@ if (overlay) {
   overlay.textContent = [
     `tekenopdrachten ${renderer.info.render.calls} | driehoeken ${renderer.info.render.triangles}` +
       ` | programmas ${renderer.info.programs?.length ?? 0}`,
+    // Zonder deze regel weet je niet of je naar hetzelfde beeld kijkt als een
+    // telefoon. Lukt de omgevingstextuur niet, dan spiegelt geen enkel raam en
+    // wordt het hemellicht 2,6 keer opgeschroefd — een merkbaar vlakkere stad.
+    `omgevingstextuur: ${world.heeftOmgeving ? 'ja' : 'NEE — dit beeld is vlakker dan op een toestel dat het wel kan'}` +
+      ` | anisotropie max ${renderer.capabilities.getMaxAnisotropy()}` +
+      ` | ${renderer.capabilities.isWebGL2 === false ? 'WebGL1' : 'WebGL2'}`,
     `uren van boven naar beneden: ${views.map((v) => `${v.name} ${v.hour}`).join(' / ')}`,
     `naambordjes: ${crowd.plates.map((p) => `${p.name} lvl${p.level} @${Math.round(p.x)},${Math.round(p.y)}`).join(' | ')}`,
     `park: ${telling(parkProps)} | straatmeubilair in het park: ${telling(straatvuilInHetPark)}`,

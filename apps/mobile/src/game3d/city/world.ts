@@ -57,6 +57,17 @@ const ENVIRONMENT_STEP_HOURS = 0.25;
 export interface World {
   root: THREE.Group;
   sun: THREE.DirectionalLight;
+  /**
+   * Is de omgevingstextuur gelukt?
+   *
+   * Dit is geen wetenswaardigheid maar het grootste onzichtbare verschil in het
+   * hele beeld. Lukt hij niet, dan heeft glas niets om in te weerspiegelen én
+   * valt een flink deel van het diffuse licht weg, en dan wordt het hemellicht
+   * met 2,6 vermenigvuldigd om dat op te vangen. Het resultaat is een stad die
+   * er merkbaar vlakker en platter bij staat — en tot nu toe was nergens te zien
+   * welke van de twee je voor je had.
+   */
+  heeftOmgeving: boolean;
   update: (camera: THREE.Camera, elapsed: number, playerX: number, playerZ: number) => void;
   dispose: () => void;
 }
@@ -177,6 +188,7 @@ export function createWorld(
   return {
     root,
     sun,
+    heeftOmgeving: environment !== null,
     update(camera, elapsed, playerX, playerZ) {
       const hour = clock();
       lighting = lightingAt(hour);

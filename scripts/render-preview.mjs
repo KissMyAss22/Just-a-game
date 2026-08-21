@@ -166,7 +166,7 @@ function shootTo(page, target, width, height) {
 }
 
 console.log('Renderen...');
-shoot('index.html', 'stad.png', 900, 5350);
+shoot('index.html', 'stad.png', 900, 5720);
 shoot('items.html', 'items.png', 1100, 1060);
 shoot('map.html', 'kaart.png', 660, 800);
 shoot('home.html', 'woning.png', 820, 1220);

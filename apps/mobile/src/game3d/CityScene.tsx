@@ -28,6 +28,14 @@ function World({ level }: { level: QualityLevel }) {
     [gl, scene, level],
   );
 
+  // Wat dit toestel aankan. Eén keer bij het opbouwen: het verandert niet, en
+  // het verklaart waarom twee telefoons hetzelfde beeld anders laten zien.
+  useEffect(() => {
+    renderStats.omgeving = world.heeftOmgeving;
+    renderStats.anisotropie = gl.capabilities.getMaxAnisotropy();
+    renderStats.webgl2 = gl.capabilities.isWebGL2 !== false;
+  }, [gl, world]);
+
   useEffect(() => {
     scene.add(world.root);
     // Meteen één keer bijwerken, anders staat de speler een frame in het niets.

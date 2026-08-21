@@ -45,4 +45,20 @@ export const renderStats = {
    * itemsoorten in het spel, dan bouwt de scene zich weer vol.
    */
   lootMeshes: 0,
+  /**
+   * Wat het toestel aankan, en of het gelukt is. Deze drie staan hier omdat ze
+   * het beeld sturen zonder dat je ze ziet:
+   *
+   * - `omgeving` — of de omgevingstextuur gemaakt kon worden. Zonder die textuur
+   *   spiegelt geen enkel raam en wordt het hemellicht 2,6 keer opgeschroefd om
+   *   het verlies op te vangen; de stad staat er dan veel vlakker bij. Twee
+   *   toestellen kunnen er dus wezenlijk anders uitzien zonder dat iemand weet
+   *   waarom.
+   * - `anisotropie` — hoeveel het toestel er aankan. Bepaalt of een getegelde
+   *   wegtextuur onder een scherpe hoek scherp blijft of gaat flikkeren.
+   * - `webgl2` — of we op WebGL2 draaien.
+   */
+  omgeving: false,
+  anisotropie: 0,
+  webgl2: false,
 };
