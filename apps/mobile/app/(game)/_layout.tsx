@@ -28,9 +28,9 @@ import { theme } from '../../src/ui/theme';
  * doen daarvoor het meeste werk — zonder die twee is het een afgerond
  * rechthoekje.
  */
-function PhoneShape({ children }: { children?: React.ReactNode }) {
+function PhoneShape({ children, dim }: { children?: React.ReactNode; dim?: boolean }) {
   return (
-    <View style={styles.body}>
+    <View style={[styles.body, dim && styles.bodyDim]}>
       <View style={styles.speaker} />
       <View style={styles.display}>{children}</View>
       <View style={styles.home} />
@@ -43,6 +43,7 @@ function BottomButtons() {
   const router = useRouter();
   const devEnabled = useGame((s) => s.devEnabled);
   const [open, setOpen] = useState(false);
+  const toonDevKnop = __DEV__ || devEnabled;
 
   return (
     <>
@@ -56,18 +57,31 @@ function BottomButtons() {
         </Pressable>
 
         {/*
-          Alleen als de server het testgereedschap aan heeft staan. Zo ziet een
-          speler nooit een knop die niet voor hem is, en staat die regel op één
-          plek in plaats van hier én in het scherm erachter.
+          Zichtbaar tijdens het ontwikkelen, of als de server het gereedschap aan
+          heeft staan.
+
+          Eerst hing dit alleen aan de server, en dat was de verkeerde keuze: bij
+          `DEV_TOOLS=0` — de stand waar `.env.example` mee komt — verdween de knop
+          zonder enige aanwijzing waaróm. Onzichtbare toestand is precies waar in
+          dit project al eerder middagen in zijn gaan zitten.
+
+          `__DEV__` is waar in Expo Go en bij `expo start`, en onwaar in een
+          gepubliceerde build. Een speler ziet hem dus nog steeds nooit, en de
+          server weigert los daarvan alles wat achter de guard zit.
         */}
-        {devEnabled ? (
+        {toonDevKnop ? (
           <Pressable
             onPress={() => router.push('/(game)/dev')}
             accessibilityLabel="Testgereedschap"
             style={({ pressed }) => [pressed && { opacity: 0.7 }]}
           >
-            <PhoneShape>
-              <Text style={styles.devIcon}>🔧</Text>
+            {/*
+              Gedempt zolang de server niet meedoet. Zo zie je vóór het tikken al
+              of `DEV_TOOLS` aan staat, in plaats van tegen een rij weigerende
+              knoppen aan te lopen. Het scherm erachter legt uit wat je moet zetten.
+            */}
+            <PhoneShape dim={!devEnabled}>
+              <Text style={[styles.devIcon, !devEnabled && { opacity: 0.45 }]}>🔧</Text>
             </PhoneShape>
           </Pressable>
         ) : null}
@@ -145,5 +159,6 @@ const styles = StyleSheet.create({
     borderRadius: 1,
     backgroundColor: theme.color.textDim,
   },
+  bodyDim: { opacity: 0.5 },
   devIcon: { fontSize: 15 },
 });
