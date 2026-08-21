@@ -20,7 +20,8 @@
     "sdk:check": "node scripts/sdk-check.mjs",
     "setup": "node scripts/setup.mjs",
     "test": "pnpm -r --if-present test",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "smoke": "tsx scripts/smoke.mjs"
   },
   "devDependencies": {
     "typescript": "~5.9.2"

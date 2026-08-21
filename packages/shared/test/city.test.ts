@@ -10,6 +10,9 @@ import {
   chunksAround,
   districtAt,
   findSpawnPoint,
+  CITY_EAST_EDGE,
+  PARK_BOUNDS,
+  PARK_CAUSEWAY,
   isParkSide,
   isRoadCell,
   isWalkable,
@@ -353,6 +356,41 @@ describe('Het Verlaten Park', () => {
         expect({ cx, cz, aantal: matches.length }).toEqual({ cx, cz, aantal: 1 });
       }
     }
+  });
+
+  it('kun je vanuit de stad het park in lopen, en weer terug', () => {
+    // De test hieronder liep van de landtong naar het park en stond groen —
+    // maar hij begon ál op de landtong. De naad tussen de stad en de landtong
+    // is nooit getoetst, en daar stond een bouwblok: twee van de vier celrijen
+    // van de doorgang zaten dicht. Je kwam er langs als je toevallig de goede
+    // rij had. Dit loopt de hele weg, en over alle vier de rijen.
+    const loop = (vanCel: number, totCel: number, cz: number): boolean => {
+      const start = cellToWorld(vanCel, cz);
+      const eind = cellToWorld(totCel, cz);
+      const stappen = 60;
+      for (let i = 0; i <= stappen; i++) {
+        const t = i / stappen;
+        if (!isWalkable(start.x + (eind.x - start.x) * t, start.z, 0.45)) return false;
+      }
+      return true;
+    };
+
+    // Elke celrij van de doorgang loopt vanaf de stadsrand het park in.
+    for (let cz = PARK_CAUSEWAY.z0; cz < PARK_CAUSEWAY.z1; cz++) {
+      expect({ cz, doorlopend: loop(CITY_EAST_EDGE - 2, PARK_BOUNDS.x0 + 2, cz) }).toEqual({
+        cz,
+        doorlopend: true,
+      });
+    }
+
+    // En die stadsrand hangt niet in de lucht: minstens één van die rijen loopt
+    // door tot diep in de stad. Zonder deze helft zou het bovenstaande alleen
+    // bewijzen dat het stukje dat we net vrijhielden vrij is.
+    const rijen: number[] = [];
+    for (let cz = PARK_CAUSEWAY.z0; cz < PARK_CAUSEWAY.z1; cz++) {
+      if (loop(CITY_EAST_EDGE - 8, PARK_BOUNDS.x0 + 2, cz)) rijen.push(cz);
+    }
+    expect(rijen.length).toBeGreaterThan(0);
   });
 
   it('kun je vanaf de landtong het park in lopen', () => {

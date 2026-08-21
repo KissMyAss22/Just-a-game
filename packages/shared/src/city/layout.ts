@@ -381,6 +381,23 @@ export function buildingAtCell(cx: number, cz: number): BuildingLot | null {
   const district = districtAt(anchorX, anchorZ);
   const frontage = lotFrontage(anchorX, anchorZ);
 
+  // De aanloop naar de landtong, aan de stádskant, blijft vrij.
+  //
+  // Aan de parkkant was dit al geregeld (zie hieronder), maar die controle zit
+  // in de tak voor `isParkSide` en een stadscel komt daar nooit. Gevolg: pal
+  // voor de landtong stond een bouwblok, en van de vier celrijen van de
+  // doorgang waren er twee dichtgemetseld. Je kwam er nog wel langs, maar
+  // alleen als je toevallig de goede rij te pakken had — en zou de generator
+  // ooit ook de andere twee dichtzetten, dan was het park te voet onbereikbaar
+  // en had geen enkele test dat gezien.
+  if (
+    anchorX >= CITY_EAST_EDGE - 2 &&
+    anchorZ >= PARK_CAUSEWAY.z0 - 1 &&
+    anchorZ < PARK_CAUSEWAY.z1 + 1
+  ) {
+    return null;
+  }
+
   // In het park staan alleen losse ruïnes.
   //
   // De opslag voor "aan de straat" hoort bij een gevelwand en heeft daar niets

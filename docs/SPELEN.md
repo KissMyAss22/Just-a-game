@@ -120,6 +120,13 @@ Sinds kort doet `pnpm dev:server` dit zelf bij het starten, dus normaal merk je
 er niets van. Kwam je van een oudere versie, dan is dit de eerste keer die je met
 de hand moet doen.
 
+**Twijfel je of alles het weer doet?** Draai `pnpm smoke` terwijl je server
+draait. Dat loopt in één keer de weg af die de app ook aflegt — aanmelden,
+toestand ophalen, iets oprapen in het park en de landtong oversteken — en zegt
+bij de eerste stap die niet klopt waar het misgaat. Start je server met
+`DEV_TOOLS=1`, dan wordt het parkdeel meegenomen; zonder slaat hij dat over en
+zegt dat erbij.
+
 Draait je Postgres niet, dan start de server nu ook niet meer — met een duidelijke
 melding van Prisma in plaats van een app die pas bij het eerste verzoek stukgaat.
 Dat is met opzet: een server zonder database werkt toch niet.
