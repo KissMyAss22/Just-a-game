@@ -21,7 +21,19 @@ export const CITY = {
   /** Meters per cel. */
   cellSize: 8,
   /** Aantal cellen in x- en z-richting. */
-  gridSize: 128,
+  gridSize: 160,
+  /**
+   * Welke cel op de wereldoorsprong ligt.
+   *
+   * Dit stond overal als `gridSize / 2`, en dat werkte zolang de stad precies
+   * om de oorsprong heen lag. Zodra het raster groeit klopt dat niet meer: dan
+   * verschuift de oorsprong mee en ligt elke opgeslagen spelerpositie en elke
+   * spawn in de database ineens in een andere cel.
+   *
+   * Door dit vast te zetten op 64 groeit de wereld naar het oosten en het
+   * zuiden zonder dat er één bestaande coördinaat verandert.
+   */
+  originCell: 64,
   /**
    * Cellen tussen twee wegen; cel 0 van elk blok is de weg.
    *
@@ -39,8 +51,23 @@ export const CITY = {
 } as const;
 
 /** Totale breedte van de stad in meters. */
-export const CITY_SPAN = CITY.gridSize * CITY.cellSize; // 1024 m
-export const CHUNKS_PER_AXIS = CITY.gridSize / CITY.chunkSize; // 8
+export const CITY_SPAN = CITY.gridSize * CITY.cellSize;
+
+/**
+ * De randen van de wereld in meters.
+ *
+ * Sinds de oorsprong vastligt op cel 64 en het raster naar het oosten en zuiden
+ * doorloopt, ligt de stad niet meer netjes om nul heen. Wie hem wil afklemmen —
+ * de vliegmodus bijvoorbeeld — moet dus deze grenzen gebruiken en niet de halve
+ * breedte, want die klopte alleen toevallig.
+ */
+export const CITY_BOUNDS = {
+  minX: -CITY.originCell * CITY.cellSize,
+  minZ: -CITY.originCell * CITY.cellSize,
+  maxX: (CITY.gridSize - CITY.originCell) * CITY.cellSize,
+  maxZ: (CITY.gridSize - CITY.originCell) * CITY.cellSize,
+} as const;
+export const CHUNKS_PER_AXIS = CITY.gridSize / CITY.chunkSize; // 10
 
 /** De speler start op deze kruising in de Oude Stad. */
 export const SPAWN_CELL = { x: 64, z: 64 } as const;
@@ -121,7 +148,7 @@ export function darken(hex: string, amount: number): string {
 
 /** Middelpunt van een cel in wereldcoördinaten (meters). */
 export function cellToWorld(cx: number, cz: number): { x: number; z: number } {
-  const half = CITY.gridSize / 2;
+  const half = CITY.originCell;
   return {
     x: (cx - half) * CITY.cellSize + CITY.cellSize / 2,
     z: (cz - half) * CITY.cellSize + CITY.cellSize / 2,
@@ -130,7 +157,7 @@ export function cellToWorld(cx: number, cz: number): { x: number; z: number } {
 
 /** De cel waarin een wereldpositie valt. */
 export function worldToCell(x: number, z: number): { cx: number; cz: number } {
-  const half = CITY.gridSize / 2;
+  const half = CITY.originCell;
   return {
     cx: Math.floor(x / CITY.cellSize) + half,
     cz: Math.floor(z / CITY.cellSize) + half,
@@ -162,8 +189,21 @@ export function districtAtWorld(x: number, z: number): DistrictDef {
 // Celtypes
 // ---------------------------------------------------------------------------
 
+/**
+ * De oude oostrand van de stad: hier houdt het stratenraster op en begint de
+ * zee met Het Verlaten Park erin.
+ *
+ * Dit getal stond op drie plekken ingetypt. Precies zo'n losse grens ging deze
+ * ronde al een keer mis — de landtong viel buiten de parkcontrole en liep vol
+ * ruïnes — dus krijgt hij één naam waar alles naar wijst.
+ */
+export const CITY_EAST_EDGE = 128;
+
 /** Wegen liggen op elke veelvoud van blockSize, in beide richtingen. */
 export function isRoadCell(cx: number, cz: number): boolean {
+  // In het park liggen geen straten. Een park met stoepranden en een
+  // stratenraster is geen park.
+  if (cx >= CITY_EAST_EDGE) return false;
   return cx % CITY.blockSize === 0 || cz % CITY.blockSize === 0;
 }
 
@@ -172,7 +212,41 @@ export function isMainRoadCell(cx: number, cz: number): boolean {
   return cx % 32 === 0 || cz % 32 === 0;
 }
 
+/** De grenzen van Het Verlaten Park, in cellen. */
+export const PARK_BOUNDS = { x0: 132, z0: 32, x1: 160, z1: 96 } as const;
+/**
+ * De landtong die het park met de stad verbindt.
+ *
+ * Bewust een strook land en geen brug: een brug vraagt een dek om overheen te
+ * lopen, en dat is geometrie die er nog niet is. Een landtong is dezelfde
+ * poort — één doorgang, de rest water — zonder dat er iets bij moet.
+ */
+export const PARK_CAUSEWAY = { x0: CITY_EAST_EDGE, z0: 60, x1: 132, z1: 64 } as const;
+
+/** Ligt deze cel binnen het park zelf (dus niet op de landtong)? */
+export function isParkCell(cx: number, cz: number): boolean {
+  return (
+    cx >= PARK_BOUNDS.x0 && cx < PARK_BOUNDS.x1 && cz >= PARK_BOUNDS.z0 && cz < PARK_BOUNDS.z1
+  );
+}
+
+/** Het park plus de landtong ernaartoe: alles wat aan de overkant begaanbaar is. */
+export function isParkSide(cx: number, cz: number): boolean {
+  if (isParkCell(cx, cz)) return true;
+  return (
+    cx >= PARK_CAUSEWAY.x0 &&
+    cx < PARK_CAUSEWAY.x1 &&
+    cz >= PARK_CAUSEWAY.z0 &&
+    cz < PARK_CAUSEWAY.z1
+  );
+}
+
 export function isWaterCell(cx: number, cz: number): boolean {
+  // Alles ten oosten van de oude stadsrand is zee, behalve het park en de
+  // landtong ernaartoe. Zo is de toegang afgedwongen door de kaart zelf: water
+  // is al niet begaanbaar, dus er hoeft geen hek gehandhaafd te worden.
+  if (cx >= CITY_EAST_EDGE) return !isParkSide(cx, cz);
+
   // Het privé-eiland ligt los in zee, met een ronde kustlijn.
   if (cx < 40 && cz >= 96) {
     const dx = cx - 20;
@@ -226,7 +300,7 @@ export function lotSize(anchorX: number, anchorZ: number): { cellsX: number; cel
 
 /** Middelpunt van een perceel in wereldcoordinaten. */
 export function lotCenter(anchorX: number, anchorZ: number): { x: number; z: number } {
-  const half = CITY.gridSize / 2;
+  const half = CITY.originCell;
   const size = lotSize(anchorX, anchorZ);
   return {
     x: (anchorX - half) * CITY.cellSize + (size.cellsX * CITY.cellSize) / 2,
@@ -306,12 +380,32 @@ export function buildingAtCell(cx: number, cz: number): BuildingLot | null {
 
   const district = districtAt(anchorX, anchorZ);
   const frontage = lotFrontage(anchorX, anchorZ);
-  // Aan de straat staat bijna altijd iets, anders valt de gevelwand uit elkaar.
-  // Achter op het blok juist zelden: daar horen tuinen en binnenterreinen.
-  const density = frontage.street
-    ? Math.min(0.95, district.density + 0.22)
-    : district.density * 0.4;
-  if (valueAt(CITY.seed, anchorX, anchorZ) >= density) return null;
+
+  // In het park staan alleen losse ruïnes.
+  //
+  // De opslag voor "aan de straat" hoort bij een gevelwand en heeft daar niets
+  // te zoeken: met die opslag kwam de dichtheid op dertig procent uit en
+  // stonden er aaneengesloten rijen dwars door het park, tot aan de landtong
+  // toe. Er is daar ook geen straat om aan te liggen.
+  if (isParkSide(anchorX, anchorZ)) {
+    // De landtong blijft helemaal vrij, en rond de ingang ook. Een park waar je
+    // niet in kunt is geen park — en dat was precies wat er gebeurde: de
+    // straatopslag zette een muur van ruïnes dwars over de enige doorgang.
+    const onCauseway = !isParkCell(anchorX, anchorZ);
+    const nearEntrance =
+      anchorX < PARK_BOUNDS.x0 + 6 &&
+      anchorZ >= PARK_CAUSEWAY.z0 - 6 &&
+      anchorZ < PARK_CAUSEWAY.z1 + 6;
+    if (onCauseway || nearEntrance) return null;
+    if (valueAt(CITY.seed, anchorX, anchorZ) >= district.density) return null;
+  } else {
+    // Aan de straat staat bijna altijd iets, anders valt de gevelwand uit elkaar.
+    // Achter op het blok juist zelden: daar horen tuinen en binnenterreinen.
+    const density = frontage.street
+      ? Math.min(0.95, district.density + 0.22)
+      : district.density * 0.4;
+    if (valueAt(CITY.seed, anchorX, anchorZ) >= density) return null;
+  }
 
   let floors = randInt(
     valueAt(CITY.seed + 1, anchorX, anchorZ),
@@ -538,8 +632,8 @@ export function buildChunk(chunkX: number, chunkZ: number): ChunkContent {
   const startX = chunkX * CITY.chunkSize;
   const startZ = chunkZ * CITY.chunkSize;
   const chunkSpan = CITY.chunkSize * CITY.cellSize;
-  const startWorldX = (startX - CITY.gridSize / 2) * CITY.cellSize;
-  const startWorldZ = (startZ - CITY.gridSize / 2) * CITY.cellSize;
+  const startWorldX = (startX - CITY.originCell) * CITY.cellSize;
+  const startWorldZ = (startZ - CITY.originCell) * CITY.cellSize;
   const buildings: BuildingLot[] = [];
   const green: ChunkContent['green'] = [];
   const water: ChunkContent['water'] = [];
@@ -570,7 +664,12 @@ export function buildChunk(chunkX: number, chunkZ: number): ChunkContent {
         continue;
       }
       const seed = valueAt(CITY.seed + 6, anchor.anchorX, anchor.anchorZ);
-      if (seed < GREEN_SHARE) {
+      // In het park is groen de regel in plaats van de uitzondering: de grond
+      // is daar toch al gras, dus deze percelen dienen vooral als plek waar
+      // `treesOnLot` bomen neerzet. Driekwart geeft een bos met open plekken;
+      // alles vol zou een muur van bomen zijn.
+      const share = isParkCell(cx, cz) ? 0.75 : GREEN_SHARE;
+      if (seed < share) {
         const { x, z } = lotCenter(anchor.anchorX, anchor.anchorZ);
         const span = lotSize(anchor.anchorX, anchor.anchorZ);
         green.push({
@@ -593,7 +692,7 @@ export function buildChunk(chunkX: number, chunkZ: number): ChunkContent {
   const lastBlock = Math.floor((startX + CITY.chunkSize - 1) / CITY.blockSize);
   const firstBlockZ = Math.floor(startZ / CITY.blockSize);
   const lastBlockZ = Math.floor((startZ + CITY.chunkSize - 1) / CITY.blockSize);
-  const gridHalf = CITY.gridSize / 2;
+  const gridHalf = CITY.originCell;
 
   for (let bz = firstBlockZ; bz <= lastBlockZ; bz++) {
     for (let bx = firstBlock; bx <= lastBlock; bx++) {
@@ -633,7 +732,7 @@ export function buildChunk(chunkX: number, chunkZ: number): ChunkContent {
     }
   }
 
-  const half = CITY.gridSize / 2;
+  const half = CITY.originCell;
   const span = CITY.chunkSize * CITY.cellSize;
   return {
     key: chunkKey(chunkX, chunkZ),

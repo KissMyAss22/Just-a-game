@@ -2,7 +2,7 @@ import {
   DEFAULT_APPEARANCE,
   ECONOMY,
   appearanceColors,
-  CITY_SPAN,
+  CITY_BOUNDS,
   driveStep,
   getVehicle,
   groundHeightAt,
@@ -137,11 +137,21 @@ export function PlayerRig() {
         const step = walkSpeed * delta;
         // In de vliegmodus geen botsingen: dwars door alles heen, maar wel
         // binnen de stadsgrenzen — daarbuiten is er niets om naar te kijken.
-        const edge = CITY_SPAN / 2 - 2;
+        //
+        // Via CITY_BOUNDS en niet via de halve breedte: sinds de wereld naar
+        // het oosten is uitgebreid ligt hij niet meer om de oorsprong heen, en
+        // dan klemt een halve breedte je in de verkeerde helft vast.
+        const margin = 2;
         const next = flying
           ? {
-              x: Math.max(-edge, Math.min(edge, playerPosition.x + moveX * step)),
-              z: Math.max(-edge, Math.min(edge, playerPosition.z + moveZ * step)),
+              x: Math.max(
+                CITY_BOUNDS.minX + margin,
+                Math.min(CITY_BOUNDS.maxX - margin, playerPosition.x + moveX * step),
+              ),
+              z: Math.max(
+                CITY_BOUNDS.minZ + margin,
+                Math.min(CITY_BOUNDS.maxZ - margin, playerPosition.z + moveZ * step),
+              ),
             }
           : resolveMovement(
               playerPosition.x,

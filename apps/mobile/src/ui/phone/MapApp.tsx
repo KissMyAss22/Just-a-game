@@ -23,7 +23,7 @@ const SIZE = 300;
 const scale = (cells: number): number => (cells / CITY.gridSize) * SIZE;
 
 /** Van wereldcoördinaat naar celcoördinaat, met decimalen. */
-const toCell = (world: number): number => world / CITY.cellSize + CITY.gridSize / 2;
+const toCell = (world: number): number => world / CITY.cellSize + CITY.originCell;
 
 function Rects({ rects }: { rects: MapRect[] }) {
   return (

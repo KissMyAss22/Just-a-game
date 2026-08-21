@@ -1,14 +1,16 @@
 import {
   DEV_SPEED_ALLOWANCE,
+  isParkSide,
   moveBudget,
   reportPositionSchema,
   resolveMovement,
+  worldToCell,
 } from '@game/shared';
 import type { FastifyInstance } from 'fastify';
 import { authenticate, playerIdOf } from '../lib/auth.js';
 import { env } from '../env.js';
 import { prisma } from '../lib/prisma.js';
-import { loadPlayer, settleVault, toPlayerStateDto } from '../services/player.js';
+import { bankParkLoot, loadPlayer, settleVault, toPlayerStateDto } from '../services/player.js';
 import { trackQuest } from '../services/quests.js';
 
 export async function stateRoutes(app: FastifyInstance): Promise<void> {
@@ -69,7 +71,19 @@ export async function stateRoutes(app: FastifyInstance): Promise<void> {
         );
       }
 
-      return { x: safe.x, z: safe.z, serverTime: now.getTime() };
+      // De landtong over naar de stad? Dan is je parkbuit veilig.
+      //
+      // Dit hangt aan de positiemelding omdat die er toch al is en toch al
+      // gevalideerd wordt. Een aparte "bank mijn buit"-knop zou een tweede weg
+      // openen die net zo streng gecontroleerd moet worden, voor niets.
+      const wasInPark = isParkSide(
+        worldToCell(loaded.player.x, loaded.player.z).cx,
+        worldToCell(loaded.player.x, loaded.player.z).cz,
+      );
+      const nowInPark = isParkSide(worldToCell(safe.x, safe.z).cx, worldToCell(safe.x, safe.z).cz);
+      const banked = wasInPark && !nowInPark ? await bankParkLoot(tx, playerId) : 0;
+
+      return { x: safe.x, z: safe.z, banked, serverTime: now.getTime() };
     });
   });
 }

@@ -9,7 +9,19 @@
  * De vier beelden staan op verschillende uren, zodat ook de dag- en
  * nachtcyclus te beoordelen is zonder tot vanavond te wachten.
  */
-import { getVehicle, homeAddress, shopSpots, spawnPosition } from '@game/shared';
+import {
+  cellToWorld,
+  getVehicle,
+  homeAddress,
+  isParkSide,
+  parkPropsIn,
+  parkRect,
+  shopSpots,
+  spawnPosition,
+  streetPropsIn,
+  worldToCell,
+  type StreetProp,
+} from '@game/shared';
 import * as THREE from 'three';
 import { createCharacter } from '../../apps/mobile/src/game3d/city/character';
 import { createCrowd } from '../../apps/mobile/src/game3d/city/crowd';
@@ -137,6 +149,58 @@ loot.update(
 );
 scene.add(loot.group);
 
+/**
+ * Waar het parkbeeld komt te staan, en wat er in het park hoort te staan.
+ *
+ * De vorige ronde leverde een parkbeeld op dat vooral nevel was: je keek over
+ * driehonderd meter open terrein met de mistgrens op vijfhonderd. Zo'n beeld
+ * zegt niets. De camera gaat daarom op ooghoogte op een pad staan — dát is wat
+ * een speler ziet — en de telling gaat in de overlay, zodat een regressie in
+ * het plaatje zelf staat in plaats van dat hij opnieuw opgemeten moet worden.
+ */
+const parkVak = parkRect();
+const parkProps = parkPropsIn(parkVak.minX, parkVak.minZ, parkVak.maxX, parkVak.maxZ);
+const parkHart = cellToWorld(144, 64);
+
+function dichtstbij(kind: StreetProp['kind'], x: number, z: number): StreetProp | undefined {
+  let best: StreetProp | undefined;
+  let bestAfstand = Infinity;
+  for (const prop of parkProps) {
+    if (prop.kind !== kind) continue;
+    const afstand = (prop.x - x) ** 2 + (prop.z - z) ** 2;
+    if (afstand < bestAfstand) {
+      bestAfstand = afstand;
+      best = prop;
+    }
+  }
+  return best;
+}
+
+const parkBank = dichtstbij('parkBench', parkHart.x, parkHart.z);
+const parkPad = parkBank ? dichtstbij('parkPath', parkBank.x, parkBank.z) : undefined;
+// De lange kant van een plaat pad ligt op de z-as, dus dit is de looprichting.
+const padRichting = parkPad
+  ? { x: Math.sin(parkPad.rotY), z: Math.cos(parkPad.rotY) }
+  : { x: 0, z: 1 };
+
+/** Wat er ondanks alles nog aan stráátmeubilair in het park staat. Hoort 0 te zijn. */
+const straatvuilInHetPark = streetPropsIn(
+  parkVak.minX - 60,
+  parkVak.minZ - 60,
+  parkVak.maxX + 60,
+  parkVak.maxZ + 60,
+).filter((prop) => {
+  const cell = worldToCell(prop.x, prop.z);
+  return isParkSide(cell.cx, cell.cz);
+});
+
+function telling(props: StreetProp[]): string {
+  const perSoort = new Map<string, number>();
+  for (const prop of props) perSoort.set(prop.kind, (perSoort.get(prop.kind) ?? 0) + 1);
+  if (perSoort.size === 0) return 'niets';
+  return [...perSoort].map(([kind, aantal]) => `${kind} ${aantal}`).join(' ');
+}
+
 interface View {
   name: string;
   hour: number;
@@ -219,6 +283,45 @@ const views: View[] = [
     },
   },
   {
+    // Het park op ooghoogte, op een pad, met een bank in beeld. Dit is de enige
+    // stand waarop te beoordelen is of het als een park voelt: van bovenaf zie
+    // je vooral de mist, en die zegt alleen iets over de zichtafstand.
+    name: 'op een pad in het park',
+    hour: 15,
+    height: 380,
+    focus: [parkPad?.x ?? parkHart.x, parkPad?.z ?? parkHart.z],
+    place: (c) => {
+      const staan = parkPad ?? { x: parkHart.x, z: parkHart.z };
+      c.position.set(staan.x - padRichting.x * 7, 1.7, staan.z - padRichting.z * 7);
+      c.lookAt(staan.x + padRichting.x * 16, 1.2, staan.z + padRichting.z * 16);
+    },
+  },
+  {
+    // En van iets hoger, maar steil genoeg naar beneden dat de horizon buiten
+    // beeld valt: gras in plaats van asfalt, bomen, ruïnes en de slinger van
+    // de paden erdoorheen.
+    name: 'het verlaten park van boven',
+    hour: 15,
+    height: 380,
+    focus: [parkHart.x, parkHart.z],
+    place: (c) => {
+      c.position.set(parkHart.x - 24, 30, parkHart.z + 28);
+      c.lookAt(parkHart.x + 4, 0, parkHart.z);
+    },
+  },
+  {
+    // De landtong: de enige doorgang, met water aan weerszijden.
+    name: 'de landtong naar het park',
+    hour: 15,
+    height: 380,
+    focus: [cellToWorld(130, 62).x, cellToWorld(130, 62).z],
+    place: (c) => {
+      const brug = cellToWorld(130, 62);
+      c.position.set(brug.x - 34, 14, brug.z + 20);
+      c.lookAt(brug.x + 24, 0, brug.z - 4);
+    },
+  },
+  {
     name: 'je eigen voordeur',
     hour: 13,
     height: 380,
@@ -297,6 +400,7 @@ if (overlay) {
       ` | programmas ${renderer.info.programs?.length ?? 0}`,
     `uren van boven naar beneden: ${views.map((v) => `${v.name} ${v.hour}`).join(' / ')}`,
     `naambordjes: ${crowd.plates.map((p) => `${p.name} lvl${p.level} @${Math.round(p.x)},${Math.round(p.y)}`).join(' | ')}`,
+    `park: ${telling(parkProps)} | straatmeubilair in het park: ${telling(straatvuilInHetPark)}`,
     errors.length ? `FOUTEN: ${errors.join(' | ')}` : 'geen fouten',
   ].join('\n');
 }

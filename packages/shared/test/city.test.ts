@@ -10,7 +10,10 @@ import {
   chunksAround,
   districtAt,
   findSpawnPoint,
+  isParkSide,
+  isRoadCell,
   isWalkable,
+  isWaterCell,
   lotCenter,
   lotFrontage,
   lotSize,
@@ -21,11 +24,13 @@ import {
 import {
   ASPHALT_HALF_WIDTH,
   SIDEWALK_HEIGHT,
+  ROAD_PERIOD,
   groundHeightAt,
   isAsphalt,
   streetPropsIn,
   treesOnLot,
 } from '../src/city/streets';
+import { PARK_PATH_PERIOD, PARK_SEED, parkLandIn, parkPropsIn, parkRect } from '../src/city/park';
 
 describe('coördinaten', () => {
   it('is heen en weer consistent', () => {
@@ -156,11 +161,20 @@ describe('straatprofiel', () => {
   it('legt het rijdek precies op de cellen die een weg zijn', () => {
     // Dit is de afspraak die ooit stilzwijgend brak toen de bloklengte
     // veranderde: de as van de straat moet samenvallen met de wegcellen.
+    //
+    // De test liep eerst alleen langs de cellen die deelbaar zijn door de
+    // bloklengte en eiste daar asfalt. Dat klopte zolang het hele raster stad
+    // was; nu er een park en een zee in liggen niet meer, want daar zijn die
+    // kolommen geen straat. De afspraak is daarom van twee kanten
+    // opgeschreven: `isRoadCell` en `isAsphalt` moeten het overal eens zijn.
     for (let cx = 0; cx < CITY.gridSize; cx++) {
       const world = cellToWorld(cx, 64);
-      if (cx % CITY.blockSize !== 0) continue;
-      expect(isAsphalt(world.x, world.z)).toBe(true);
-      expect(groundHeightAt(world.x, world.z)).toBe(0);
+      const weg = isRoadCell(cx, 64);
+      expect({ cx, asfalt: isAsphalt(world.x, world.z) }).toEqual({ cx, asfalt: weg });
+      expect({ cx, hoogte: groundHeightAt(world.x, world.z) }).toEqual({
+        cx,
+        hoogte: weg ? 0 : SIDEWALK_HEIGHT,
+      });
     }
   });
 
@@ -287,5 +301,184 @@ describe('gebouwvormen', () => {
     }
     // Groen is een uitzondering, geen regel: vroeger werd elke lege cel groen.
     expect(chunk.green.length).toBeLessThan(chunk.buildings.length);
+  });
+});
+
+/**
+ * Het Verlaten Park ligt ten oosten van de stad, met één landtong ernaartoe.
+ * Als die toegang niet klopt is het gebied of onbereikbaar, of juist overal
+ * open — en dan is er geen poort meer waar je buit veilig wordt.
+ */
+describe('Het Verlaten Park', () => {
+  it('laat de stad staan waar hij stond, ook nu het raster groter is', () => {
+    // De oorsprong ligt vast op cel 64; groeit het raster, dan komen er cellen
+    // bij zónder dat er iets verschuift.
+    expect(CITY.originCell).toBe(64);
+    expect(cellToWorld(CITY.originCell, CITY.originCell)).toEqual({ x: 4, z: 4 });
+    expect(worldToCell(0, 0)).toEqual({ cx: 64, cz: 64 });
+    expect(spawnPosition()).toEqual({ x: 4, z: 4 });
+  });
+
+  it('maakt het park begaanbaar en de zee eromheen niet', () => {
+    // Midden in het park.
+    expect(isWaterCell(146, 64)).toBe(false);
+    // Ten noorden en ten zuiden ervan is zee.
+    expect(isWaterCell(146, 10)).toBe(true);
+    expect(isWaterCell(146, 130)).toBe(true);
+  });
+
+  it('houdt maar één doorgang open', () => {
+    // De landtong zelf is land.
+    expect(isWaterCell(129, 61)).toBe(false);
+    // Ernaast, in dezelfde strook, is water.
+    expect(isWaterCell(129, 50)).toBe(true);
+    expect(isWaterCell(129, 70)).toBe(true);
+  });
+
+  it('legt geen straten aan in het park', () => {
+    for (let cz = 32; cz < 96; cz += 4) {
+      for (let cx = 132; cx < 160; cx += 4) {
+        expect({ cx, cz, weg: isRoadCell(cx, cz) }).toEqual({ cx, cz, weg: false });
+      }
+    }
+  });
+
+  it('geeft elke cel van het grotere raster precies één wijk', () => {
+    for (let cx = 0; cx < CITY.gridSize; cx += 3) {
+      for (let cz = 0; cz < CITY.gridSize; cz += 3) {
+        const matches = DISTRICTS.filter((d) => {
+          const [x0, z0, x1, z1] = d.bounds;
+          return cx >= x0 && cx < x1 && cz >= z0 && cz < z1;
+        });
+        expect({ cx, cz, aantal: matches.length }).toEqual({ cx, cz, aantal: 1 });
+      }
+    }
+  });
+
+  it('kun je vanaf de landtong het park in lopen', () => {
+    // Van het midden van de landtong naar het midden van het park moet elke
+    // stap over begaanbaar terrein gaan.
+    const start = cellToWorld(129, 61);
+    const eind = cellToWorld(140, 61);
+    const stappen = 30;
+    for (let i = 0; i <= stappen; i++) {
+      const t = i / stappen;
+      const x = start.x + (eind.x - start.x) * t;
+      const z = start.z + (eind.z - start.z) * t;
+      expect({ i, loopbaar: isWalkable(x, z, 0.45) }).toEqual({ i, loopbaar: true });
+    }
+  });
+});
+
+/**
+ * De inboedel van het park.
+ *
+ * Hier zat de fout die je alleen ziet als je telt. `isRoadCell` gaf in het park
+ * netjes `false` en daar stond ook een test op — maar `streetPropsIn` vraagt
+ * dat nooit. Die functie rekent met de wegassen, en die lopen gewoon door tot
+ * voorbij de oostrand. Resultaat: 444 lantaarns, 130 geparkeerde auto's, 55
+ * banken, 50 prullenbakken en 28 brandkranen tussen de bomen, terwijl elke test
+ * groen stond.
+ */
+describe('de inboedel van het park', () => {
+  const vak = parkRect();
+
+  it('zet geen enkel stuk straatmeubilair op de parkzijde', () => {
+    const props = streetPropsIn(vak.minX - 60, vak.minZ - 60, vak.maxX + 60, vak.maxZ + 60);
+    const fout = props.filter((prop) => {
+      const cell = worldToCell(prop.x, prop.z);
+      return isParkSide(cell.cx, cell.cz);
+    });
+    // De uitkomst per soort meegeven, want "5 stuks" zegt minder dan "5 lampen".
+    const perSoort = fout.reduce<Record<string, number>>((acc, prop) => {
+      acc[prop.kind] = (acc[prop.kind] ?? 0) + 1;
+      return acc;
+    }, {});
+    expect(perSoort).toEqual({});
+  });
+
+  it('houdt de stad wél aangekleed', () => {
+    // Anders slaagt de test hierboven ook als er nergens meer meubilair staat.
+    const midden = cellToWorld(64, 64);
+    const props = streetPropsIn(midden.x - 120, midden.z - 120, midden.x + 120, midden.z + 120);
+    expect(props.filter((prop) => prop.kind === 'lamp').length).toBeGreaterThan(20);
+    expect(props.filter((prop) => prop.kind === 'car').length).toBeGreaterThan(5);
+  });
+
+  it('legt het park op één vlakke hoogte', () => {
+    // Zonder dit stap je elke veertig meter over een stoeprand die er niet is,
+    // want "asfalt" was pure rekenkunde op de wegassen.
+    const z = cellToWorld(140, 64).z;
+    const hoogtes = new Set<number>();
+    for (let x = vak.minX; x <= vak.maxX; x += 0.5) hoogtes.add(groundHeightAt(x, z));
+    expect([...hoogtes]).toEqual([SIDEWALK_HEIGHT]);
+  });
+
+  it('zet parkmeubilair alleen in het park, en alleen waar je kunt lopen', () => {
+    const props = parkPropsIn(vak.minX, vak.minZ, vak.maxX, vak.maxZ);
+    expect(props.length).toBeGreaterThan(100);
+    for (const prop of props) {
+      const cell = worldToCell(prop.x, prop.z);
+      expect({ kind: prop.kind, park: isParkSide(cell.cx, cell.cz) }).toEqual({
+        kind: prop.kind,
+        park: true,
+      });
+      expect({ kind: prop.kind, loopbaar: isWalkable(prop.x, prop.z, 0.2) }).toEqual({
+        kind: prop.kind,
+        loopbaar: true,
+      });
+    }
+  });
+
+  it('geeft banken en omgevallen palen, niet alleen pad', () => {
+    const props = parkPropsIn(vak.minX, vak.minZ, vak.maxX, vak.maxZ);
+    const soorten = new Set(props.map((prop) => prop.kind));
+    expect([...soorten].sort()).toEqual(['brokenLamp', 'parkBench', 'parkPath']);
+  });
+
+  it('geeft bij hetzelfde zaadje hetzelfde park', () => {
+    const a = parkPropsIn(560, -40, 700, 120, PARK_SEED);
+    const b = parkPropsIn(560, -40, 700, 120, PARK_SEED);
+    expect(a).toEqual(b);
+    // En een ander zaadje geeft een ander park, anders doet het zaadje niets.
+    expect(parkPropsIn(560, -40, 700, 120, PARK_SEED + 1)).not.toEqual(a);
+  });
+
+  it('noemt alleen land land, en de zee ertussen niet', () => {
+    // Het park lag eerst op stoephoogte door het hele grondvlak van de chunk op
+    // te tillen. Dat dekte de zee af: de landtong werd een weiland met gras aan
+    // weerszijden. Vandaar dat het land een vorm heeft en geen hoogte.
+    const chunk = { minX: 512, minZ: -256, maxX: 640, maxZ: -128 };
+    const land = parkLandIn(chunk.minX, chunk.minZ, chunk.maxX, chunk.maxZ);
+    expect(land.length).toBeGreaterThan(0);
+    for (const rect of land) {
+      // Elke hoek van elk stuk land ligt aan de parkzijde, en nergens in zee.
+      for (const x of [rect.minX + 0.1, rect.maxX - 0.1]) {
+        for (const z of [rect.minZ + 0.1, rect.maxZ - 0.1]) {
+          const cell = worldToCell(x, z);
+          expect({ x, z, park: isParkSide(cell.cx, cell.cz) }).toEqual({ x, z, park: true });
+        }
+      }
+      // En het blijft binnen het gevraagde vak, anders steekt het de buurchunk in.
+      expect(rect.minX).toBeGreaterThanOrEqual(chunk.minX);
+      expect(rect.maxX).toBeLessThanOrEqual(chunk.maxX);
+    }
+  });
+
+  it('geeft geen land terug waar alleen stad of zee ligt', () => {
+    expect(parkLandIn(-100, -100, 100, 100)).toEqual([]);
+    // Pal ten noorden van het park: daar is het open zee.
+    const noord = cellToWorld(146, 10);
+    expect(parkLandIn(noord.x - 20, noord.z - 20, noord.x + 20, noord.z + 20)).toEqual([]);
+  });
+
+  it('legt de paden niet op het oude stratenraster', () => {
+    // Zou de padafstand gelijk zijn aan `ROAD_PERIOD` — of een veelvoud of een
+    // deler daarvan — dan volgen de paden precies de oude straatassen en heb je
+    // het stratenpatroon terug dat we hier net weggehaald hebben, alleen dan in
+    // grind. Dit is de reden dat het 34 meter is en geen 40.
+    expect(PARK_PATH_PERIOD).not.toBe(ROAD_PERIOD);
+    expect(ROAD_PERIOD % PARK_PATH_PERIOD).not.toBe(0);
+    expect(PARK_PATH_PERIOD % ROAD_PERIOD).not.toBe(0);
   });
 });

@@ -1,4 +1,4 @@
-import { SIDEWALK_HEIGHT, type StreetProp, type PropKind } from '@game/shared';
+import { PARK_PATH_SIZE, SIDEWALK_HEIGHT, type StreetProp, type PropKind } from '@game/shared';
 import * as THREE from 'three';
 import { mergeParts, standingBox, standingCylinder, type Part } from './geometry';
 
@@ -42,6 +42,101 @@ function treeGeometry(): THREE.BufferGeometry {
       geometry: new THREE.IcosahedronGeometry(0.9, 1),
       color: '#2e4d28',
       position: [-0.6, 3.9, 0.45],
+    },
+  ];
+  return mergeParts(parts);
+}
+
+/**
+ * Een plaat verweerd grind: één segment van een parkpad.
+ *
+ * De lange kant ligt op de z-as, zodat `parkPropsIn` een pad kan laten
+ * slingeren door alleen de rotatie om y te variëren. Zes centimeter dik, dus
+ * hij steekt net boven het gras uit in plaats van erin te knipperen.
+ */
+function parkPathGeometry(): THREE.BufferGeometry {
+  const { width, length } = PARK_PATH_SIZE;
+  const parts: Part[] = [
+    { geometry: standingBox(width, 0.06, length), color: '#6b6559' },
+    // Een smallere lichte baan erover: één egale plaat leest als beton.
+    { geometry: standingBox(width * 0.62, 0.02, length), color: '#7d7768', position: [0, 0.06, 0] },
+  ];
+  return mergeParts(parts);
+}
+
+/**
+ * Dezelfde bank als in de stad, maar dan na een paar jaar zonder onderhoud:
+ * uitgeslagen hout, roest op het ijzer en een latje uit de rugleuning. De
+ * scheefstand zit in de geometrie omdat een prop alleen een rotatie om y heeft.
+ */
+function parkBenchGeometry(): THREE.BufferGeometry {
+  const wood = '#6d6a52';
+  const iron = '#4a3d31';
+  const lean = 0.05;
+  const parts: Part[] = [
+    { geometry: standingBox(0.09, 0.42, 0.48), color: iron, position: [-0.72, 0, 0] },
+    { geometry: standingBox(0.09, 0.38, 0.48), color: iron, position: [0.72, 0, 0] },
+    {
+      geometry: standingBox(1.75, 0.08, 0.52),
+      color: wood,
+      position: [0, 0.40, 0],
+      rotation: [0, 0, lean],
+    },
+    // De rugleuning mist zijn bovenste lat; wat er nog hangt staat scheef.
+    {
+      geometry: standingBox(1.2, 0.24, 0.07),
+      color: wood,
+      position: [-0.2, 0.50, -0.24],
+      rotation: [0.12, 0, lean],
+    },
+  ];
+  return mergeParts(parts);
+}
+
+/**
+ * Een omgevallen lantaarnpaal.
+ *
+ * De voet staat er nog, de mast ligt eroverheen. De kanteling wordt hier
+ * ingebakken en niet als rotatie meegegeven: `StreetProp` heeft alleen een
+ * `rotY`, en die uitbreiden zou de hele instancing-pijplijn raken voor één
+ * paal. De willekeurige `rotY` per exemplaar bepaalt wél wélke kant hij op ligt.
+ */
+function brokenLampGeometry(): THREE.BufferGeometry {
+  const dark = '#3a3f36';
+  const tilt = (86 * Math.PI) / 180;
+  const foot = 0.28;
+  // Waar een punt uit het mastframe terechtkomt als de mast om die hoek kantelt.
+  const at = (up: number, out: number): [number, number, number] => [
+    0,
+    foot + up * Math.cos(tilt) - out * Math.sin(tilt),
+    up * Math.sin(tilt) + out * Math.cos(tilt),
+  ];
+  const parts: Part[] = [
+    { geometry: standingCylinder(0.17, 0.21, foot, 8), color: '#2b2f28' },
+    {
+      geometry: standingCylinder(0.06, 0.09, 5.2, 8),
+      color: dark,
+      position: [0, foot, 0],
+      rotation: [tilt, 0, 0],
+    },
+    {
+      geometry: standingBox(0.09, 0.09, 1.45),
+      color: dark,
+      position: at(5.14, 0.72),
+      rotation: [tilt, 0, 0],
+    },
+    {
+      geometry: standingBox(0.30, 0.14, 0.66),
+      color: '#454b40',
+      position: at(5.02, 1.32),
+      rotation: [tilt, 0, 0],
+    },
+    // Het glas is eruit; wat rest is een donkere bak.
+    {
+      geometry: standingBox(0.24, 0.05, 0.56),
+      color: '#22261f',
+      position: at(4.98, 1.32),
+      rotation: [tilt, 0, 0],
     },
   ];
   return mergeParts(parts);
@@ -180,6 +275,11 @@ const SETUP: Record<PropKind, KindSetup> = {
   bin: { geometry: binGeometry, capacity: 80, tinted: false, glossy: false, range: 110 },
   hydrant: { geometry: hydrantGeometry, capacity: 60, tinted: false, glossy: false, range: 110 },
   car: { geometry: carGeometry, capacity: 110, tinted: true, glossy: true, range: 140 },
+  // Het park. Er staan er veel meer platen pad dan er ooit lantaarns in beeld
+  // zijn — een pad is nu eenmaal een reeks segmenten — vandaar de ruimere maat.
+  parkPath: { geometry: parkPathGeometry, capacity: 520, tinted: false, glossy: false, range: 150 },
+  parkBench: { geometry: parkBenchGeometry, capacity: 90, tinted: false, glossy: false, range: 120 },
+  brokenLamp: { geometry: brokenLampGeometry, capacity: 70, tinted: false, glossy: false, range: 140 },
 };
 
 export interface PropField {

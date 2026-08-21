@@ -1,6 +1,8 @@
 import {
   CITY,
   DISTRICTS,
+  isParkSide,
+  worldToCell,
   collectSpawnSchema,
   getItem,
   nearbySpawnsSchema,
@@ -10,7 +12,7 @@ import type { FastifyInstance } from 'fastify';
 import { authenticate, playerIdOf } from '../lib/auth.js';
 import { GameError } from '../lib/errors.js';
 import { prisma } from '../lib/prisma.js';
-import { addItem, inventoryCount, loadPlayer, grantXp } from '../services/player.js';
+import { addItem, addParkLoot, inventoryCount, loadPlayer, grantXp } from '../services/player.js';
 import { trackQuest } from '../services/quests.js';
 import { collectSpawn, hotDistrict, nearbySpawns, spawnCounts } from '../services/spawner.js';
 
@@ -74,7 +76,16 @@ export async function worldRoutes(app: FastifyInstance): Promise<void> {
       const doubled = Math.random() < loaded.stats.doubleDropChance;
       const quantity = doubled ? 2 : 1;
 
-      await addItem(tx, playerId, item.id, quantity);
+      // In het park telt je buit pas als je de landtong over bent. Tot die tijd
+      // gaat hij in een aparte pouch — dat is wat de wandeling terug spannend
+      // maakt, en de laag waar PvP straks op aansluit.
+      const cell = worldToCell(body.x, body.z);
+      const inPark = isParkSide(cell.cx, cell.cz);
+      if (inPark) {
+        await addParkLoot(tx, playerId, item.id, quantity);
+      } else {
+        await addItem(tx, playerId, item.id, quantity);
+      }
       const xp = await grantXp(
         tx,
         playerId,
@@ -100,6 +111,8 @@ export async function worldRoutes(app: FastifyInstance): Promise<void> {
         level: xp.level,
         levelUp: xp.levelsGained > 0,
         levelRewards: xp.rewards,
+        /** In het park gevonden: staat nog in je pouch, niet in je rugzak. */
+        inPark,
         serverTime: now.getTime(),
       };
     });

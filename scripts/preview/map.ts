@@ -15,7 +15,7 @@ import {
 
 const SIZE = 620;
 const scale = (cells: number): number => (cells / CITY.gridSize) * SIZE;
-const toCell = (world: number): number => world / CITY.cellSize + CITY.gridSize / 2;
+const toCell = (world: number): number => world / CITY.cellSize + CITY.originCell;
 
 const map = document.getElementById('map') as HTMLDivElement;
 map.style.width = `${SIZE}px`;

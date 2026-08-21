@@ -1,4 +1,4 @@
-import { CITY, cellToWorld, isWaterCell } from './layout';
+import { CITY, CITY_EAST_EDGE, cellToWorld, isWaterCell } from './layout';
 import { valueAt } from '../rng';
 
 /**
@@ -29,7 +29,7 @@ export const ROAD_PERIOD = CITY.blockSize * CITY.cellSize;
  * de belijning en het straatmeubilair acht meter naast de weg belandden.
  */
 export const ROAD_CENTER_OFFSET = wrap(
-  CITY.cellSize / 2 - (CITY.gridSize / 2) * CITY.cellSize,
+  CITY.cellSize / 2 - CITY.originCell * CITY.cellSize,
   ROAD_PERIOD,
 );
 /**
@@ -80,8 +80,21 @@ export function nearestRoadAxis(v: number): number {
   return Math.round((v - ROAD_CENTER_OFFSET) / ROAD_PERIOD) * ROAD_PERIOD + ROAD_CENTER_OFFSET;
 }
 
-/** Ligt dit punt op het rijdek (en dus niet op de stoep)? */
+/**
+ * Ligt dit punt op het rijdek (en dus niet op de stoep)?
+ *
+ * Let op de eerste regel. De rest van deze functie is pure rekenkunde op de
+ * wegassen, en die assen lopen gewoon door tot voorbij de oostrand van de
+ * stad. In het park liggen geen straten — `isRoadCell` zegt dat ook — maar
+ * zonder deze uitzondering rekent alles wat hierop leunt daar tóch met asfalt.
+ * Dat leverde onzichtbare stoepranden op: elke veertig meter stapte je in het
+ * gras zestien centimeter omhoog en weer omlaag.
+ */
 export function isAsphalt(x: number, z: number): boolean {
+  // Exact dezelfde grens als `isRoadCell`, en bewust via dezelfde constante:
+  // twee plekken die allebei "hier houdt de stad op" moeten weten, mogen niet
+  // uit elkaar kunnen lopen. Dit dekt het park, de landtong én de zee ertussen.
+  if (worldCell(x, z).cx >= CITY_EAST_EDGE) return false;
   return distanceToRoadAxis(x) < ASPHALT_HALF_WIDTH || distanceToRoadAxis(z) < ASPHALT_HALF_WIDTH;
 }
 
@@ -90,7 +103,9 @@ export function isAsphalt(x: number, z: number): boolean {
  *
  * Alleen het rijdek ligt op nul; de rest van de stad ligt een stoeprand hoger.
  * Daardoor stap je zichtbaar op en van de stoep af in plaats van over een
- * geschilderde streep te lopen.
+ * geschilderde streep te lopen. Het park heeft geen rijdek en ligt dus overal
+ * op stoephoogte — één vlakke vloer voor spelers, personages, voertuigen en
+ * alles wat er op de grond ligt.
  */
 export function groundHeightAt(x: number, z: number): number {
   return isAsphalt(x, z) ? 0 : SIDEWALK_HEIGHT;
@@ -100,7 +115,17 @@ export function groundHeightAt(x: number, z: number): number {
 // Straatmeubilair
 // ---------------------------------------------------------------------------
 
-export type PropKind = 'lamp' | 'tree' | 'bench' | 'bin' | 'hydrant' | 'car';
+export type PropKind =
+  | 'lamp'
+  | 'tree'
+  | 'bench'
+  | 'bin'
+  | 'hydrant'
+  | 'car'
+  // Het park heeft zijn eigen inboedel; zie `city/park.ts`.
+  | 'parkPath'
+  | 'parkBench'
+  | 'brokenLamp';
 
 export interface StreetProp {
   kind: PropKind;
@@ -195,7 +220,7 @@ function pushCarRow(
 }
 
 function worldCell(x: number, z: number): { cx: number; cz: number } {
-  const half = CITY.gridSize / 2;
+  const half = CITY.originCell;
   return { cx: Math.floor(x / CITY.cellSize) + half, cz: Math.floor(z / CITY.cellSize) + half };
 }
 
@@ -226,12 +251,24 @@ export function streetPropsIn(
     pushCarRow(out, 'z', az, minX, maxX, seed);
   }
 
-  // Vangnet. Bij een kruising is de stoep aan beide kanten rijbaan, dus een
+  // Twee vangnetten, allebei bewust achteraf.
+  //
+  // Het eerste: bij een kruising is de stoep aan beide kanten rijbaan, dus een
   // bank of prullenbak die netjes langs zijn eigen straat opschuift kan alsnog
   // midden op de dwarsstraat uitkomen. Dat is per geval uitrekenen lastig en
   // hier in één regel te zien. Geparkeerde auto's horen juist wél op het
   // asfalt, dus die blijven staan.
-  return out.filter((prop) => prop.kind === 'car' || !isAsphalt(prop.x, prop.z));
+  //
+  // Het tweede: de rijen hierboven komen uit `nearestRoadAxis` en niet uit
+  // `isRoadCell`. De wegassen lopen door tot voorbij de oostrand, dus zonder
+  // deze regel staat er een compleet stratenraster aan lantaarns, banken en
+  // geparkeerde auto's midden in het park — zevenhonderd stuks. Filteren op de
+  // uitkomst vangt elke proprij in één keer; per rij redeneren vangt alleen de
+  // rijen waar je aan gedacht hebt.
+  return out.filter((prop) => {
+    if (worldCell(prop.x, prop.z).cx >= CITY_EAST_EDGE) return false;
+    return prop.kind === 'car' || !isAsphalt(prop.x, prop.z);
+  });
 }
 
 /** Bomen op een groen perceel: één tot drie, altijd op dezelfde plek. */

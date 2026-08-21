@@ -343,6 +343,68 @@ const MODELS: Record<string, () => Part[]> = {
     { geometry: box(0.4, 0.05, 0.05), color: C.staal, position: [0, 0.8, 0.44] },
     { geometry: pipe(0.06, 0.04, 12), color: C.goud, position: [0, 0.8, 0.46], rotation: [Math.PI / 2, 0, 0] },
   ],
+  // --- alleen in Het Verlaten Park -----------------------------------------
+  park_bench_plaque: () => [
+    { geometry: box(0.09, 0.34, 0.4), color: C.donkerStaal, position: [-0.5, 0, 0] },
+    { geometry: box(0.09, 0.34, 0.4), color: C.donkerStaal, position: [0.5, 0, 0] },
+    { geometry: box(1.24, 0.06, 0.44), color: '#6f5136', position: [0, 0.34, 0] },
+    { geometry: box(1.24, 0.36, 0.06), color: '#6f5136', position: [0, 0.42, -0.2] },
+    // Het plaatje op de rugleuning; daar dankt hij zijn naam aan.
+    { geometry: box(0.26, 0.1, 0.01), color: C.koper, position: [0, 0.46, -0.16] },
+  ],
+  overgrown_statue: () => [
+    { geometry: box(0.5, 0.18, 0.5), color: '#6b6a63' },
+    { geometry: standingBox(0.3, 0.42, 0.3), color: '#7a786e', position: [0, 0.18, 0] },
+    { geometry: standingCylinder(0.11, 0.14, 0.5, 8), color: '#8a877a', position: [0, 0.6, 0] },
+    { geometry: ball(0.13, 8), color: '#8a877a', position: [0, 1.16, 0] },
+    // De begroeiing die hem overwoekerd maakt.
+    { geometry: ball(0.14, 7), color: C.blad, position: [0.14, 0.5, 0.1], scale: [1, 0.6, 1] },
+    { geometry: ball(0.11, 7), color: '#4d7f3e', position: [-0.12, 0.82, -0.08] },
+    { geometry: ball(0.09, 7), color: '#35592c', position: [0.06, 1.02, 0.12] },
+  ],
+  greenhouse_orchid: () => [
+    { geometry: standingCylinder(0.15, 0.11, 0.22, 12), color: C.wit },
+    { geometry: tube(0.014, 0.34, 6), color: '#4a6b3a', position: [0, 0.22, 0] },
+    { geometry: ball(0.07, 7), color: '#d47ab5', position: [0, 0.6, 0], scale: [1, 0.7, 1] },
+    { geometry: ball(0.05, 7), color: '#e39ac9', position: [0.07, 0.54, 0.04] },
+    { geometry: ball(0.05, 7), color: '#b85f9c', position: [-0.06, 0.5, -0.05] },
+    { geometry: box(0.22, 0.01, 0.06), color: C.blad, position: [0.02, 0.24, 0.02], rotation: [0, 0.4, 0.1] },
+  ],
+  carousel_horse: () => [
+    { geometry: tube(0.03, 1.0, 8), color: C.goud, position: [0, 0.2, 0] },
+    { geometry: box(0.5, 0.06, 0.5), color: '#8a3f3a' },
+    // Het paard zelf: romp, hals, kop en vier benen.
+    { geometry: box(0.52, 0.26, 0.2), color: C.wit, position: [0, 0.62, 0] },
+    { geometry: box(0.16, 0.26, 0.18), color: C.wit, position: [0.2, 0.8, 0], rotation: [0, 0, -0.4] },
+    { geometry: box(0.24, 0.14, 0.16), color: C.wit, position: [0.34, 0.92, 0] },
+    ...[-0.18, 0.18].flatMap((dx): Part[] =>
+      [-0.07, 0.07].map((dz): Part => ({
+        geometry: box(0.07, 0.34, 0.07),
+        color: C.wit,
+        position: [dx, 0.32, dz],
+      })),
+    ),
+    { geometry: box(0.06, 0.2, 0.12), color: '#b8452f', position: [-0.26, 0.72, 0], rotation: [0, 0, 0.5] },
+  ],
+  park_gates: () => [
+    { geometry: box(0.16, 1.5, 0.16), color: C.donkerStaal, position: [-0.6, 0, 0] },
+    { geometry: box(0.16, 1.5, 0.16), color: C.donkerStaal, position: [0.6, 0, 0] },
+    // De spijlen ertussen.
+    ...[-0.42, -0.28, -0.14, 0, 0.14, 0.28, 0.42].map((dx): Part => ({
+      geometry: tube(0.022, 1.2, 6),
+      color: C.donkerStaal,
+      position: [dx, 0.06, 0],
+    })),
+    { geometry: box(1.36, 0.07, 0.07), color: C.donkerStaal, position: [0, 1.26, 0] },
+    { geometry: box(1.36, 0.07, 0.07), color: C.donkerStaal, position: [0, 0.3, 0] },
+    // Vergulde punten bovenop, want dit is een mythisch pronkstuk.
+    ...[-0.6, 0.6].map((dx): Part => ({
+      geometry: new THREE.ConeGeometry(0.09, 0.2, 6),
+      color: C.goud,
+      position: [dx, 1.6, 0],
+    })),
+  ],
+
   city_deed: () => [
     { geometry: pipe(0.06, 0.5, 12), color: C.papier, rotation: [0, 0, Math.PI / 2], position: [0, 0.06, 0] },
     { geometry: box(0.44, 0.008, 0.3), color: C.papier, position: [0, 0.12, 0.14], rotation: [0.15, 0, 0] },

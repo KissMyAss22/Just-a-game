@@ -78,6 +78,7 @@ model Player {
   boosts         PlayerBoost[]
   legacy         PlayerLegacy[]
   inventory      InventoryItem[]
+  parkLoot       ParkLoot[]
   placements     Placement[]
   transactions   Transaction[]
   seasonProgress SeasonProgress[]
@@ -109,6 +110,23 @@ model PlayerVehicle {
 
 /// Items in je rugzak.
 model InventoryItem {
+  playerId String
+  itemId   String
+  quantity Int    @default(0)
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@id([playerId, itemId])
+}
+
+/// Wat je in Het Verlaten Park hebt gevonden maar nog niet veilig hebt gesteld.
+///
+/// Bewust een aparte tabel en niet je gewone rugzak. Buit uit het park telt pas
+/// als je de landtong over bent gelopen; tot die tijd staat hij hier. Dat is
+/// wat de wandeling terug spannend maakt, en het is de laag waar PvP straks op
+/// aansluit: neergaan betekent dan dat deze rijen verdwijnen, zonder dat er
+/// iets aan je base, je cash of je gewone rugzak verandert.
+model ParkLoot {
   playerId String
   itemId   String
   quantity Int    @default(0)

@@ -21,6 +21,8 @@ export interface LoadedPlayer {
   upgrades: Record<string, number>;
   placements: PlacedItem[];
   inventory: { itemId: string; quantity: number }[];
+  /** Gevonden in het park, nog niet veilig gesteld. */
+  parkLoot: { itemId: string; quantity: number }[];
   ownedVehicleIds: string[];
   activeBoosts: ActiveBoostDto[];
   appearance: Appearance;
@@ -47,6 +49,7 @@ export async function loadPlayer(tx: Tx, playerId: string): Promise<LoadedPlayer
       upgrades: true,
       placements: { orderBy: { id: 'asc' } },
       inventory: { where: { quantity: { gt: 0 } } },
+      parkLoot: { where: { quantity: { gt: 0 } } },
       vehicles: true,
       boosts: { where: { expiresAt: { gt: now } } },
       legacy: true,
@@ -65,6 +68,7 @@ export async function loadPlayer(tx: Tx, playerId: string): Promise<LoadedPlayer
     rotation: p.rotation,
   }));
   const inventory = player.inventory.map((i) => ({ itemId: i.itemId, quantity: i.quantity }));
+  const parkLoot = player.parkLoot.map((i) => ({ itemId: i.itemId, quantity: i.quantity }));
   const ownedVehicleIds = player.vehicles.map((v) => v.vehicleId);
   if (!ownedVehicleIds.includes(player.vehicleId)) ownedVehicleIds.push(player.vehicleId);
 
@@ -90,6 +94,7 @@ export async function loadPlayer(tx: Tx, playerId: string): Promise<LoadedPlayer
     upgrades,
     placements,
     inventory,
+    parkLoot,
     ownedVehicleIds,
     activeBoosts,
     appearance: normalizeAppearance(player.appearance),
@@ -183,6 +188,40 @@ export async function addItem(
     create: { playerId, itemId, quantity },
     update: { quantity: { increment: quantity } },
   });
+}
+
+/** Legt iets in je parkbuit: gevonden, maar nog niet veilig. */
+export async function addParkLoot(
+  tx: Tx,
+  playerId: string,
+  itemId: string,
+  quantity: number,
+): Promise<void> {
+  if (quantity <= 0) return;
+  await tx.parkLoot.upsert({
+    where: { playerId_itemId: { playerId, itemId } },
+    create: { playerId, itemId, quantity },
+    update: { quantity: { increment: quantity } },
+  });
+}
+
+/**
+ * Zet alle parkbuit over naar je rugzak: gebankt.
+ *
+ * Gebeurt in één transactie, zodat je nooit halverwege blijft steken met een
+ * lege pouch en een rugzak die nog niets heeft gekregen.
+ */
+export async function bankParkLoot(tx: Tx, playerId: string): Promise<number> {
+  const rows = await tx.parkLoot.findMany({ where: { playerId, quantity: { gt: 0 } } });
+  if (rows.length === 0) return 0;
+
+  let moved = 0;
+  for (const row of rows) {
+    await addItem(tx, playerId, row.itemId, row.quantity);
+    moved += row.quantity;
+  }
+  await tx.parkLoot.deleteMany({ where: { playerId } });
+  return moved;
 }
 
 /** Haalt items uit de rugzak; gooit een fout als je ze niet hebt. */
@@ -316,6 +355,7 @@ export function toPlayerStateDto(
       slots: stats.slots,
     },
     inventory: loaded.inventory,
+    parkLoot: loaded.parkLoot,
     placements: loaded.placements,
     activeBoosts: loaded.activeBoosts,
     serverTime: now.getTime(),

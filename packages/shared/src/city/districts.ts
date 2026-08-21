@@ -10,7 +10,8 @@ export type DistrictId =
   | 'nightlife'
   | 'airport'
   | 'hills'
-  | 'island';
+  | 'island'
+  | 'park';
 
 /** Gevelsoort; de nummers komen één op één in de shader terecht. */
 export type FacadeStyle = 'stuc' | 'metselwerk' | 'vliesgevel' | 'beton';
@@ -176,7 +177,7 @@ export const DISTRICTS: readonly DistrictDef[] = [
     id: 'docks',
     name: 'De Haven',
     tagline: 'Containers, kranen en ladingen zonder eigenaar',
-    bounds: [40, 84, 88, 128],
+    bounds: [40, 84, 88, 160],
     unlockLevel: 10,
     facade: 'beton',
     palette: ['#2c7186', '#9a3b34', '#3a5c93', '#3d7a52', '#96794a'],
@@ -191,7 +192,7 @@ export const DISTRICTS: readonly DistrictDef[] = [
     id: 'marina',
     name: 'Jachthaven',
     tagline: 'Boten, terrassen en mensen die nooit lijken te werken',
-    bounds: [88, 92, 128, 128],
+    bounds: [88, 92, 128, 160],
     unlockLevel: 25,
     facade: 'stuc',
     palette: ['#e4e6e6', '#cfdde4', '#e2ddc4', '#cbdcd6'],
@@ -206,7 +207,7 @@ export const DISTRICTS: readonly DistrictDef[] = [
     id: 'island',
     name: 'Privé-eiland',
     tagline: 'Alleen bereikbaar met een boot die je nog niet hebt',
-    bounds: [0, 96, 40, 128],
+    bounds: [0, 96, 40, 160],
     unlockLevel: 60,
     facade: 'stuc',
     palette: ['#e6dcc0', '#e0c9ac', '#dcc2c0'],
@@ -216,6 +217,31 @@ export const DISTRICTS: readonly DistrictDef[] = [
     spawnWeight: 0.35,
     spawnTtlSeconds: 1800,
     rarityWeights: { common: 12, uncommon: 22, rare: 30, epic: 28, legendary: 7, mythic: 1 },
+  },
+  {
+    id: 'park',
+    name: 'Het Verlaten Park',
+    tagline: 'Overwoekerd, stil, en er ligt van alles tussen het gras',
+    // De hele oostelijke strook. Het grootste deel is zee; alleen het park zelf
+    // en de landtong ernaartoe zijn begaanbaar — zie isWaterCell.
+    bounds: [128, 0, 160, 160],
+    unlockLevel: 20,
+    facade: 'beton',
+    palette: ['#6e6a5e', '#7c7466', '#5e5a50'],
+    groundColor: '#3f5233',
+    floors: [1, 2],
+    // Bijna niets: een paar ruïnes om achter te schuilen, verder gras.
+    density: 0.08,
+    spawnWeight: 1.1,
+    spawnTtlSeconds: 420,
+    // Het beste profiel van het spel, maar wél binnen de grens die de
+    // balanstest bewaakt: legendarisch plus mythisch samen op tien procent.
+    // Die grens staat er niet voor niets — wordt oprapen te lucratief, dan doet
+    // het passieve inkomen er niet meer toe, en dát is de kern van dit spel.
+    //
+    // De aantrekkingskracht van het park zit dan ook niet in een hogere kans,
+    // maar in de items die je er als enige plek kunt vínden.
+    rarityWeights: { common: 6, uncommon: 12, rare: 30, epic: 42, legendary: 8, mythic: 2 },
   },
 ] as const;
 

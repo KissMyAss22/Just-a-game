@@ -186,6 +186,8 @@ export interface CollectResponse extends CollectResultDto {
   icon: string;
   /** Waar door een boost een dubbele opbrengst uit kwam. */
   doubled: boolean;
+  /** In het park gevonden: zit nog in je pouch, niet in je rugzak. */
+  inPark: boolean;
   levelRewards: { cash: number; gems: number };
 }
 
@@ -193,7 +195,13 @@ export const collectSpawn = (spawnId: string, x: number, z: number) =>
   request<CollectResponse>('/world/collect', { body: { spawnId, x, z } });
 
 export const reportPosition = (x: number, z: number, distance: number) =>
-  request<{ x: number; z: number; serverTime: number }>('/player/position', {
+  request<{
+    x: number;
+    z: number;
+    /** Hoeveel parkbuit er zojuist veilig is gesteld door de landtong over te lopen. */
+    banked: number;
+    serverTime: number;
+  }>('/player/position', {
     body: { x, z, distance },
   });
 

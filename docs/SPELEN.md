@@ -149,9 +149,11 @@ voorlopig nog gewoon naast de telefoon.
 
 ### Waar houdt de stad op?
 
-De stad is 1.024 bij 1.024 meter. Aan de zuidkant en rond het privé-eiland ligt
-zee; daar kun je niet heen lopen, en varen kan nog niet. Loop je vast tegen
-water, dan is dat de kust en niet een fout.
+De wereld is 1.280 bij 1.280 meter. De stad zelf beslaat daarvan de westelijke
+1.024 meter; de strook erachter is zee, met Het Verlaten Park erin. Aan de
+zuidkant en rond het privé-eiland ligt ook zee; daar kun je niet heen lopen, en
+varen kan nog niet. Loop je vast tegen water, dan is dat de kust en niet een
+fout.
 
 Wil je zelf zien hoe groot hij is: zet in **Profiel → Ontwikkelgereedschap** de
 vliegmodus aan. Je gaat dan dwars door alles heen en met de pijlen rechts in
@@ -249,6 +251,35 @@ In je rugzak zelf kun je spullen alleen **weggooien**. Dat klinkt onhandig maar 
 bedoeling: zo is de stad een plek waar je naartoe gaat in plaats van een decor waar je
 doorheen loopt. Raakt je rugzak boven de tachtig procent, dan verschijnt vanzelf een pijl
 naar de dichtstbijzijnde winkel.
+
+## Het Verlaten Park
+
+Ten oosten van de stad ligt een eiland: **Het Verlaten Park**. Geen straten,
+geen stoepranden — gras, bomen, grindpaden die er nog liggen, verweerde banken
+en hier en daar een omgevallen lantaarnpaal of een ruïne om achter te schuilen.
+
+**Hoe je er komt.** Er is precies één toegang: een landtong ter hoogte van het
+midden van de oostkust. De rest is zee, en zee is niet begaanbaar. Dat is geen
+hek dat gehandhaafd moet worden maar gewoon de vorm van de kaart. Op de kaart in
+je telefoon zie je hem liggen; navigeren werkt er net zo goed heen als naar een
+pandjeshuis.
+
+**Waarom je erheen zou gaan.** Vijf items bestaan alleen daar en nergens anders:
+een bank met een naamplaatje, een overwoekerd standbeeld, een orchidee uit de
+kas, een carrouselpaard en de parkpoort zelf. Het zijn allemaal pronkstukken die
+je in je woning kunt neerzetten, dus ze leveren ook passief inkomen op. De kans
+op zeldzaam spul ligt er hoger dan waar ook, maar niet zóveel hoger dat oprapen
+belangrijker wordt dan je base — dat is bewust.
+
+**Je buit is er nog niet veilig.** Alles wat je binnen het park oppakt komt in
+een aparte buidel terecht en niet in je rugzak. Boven in beeld staat hoeveel er
+in zit. Pas als je de landtong over loopt en weer in de stad staat, verhuist
+alles in één keer naar je rugzak. Dat heet **banken**.
+
+Op dit moment kun je die buit nog niet verliezen: er is nog niets wat je
+neerhaalt. Zodra spelers elkaar in het park kunnen aanvallen verandert dat, en
+dan valt precies dié buidel op de grond als je neergaat. Je base, je meubels,
+je cash en je gewone rugzak blijven daar altijd buiten.
 
 ## De telefoon
 

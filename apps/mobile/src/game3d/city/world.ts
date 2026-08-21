@@ -3,6 +3,7 @@ import {
   chunkAtWorld,
   chunkKey,
   chunksAround,
+  parkPropsIn,
   streetPropsIn,
   treesOnLot,
   type ChunkContent,
@@ -164,6 +165,10 @@ export function createWorld(
     propBuffer.length = 0;
     propBuffer.push(
       ...streetPropsIn(playerX - reach, playerZ - reach, playerX + reach, playerZ + reach),
+      // Twee generatoren, twee gebieden: `streetPropsIn` levert niets meer op
+      // de parkzijde en `parkPropsIn` niets daarbuiten, dus ze kunnen allebei
+      // altijd draaien zonder dat er iets dubbel of op de verkeerde plek staat.
+      ...parkPropsIn(playerX - reach, playerZ - reach, playerX + reach, playerZ + reach),
     );
     for (const lot of greenLots) propBuffer.push(...treesOnLot(lot.x, lot.z, lot.size));
     props.update(propBuffer, playerX, playerZ);

@@ -264,6 +264,12 @@ export interface PlayerStateDto {
     slots: number;
   };
   inventory: InventoryEntryDto[];
+  /**
+   * Wat je in Het Verlaten Park hebt gevonden maar nog niet veilig hebt
+   * gesteld. Loop je de landtong over naar de stad, dan verhuist dit naar je
+   * rugzak.
+   */
+  parkLoot: InventoryEntryDto[];
   placements: PlacedItemDto[];
   activeBoosts: ActiveBoostDto[];
   /** Servertijd in ms — de client synchroniseert hierop. */

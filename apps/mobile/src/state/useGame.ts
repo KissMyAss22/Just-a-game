@@ -124,7 +124,14 @@ export const useGame = create<GameStore>((set, get) => ({
     if (!force && distance < 1) return;
     travelBuffer.meters = 0;
     try {
-      await api.reportPosition(playerPosition.x, playerPosition.z, distance);
+      const result = await api.reportPosition(playerPosition.x, playerPosition.z, distance);
+      // Landtong over met buit uit het park: die is nu veilig. Dat moet je
+      // wél te horen krijgen — het is het moment waar de hele wandeling om
+      // draait.
+      if (result.banked > 0) {
+        get().toast('Buit veilig', `${result.banked} uit het park in je rugzak`, 'legendary');
+        await get().refresh();
+      }
     } catch {
       // Niet erg: de server gebruikt dit alleen als referentiepunt.
     }
@@ -140,7 +147,13 @@ export const useGame = create<GameStore>((set, get) => ({
       const result = await api.collectSpawn(spawn.id, playerPosition.x, playerPosition.z);
       get().toast(
         `${result.icon} ${result.name}${result.doubled ? ' x2' : ''}`,
-        result.doubled ? `dubbele opbrengst · +${result.xpGained} xp` : `+${result.xpGained} xp`,
+        // In het park is het nog geen bezit: dat moet je meteen weten, anders
+        // denk je dat het al binnen is en loop je door.
+        result.inPark
+          ? 'nog niet veilig · loop terug naar de stad'
+          : result.doubled
+            ? `dubbele opbrengst · +${result.xpGained} xp`
+            : `+${result.xpGained} xp`,
         result.rarity,
       );
       if (result.levelUp) {

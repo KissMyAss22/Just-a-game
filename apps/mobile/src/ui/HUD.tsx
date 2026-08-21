@@ -414,6 +414,15 @@ export function HUD() {
         )}
       </View>
 
+      {/* Parkbuit: gevonden, maar nog niet veilig. */}
+      {state.parkLoot.length > 0 ? (
+        <View style={[styles.parkPouch, { bottom: insets.bottom + 272 }]} pointerEvents="none">
+          <Text style={styles.parkPouchText}>
+            🌿 {state.parkLoot.reduce((sum, entry) => sum + entry.quantity, 0)} nog niet veilig
+          </Text>
+        </View>
+      ) : null}
+
       {/* Rugzak */}
       <View style={[styles.backpack, { bottom: insets.bottom + 200 }]} pointerEvents="none">
         <Text style={[styles.backpackText, nearlyFull && { color: theme.color.danger }]}>
@@ -654,6 +663,17 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.pill,
     backgroundColor: theme.color.accent,
   },
+  parkPouch: {
+    position: 'absolute',
+    left: 16,
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+    borderRadius: theme.radius.pill,
+    backgroundColor: 'rgba(63, 107, 51, 0.32)',
+    borderWidth: 1,
+    borderColor: '#5f8f4a',
+  },
+  parkPouchText: { color: theme.color.text, fontSize: 12, fontWeight: '800' },
   shopIcon: { fontSize: 15 },
   shopLabel: { color: '#062018', fontWeight: '800', fontSize: 13 },
   compass: {

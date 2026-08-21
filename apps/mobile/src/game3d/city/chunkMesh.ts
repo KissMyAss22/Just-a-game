@@ -5,7 +5,9 @@ import {
   ROAD_CENTER_OFFSET,
   ROAD_PERIOD,
   SIDEWALK_HEIGHT,
+  isParkCell,
   isWaterCell,
+  parkLandIn,
   worldToCell,
   type ChunkContent,
 } from '@game/shared';
@@ -376,22 +378,96 @@ function buildContactShadows(content: ChunkContent): THREE.Object3D | null {
   return mesh;
 }
 
+/**
+ * Het park als plateau op stoephoogte.
+ *
+ * De stad ligt op het stoepplateau en alleen het rijdek ligt in een geul
+ * daaronder; `groundHeightAt` zegt dat ook. Het park is land en hoort dus even
+ * hoog te liggen, anders zweeft alles wat erop staat er zestien centimeter
+ * boven — percelen, ruïnes, meubilair en opgeraapte spullen rekenen allemaal
+ * met die functie.
+ *
+ * Waarom niet gewoon het grondvlak van de chunk omhoog: dat vlak loopt door
+ * over de zeecellen. Optillen dekte de zee af, en dan is de landtong ineens
+ * een weiland. Daarom krijgt alleen het land een vorm, en die vorm komt uit
+ * `parkLandIn` — dezelfde grenzen waar de server mee rekent.
+ *
+ * Een doos en geen vlak: de zijkant van het grasmateriaal is de aarde onder de
+ * zode, en dat is precies wat je aan een oever wil zien.
+ */
+function buildParkPlateau(content: ChunkContent): THREE.Object3D | null {
+  const half = content.size / 2;
+  const rects = parkLandIn(
+    content.centerX - half,
+    content.centerZ - half,
+    content.centerX + half,
+    content.centerZ + half,
+  );
+  if (rects.length === 0) return null;
+
+  grassMaterial ??= createGrassMaterial();
+  const mesh = new THREE.InstancedMesh(UNIT_BOX, grassMaterial, rects.length);
+  const dummy = new THREE.Object3D();
+  const depth = 0.7;
+  rects.forEach((rect, index) => {
+    const width = rect.maxX - rect.minX;
+    const length = rect.maxZ - rect.minZ;
+    dummy.position.set(
+      (rect.minX + rect.maxX) / 2,
+      SIDEWALK_HEIGHT - depth / 2,
+      (rect.minZ + rect.maxZ) / 2,
+    );
+    dummy.scale.set(width, depth, length);
+    dummy.rotation.set(0, 0, 0);
+    dummy.updateMatrix();
+    mesh.setMatrixAt(index, dummy.matrix);
+  });
+  mesh.instanceMatrix.needsUpdate = true;
+  mesh.receiveShadow = true;
+  mesh.computeBoundingSphere();
+  return mesh;
+}
+
 export function buildChunkObject(content: ChunkContent, quality: ChunkQuality): THREE.Group {
   const group = new THREE.Group();
   group.name = `chunk:${content.key}`;
 
+  // In het park ligt gras in plaats van asfalt.
+  //
+  // Dat is een keuze van materiaal en geen shaderwijziging: de wegshader
+  // tekent zijn rijbaan uit de wereldpositie, dus die zou ook in het park
+  // straten trekken. Eén ander materiaal voor deze chunk lost dat op, en het
+  // scheelt precies het soort GLSL-fout dat je pas op een telefoon ziet.
+  const centre = worldToCell(content.centerX, content.centerZ);
+  const isPark = isParkCell(centre.cx, centre.cz);
+
+  // Let op de kanteling: die zit in de geométrie en niet in de mesh.
+  //
+  // Dat lijkt hetzelfde — voor het licht ís het hetzelfde, want de normaal
+  // wordt toch met de mesh meegedraaid — maar de grasshader kijkt naar de
+  // normaal in objectruimte om zode van aarde te scheiden. Bij een gekantelde
+  // mesh staat die normaal in objectruimte nog steeds op +z, en dan is
+  // `vObjNormal.y` nul: het hele park werd getekend als de kale aarde onder de
+  // zode. Een vlak dat al plat ligt heeft die normaal wél omhoog.
+  const groundGeometry = new THREE.PlaneGeometry(content.size, content.size);
+  groundGeometry.rotateX(-Math.PI / 2);
   const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(content.size, content.size),
-    roadMaterialFor(content.groundColor),
+    groundGeometry,
+    isPark ? (grassMaterial ??= createGrassMaterial()) : roadMaterialFor(content.groundColor),
   );
-  ground.rotation.x = -Math.PI / 2;
   ground.position.set(content.centerX, -0.02, content.centerZ);
   ground.receiveShadow = quality.receiveShadow;
   group.add(ground);
 
   for (const part of [
     buildWater(content),
-    buildSidewalk(content, quality),
+    // Geen stoepranden in het park; die horen bij straten.
+    isPark ? null : buildSidewalk(content, quality),
+    // Het plateau vraagt bewust niet of dít een parkchunk is, maar of er park
+    // in ligt: `isPark` kijkt naar het middelpunt van de chunk, en dat gaat
+    // net goed zolang de parkgrenzen op chunkgrenzen vallen. Zo'n stilzwijgende
+    // afhankelijkheid is precies wat er omvalt zodra de grenzen verschuiven.
+    buildParkPlateau(content),
     buildGreen(content, quality),
     buildContactShadows(content),
     buildBuildings(content, quality),

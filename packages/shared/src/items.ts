@@ -69,6 +69,21 @@ export const ITEMS: readonly LootItemDef[] = [
   { id: 'trophy_case', name: 'Prijzenkast', category: 'decor', rarity: 'legendary', baseValue: 1_650, incomePerHour: 3115, flex: 105, icon: '🏆', craftOnly: true },
   { id: 'private_vault', name: 'Privékluis', category: 'decor', rarity: 'legendary', baseValue: 1_800, incomePerHour: 3360, flex: 120, icon: '🔒', craftOnly: true },
 
+  // --- alleen in Het Verlaten Park -----------------------------------------
+  //
+  // Dit is waarom je naar het park loopt. De kans op legendarisch is er niet
+  // hoger dan elders — die grens bewaakt de balanstest, en terecht — maar deze
+  // vier liggen er als enige plek.
+  //
+  // Bewust plaatsbare pronkstukken met veel inkomen en flex: een exclusief
+  // gebied waarvan de buit alleen verkoopwaarde heeft is na één bezoek
+  // uitgespeeld, terwijl dit je base blijft voeden.
+  { id: 'park_bench_plaque', name: 'Gedenkbank', category: 'decor', rarity: 'rare', baseValue: 520, incomePerHour: 940, flex: 30, icon: '🪑', districts: ['park'] },
+  { id: 'overgrown_statue', name: 'Overwoekerd standbeeld', category: 'decor', rarity: 'epic', baseValue: 1_150, incomePerHour: 2_060, flex: 65, icon: '🗿', districts: ['park'] },
+  { id: 'greenhouse_orchid', name: 'Kasorchidee', category: 'decor', rarity: 'epic', baseValue: 980, incomePerHour: 1_780, flex: 55, icon: '🌺', districts: ['park'] },
+  { id: 'carousel_horse', name: 'Draaimolenpaard', category: 'decor', rarity: 'legendary', baseValue: 1_900, incomePerHour: 3_480, flex: 130, icon: '🎠', districts: ['park'] },
+  { id: 'park_gates', name: 'Smeedijzeren poort', category: 'decor', rarity: 'mythic', baseValue: 9_600, incomePerHour: 17_900, flex: 430, icon: '🗝️', districts: ['park'] },
+
   // --- mythic -------------------------------------------------------------
   { id: 'meteorite', name: 'Meteorietsplinter', category: 'valuable', rarity: 'mythic', baseValue: 6500, flex: 250, icon: '☄️' },
   { id: 'city_deed', name: 'Eigendomsakte', category: 'decor', rarity: 'mythic', baseValue: 9000, incomePerHour: 16800, flex: 400, icon: '📜', districts: ['island', 'hills'] },

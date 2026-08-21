@@ -36,8 +36,16 @@ inkomen → verder de stad in.**
 
 ## 3. De stad
 
-128 × 128 cellen van 8 meter = **1.024 × 1.024 meter**. Wegen liggen op elk
-vijfvoud, dus straten om de 40 meter. Wat ertussen ligt is een bouwblok van
+160 × 160 cellen van 8 meter = **1.280 × 1.280 meter**, waarvan de stad zelf de
+westelijke 128 kolommen beslaat en de oostelijke strook zee is met Het Verlaten
+Park erin. Wegen liggen op elk vijfvoud, dus straten om de 40 meter.
+
+Het raster is van 128 naar 160 gegroeid zónder dat er iets verschoof: welke cel
+op wereldnul ligt staat vast in `CITY.originCell` en niet meer in
+`gridSize / 2`. Daardoor blijft elke opgeslagen spelerpositie kloppen en was er
+geen migratie nodig. Waar de stad ophoudt heet `CITY_EAST_EDGE`; zowel
+`isRoadCell` als `isAsphalt` kijken daarnaar, zodat die twee niet uit elkaar
+kunnen lopen. Wat ertussen ligt is een bouwblok van
 32 meter breed: precies twee percelen van 2 × 2 cellen (16 × 16 m) diep.
 
 **Dat blok is een ring, geen plein.** Elk perceel ligt aan twee straten, en
@@ -75,6 +83,7 @@ hetzelfde uit. Er wordt nergens `Math.random()` gebruikt voor werelddata.
 | Vliegveld | hangars | zeldzaam, hoog risico | level 40 |
 | De Heuvels | villa's | legendarisch | level 50 |
 | Privé-eiland | eindgame, alleen per boot | mythisch | level 60 |
+| Het Verlaten Park | overwoekerd, geen straten, ruïnes | vijf items die je nergens anders vindt | level 20 |
 
 Elk uur wordt één district **hot zone**: dubbel zoveel spawns. Dat geeft een
 reden om de stad rond te blijven gaan.
@@ -96,6 +105,8 @@ Wat er per onderdeel gebeurt:
 | Ramen | Meestal donker glas dat de lucht weerspiegelt; overdag brandt er maar in enkele licht. Elk raam krijgt een minieme knik in de normaal, anders weerspiegelt een vlakke gevel overal precies dezelfde kleur. |
 | Daken | Bitumen in plaats van gevelkleur, met een dakrand en één tot drie dakopbouwen (liftschacht, installaties). |
 | Straatmeubilair | Lantaarns, bomen, banken, prullenbakken, brandkranen en geparkeerde auto's. Per soort één instanced mesh voor het hele zichtveld. Auto's parkeren aan één kant van de straat — aan twee kanten stond je met je eigen auto klem. |
+| Parkmeubilair | Grindpaden, verweerde banken en omgevallen lantaarnpalen, uit een eigen generator (`city/park.ts`). Nodig omdat het straatmeubilair uit de wegassen komt en die gewoon doorlopen tot voorbij de oostrand: het park stond vol lantaarns en geparkeerde auto's terwijl er geen straat lag. De paden liggen op 34 meter en niet op 40, anders krijg je het stratenraster terug in grind. |
+| Parkgrond | Gras in plaats van asfalt, en het land ligt als een eigen plateau op stoephoogte. Niet als opgetild grondvlak: dat vlak loopt door over de zeecellen en dekte de zee af, waarna de landtong een weiland werd. |
 | Straatniveau | Winkelpuien, voordeuren, gestreepte luifels, cordonlijsten en een kroonlijst onder de dakrand. Dat is het detail dat een gevel van een blok een gebouw maakt. |
 | Lucht | Een bol met een verloop, zon en meeschuivende wolken. Wordt als eerste getekend met de dieptetest uit, zodat de far-plane van de camera kort kan blijven. |
 | Omgevingslicht | Dezelfde lucht wordt omgezet naar een omgevingstextuur. Zonder die textuur heeft glas niets om in te spiegelen en wordt elk raam zwart. |
