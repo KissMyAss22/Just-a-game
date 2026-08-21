@@ -45,3 +45,7 @@ coverage/
 # Renderproef van de stad (scripts/render-preview.mjs)
 .preview/
 scripts/preview/*bundle.js
+
+# Tijdelijke git-worktrees van achtergrondagenten. Dit is een eigen checkout van
+# deze repo; die hoort er niet nog een keer in te staan.
+.claude/worktrees/
