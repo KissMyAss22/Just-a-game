@@ -20,6 +20,23 @@ import { worldRoutes } from './routes/world.js';
 import { pruneExpiredBoosts } from './services/boosts.js';
 import { ensureSpawns } from './services/spawner.js';
 
+/**
+ * De kern uit een foutmelding van meerdere regels.
+ *
+ * Prisma begint met de aanroep die faalde en zet de oorzaak eronder — "The
+ * table `public.ParkLoot` does not exist in the current database." staat op de
+ * laatste regel. Dat is precies de zin die je wil lezen, en de enige die op een
+ * telefoonscherm past. De rest gaat als `detail` mee voor wie hem wil.
+ */
+function kern(bericht: string): string {
+  const regels = bericht
+    .split('\n')
+    .map((regel) => regel.trim())
+    .filter(Boolean);
+  const laatste = regels[regels.length - 1] ?? bericht;
+  return laatste.length > 200 ? `${laatste.slice(0, 200)}…` : laatste;
+}
+
 async function main(): Promise<void> {
   const app = Fastify({
     logger: env.isProduction
@@ -33,6 +50,7 @@ async function main(): Promise<void> {
   await app.register(jwt, { secret: env.jwtSecret });
   await app.register(rateLimit, { max: 300, timeWindow: '1 minute' });
 
+
   app.setErrorHandler((error, _request, reply) => {
     if (error instanceof GameError) {
       return reply.code(error.statusCode).send({ error: error.code, message: error.message });
@@ -43,15 +61,28 @@ async function main(): Promise<void> {
         .send({ error: 'invalid_input', message: 'Ongeldige invoer.', issues: error.issues });
     }
     app.log.error(error);
-    const fastifyError = error as { statusCode?: number; message?: string };
+    const fastifyError = error as { statusCode?: number; message?: string; name?: string };
     const status =
       fastifyError.statusCode && fastifyError.statusCode >= 400 ? fastifyError.statusCode : 500;
+
+    // Buiten productie gaat de échte fout mee terug.
+    //
+    // "Er ging iets mis op de server" is precies genoeg om te weten dát het mis
+    // is en te weinig om te weten wát. De fout stond wel in het serverlog, maar
+    // wie op zijn telefoon speelt kijkt daar niet, en dan gaat het raden: is het
+    // de wifi, de server, een tabel? Bij het ontwikkelen hoort die vraag geen
+    // vraag te zijn. In productie blijft het generiek, want daar is een stack
+    // trace informatie voor een aanvaller.
+    const echteFout = fastifyError.message ?? String(error);
     return reply.code(status).send({
       error: 'server_error',
       message:
-        status === 500
-          ? 'Er ging iets mis op de server.'
-          : (fastifyError.message ?? 'Er ging iets mis.'),
+        status !== 500
+          ? (fastifyError.message ?? 'Er ging iets mis.')
+          : env.isProduction
+            ? 'Er ging iets mis op de server.'
+            : `Er ging iets mis op de server: ${kern(echteFout)}`,
+      ...(env.isProduction ? {} : { detail: echteFout, kind: fastifyError.name }),
     });
   });
 

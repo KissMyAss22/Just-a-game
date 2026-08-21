@@ -8,6 +8,7 @@ import { theme } from '../src/ui/theme';
 export default function Boot() {
   const status = useGame((s) => s.status);
   const error = useGame((s) => s.error);
+  const errorKind = useGame((s) => s.errorKind);
   const boot = useGame((s) => s.boot);
 
   if (status === 'ready') return <Redirect href="/(game)/city" />;
@@ -24,11 +25,25 @@ export default function Boot() {
       ) : (
         <>
           <Text style={styles.error}>{error}</Text>
-          <Text style={styles.hint}>
-            Controleer of de server draait (pnpm dev:server) en of je telefoon op hetzelfde
-            wifi-netwerk zit. Staat de server op een ander adres, zet dan EXPO_PUBLIC_API_URL in
-            apps/mobile/.env.
-          </Text>
+          {/*
+            Twee heel verschillende problemen, dus twee verschillende aanwijzingen.
+            Eerst stond hier één tekst over wifi en de server die niet draait; bij
+            een serverfout klopte daar niets van en ging het zoeken de verkeerde
+            kant op.
+          */}
+          {errorKind === 'server' ? (
+            <Text style={styles.hint}>
+              De server op {API_URL} antwoordt wél, maar met een fout. Aan je netwerk ligt het
+              dus niet. Kijk in het venster van pnpm dev:server: daar staat wat er precies
+              misging. Kwam er een tabel bij, dan helpt pnpm db:migrate.
+            </Text>
+          ) : (
+            <Text style={styles.hint}>
+              Controleer of de server draait (pnpm dev:server) en of je telefoon op hetzelfde
+              wifi-netwerk zit. Staat de server op een ander adres, zet dan EXPO_PUBLIC_API_URL in
+              apps/mobile/.env.
+            </Text>
+          )}
           <Button label="Opnieuw proberen" onPress={() => void boot()} />
         </>
       )}

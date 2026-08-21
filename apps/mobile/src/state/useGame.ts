@@ -15,6 +15,8 @@ type Status = 'boot' | 'ready' | 'error';
 interface GameStore {
   status: Status;
   error: string | null;
+  /** Onbereikbaar ("netwerk") of wél antwoord maar met een fout ("server"). */
+  errorKind: 'netwerk' | 'server' | null;
   state: PlayerStateDto | null;
   city: api.CityInfo | null;
   spawns: SpawnDto[];
@@ -62,6 +64,7 @@ const inFlight = new Set<string>();
 
 export const useGame = create<GameStore>((set, get) => ({
   status: 'boot',
+  errorKind: null,
   error: null,
   state: null,
   city: null,
@@ -85,7 +88,7 @@ export const useGame = create<GameStore>((set, get) => ({
   },
 
   async boot() {
-    set({ status: 'boot', error: null });
+    set({ status: 'boot', error: null, errorKind: null });
     try {
       await api.login();
       const [state, city] = await Promise.all([api.fetchState(), api.fetchCity()]);
@@ -96,6 +99,11 @@ export const useGame = create<GameStore>((set, get) => ({
       set({
         status: 'error',
         error: error instanceof Error ? error.message : 'Onbekende fout.',
+        // Of de server onbereikbaar is of juist antwoordt met een fout maakt
+        // voor het zoeken alle verschil: het eerste is je netwerk, het tweede
+        // niet. Zonder dit onderscheid stuurde het opstartscherm je bij een
+        // serverfout de wifi-instellingen in, en daar was niets te vinden.
+        errorKind: error instanceof api.ApiError && error.code === 'network' ? 'netwerk' : 'server',
       });
     }
   },
