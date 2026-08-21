@@ -24,6 +24,18 @@ interface GameStore {
   /** serverTime - Date.now(); de app rekent nooit met de eigen klok. */
   clockOffset: number;
   busy: boolean;
+  /**
+   * Staat het testgereedschap aan op de server (`DEV_TOOLS=1`)?
+   *
+   * Dit hoort hier en niet in `useSettings`: het is geen voorkeur van de speler
+   * maar een eigenschap van de server waar je mee praat. Daarmee is er ook maar
+   * één plek waar die regel staat — de knop onderin en het dev-scherm lezen
+   * allebei dít, en kunnen dus niet uit elkaar gaan lopen.
+   *
+   * Staat hij uit, dan verschijnt de knop niet. Een speler ziet dus nooit een
+   * knop die niet voor hem is.
+   */
+  devEnabled: boolean;
 
   boot: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -72,6 +84,7 @@ export const useGame = create<GameStore>((set, get) => ({
   toasts: [],
   clockOffset: 0,
   busy: false,
+  devEnabled: false,
 
   applyState(state) {
     set({ state, clockOffset: state.serverTime - Date.now() });
@@ -94,6 +107,13 @@ export const useGame = create<GameStore>((set, get) => ({
       const [state, city] = await Promise.all([api.fetchState(), api.fetchCity()]);
       setPlayerPosition(state.player.x, state.player.z);
       set({ state, city, status: 'ready', clockOffset: state.serverTime - Date.now() });
+      // Apart, en met een eigen vangnet: een server zonder deze route of met een
+      // fout erop mag het opstarten niet tegenhouden. Lukt het niet, dan is er
+      // gewoon geen dev-knop — dat is de veilige kant om op te falen.
+      void api
+        .fetchDevStatus()
+        .then((dev) => set({ devEnabled: dev.enabled }))
+        .catch(() => set({ devEnabled: false }));
       await get().syncSpawns();
     } catch (error) {
       set({

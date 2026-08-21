@@ -44,6 +44,28 @@ const HOURS: { label: string; hour: number | null }[] = [
 ];
 
 /**
+ * De drie betaalmiddelen, met de grens die de server aanhoudt.
+ *
+ * Die grenzen komen uit `devCurrencySchema` in `packages/shared/src/schemas.ts`
+ * en staan hier alleen om ze in het scherm te kunnen tónen. Zonder dat krijg je
+ * een serverfout te zien als je je vertypt, en dan moet je gaan raden waar de
+ * grens lag.
+ */
+const VALUTA = [
+  { id: 'cash', label: 'Cash', icon: '💵', max: 1_000_000_000 },
+  { id: 'gems', label: 'Gems', icon: '💎', max: 1_000_000 },
+  { id: 'erfenis', label: 'Erfenis', icon: '🏺', max: 1_000_000 },
+] as const;
+
+type ValutaId = (typeof VALUTA)[number]['id'];
+
+/** Een heel getal boven nul dat binnen de grens van de server valt. */
+function geldigBedrag(tekst: string, max: number): boolean {
+  const waarde = Number(tekst);
+  return Number.isFinite(waarde) && waarde >= 1 && waarde <= max;
+}
+
+/**
  * De plekken waar je tijdens het testen steeds naartoe wil.
  *
  * Allemaal afgeleid en niets ingetypt. Een lijst met coördinaten in een scherm
@@ -154,6 +176,11 @@ export default function DevScreen() {
   const setMapTeleport = useSettings((s) => s.setMapTeleport);
 
   const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [bedragen, setBedragen] = useState<Record<ValutaId, string>>({
+    cash: '',
+    gems: '',
+    erfenis: '',
+  });
   const [options, setOptions] = useState<{
     districts: { id: string; name: string; unlockLevel: number }[];
     properties: { id: string; name: string; tier: number }[];
@@ -404,6 +431,53 @@ export default function DevScreen() {
         />
         <View style={{ height: 10 }} />
         <Choices
+          label="Erfenis erbij"
+          options={[100, 1_000, 10_000].map((step) => ({
+            key: String(step),
+            label: `🏺 ${step}`,
+            value: step,
+          }))}
+          onSelect={(erfenis) =>
+            void run('Erfenis bijgeschreven', async () => {
+              applyState(await api.devCurrency({ erfenis }));
+              return `${erfenis} erfenis erbij`;
+            })
+          }
+        />
+
+        <View style={{ height: 12 }} />
+        <Text style={styles.hint}>Een eigen bedrag</Text>
+        {VALUTA.map((valuta) => (
+          <Row key={valuta.id} style={{ gap: 8, alignItems: 'center', marginTop: 6 }}>
+            <Text style={[styles.hint, { width: 74 }]}>
+              {valuta.icon} {valuta.label}
+            </Text>
+            <TextInput
+              value={bedragen[valuta.id]}
+              onChangeText={(text) => setBedragen((vorige) => ({ ...vorige, [valuta.id]: text }))}
+              keyboardType="number-pad"
+              placeholder={`max ${formatMoney(valuta.max)}`}
+              placeholderTextColor={theme.color.textDim}
+              style={[styles.input, { flex: 1 }]}
+            />
+            <Button
+              label="Erbij"
+              compact
+              disabled={!enabled || busy || !geldigBedrag(bedragen[valuta.id], valuta.max)}
+              onPress={() =>
+                void run(`${valuta.label} bijgeschreven`, async () => {
+                  const bedrag = Math.floor(Number(bedragen[valuta.id]));
+                  applyState(await api.devCurrency({ [valuta.id]: bedrag }));
+                  setBedragen((vorige) => ({ ...vorige, [valuta.id]: '' }));
+                  return `${valuta.icon} ${bedrag.toLocaleString('nl-NL')} erbij`;
+                })
+              }
+            />
+          </Row>
+        ))}
+
+        <View style={{ height: 10 }} />
+        <Choices
           label="Level zetten"
           options={LEVELS.map((level) => ({
             key: String(level),
@@ -419,9 +493,10 @@ export default function DevScreen() {
           }
         />
         <Text style={styles.note}>
-          Springen naar een level keert de levelbeloningen bewust níét uit, en bijgeschreven cash
-          telt niet mee voor je levenslange opbrengst. Anders klopt de rebirth-formule daarna
-          nergens meer.
+          Alleen bijschrijven, niet zetten: het grootboek boekt bij, en aftrekken zou daar
+          netjes in moeten passen. Springen naar een level keert de levelbeloningen bewust níét
+          uit, en bijgeschreven cash telt niet mee voor je levenslange opbrengst. Anders klopt de
+          rebirth-formule daarna nergens meer.
         </Text>
       </Panel>
 

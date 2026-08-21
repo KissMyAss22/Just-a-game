@@ -13,6 +13,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from './theme';
 
 /**
+ * Hoeveel ruimte de zwevende knoppen onderin innemen.
+ *
+ * De tabbalk reserveerde die ruimte vroeger zelf; nu zweven de knoppen over het
+ * scherm en moet de inhoud er onderdoor kunnen scrollen. Zonder dit valt de
+ * onderste regel van elk scherm achter de telefoonknop.
+ */
+export const DOCK_HOOGTE = 62;
+
+/**
  * Een scrollend scherm met de statusbalk netjes afgedekt.
  *
  * `edgeToEdgeEnabled` in app.json laat de app tot achter de statusbalk
@@ -41,7 +50,7 @@ export function Screen({
         contentContainerStyle={{
           padding: 14,
           paddingTop: insets.top + 10,
-          paddingBottom: insets.bottom + 40,
+          paddingBottom: insets.bottom + 40 + DOCK_HOOGTE,
           ...(gap === undefined ? {} : { gap }),
         }}
         refreshControl={refreshControl}
