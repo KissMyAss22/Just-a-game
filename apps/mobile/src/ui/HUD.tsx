@@ -1,4 +1,6 @@
 import {
+  inPvpZone,
+  judgeAttack,
   BOOSTS_BY_ID,
   DOOR_REACH,
   SHOP_REACH,
@@ -16,7 +18,8 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { onCrowdChange, realtime } from '../net/presence';
+import { onCrowdChange, realtime, remotePlayers } from '../net/presence';
+import { sendAttack } from '../net/realtime';
 import { renderStats } from '../state/devWorld';
 import {
   cameraState,
@@ -85,6 +88,47 @@ function Crowd() {
       </Text>
     </View>
   );
+}
+
+/**
+ * Wie er binnen slagafstand staat, en of hier gevochten mag worden.
+ *
+ * Vier keer per seconde. Dezelfde `judgeAttack` als de server gebruikt, zodat
+ * de knop verschijnt onder precies de voorwaarden waaronder de klap ook
+ * doorgaat — een knop die soms werkt en soms niet, zonder zichtbare reden, is
+ * erger dan geen knop.
+ */
+function useTarget(): { id: string; name: string; hp: number } | null {
+  const [doelwit, setDoelwit] = useState<{ id: string; name: string; hp: number } | null>(null);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (!inPvpZone(playerPosition.x, playerPosition.z)) {
+        setDoelwit(null);
+        return;
+      }
+      let beste: { id: string; name: string; hp: number; afstand: number } | null = null;
+      for (const speler of remotePlayers.values()) {
+        const p = speler.latest;
+        const verdict = judgeAttack({
+          attacker: playerPosition,
+          target: { x: p.x, z: p.z, hp: p.hp },
+          // De cadans laten we hier buiten beschouwing: de knop hoort te blijven
+          // staan tussen twee klappen door, anders knippert hij elke 1,2 seconde.
+          sinceLastAttackMs: Number.POSITIVE_INFINITY,
+        });
+        if (verdict !== 'ok') continue;
+        const afstand = Math.hypot(p.x - playerPosition.x, p.z - playerPosition.z);
+        if (!beste || afstand < beste.afstand) {
+          beste = { id: p.id, name: p.n, hp: p.hp, afstand };
+        }
+      }
+      setDoelwit(beste ? { id: beste.id, name: beste.name, hp: beste.hp } : null);
+    }, 250);
+    return () => clearInterval(timer);
+  }, []);
+
+  return doelwit;
 }
 
 /**
@@ -340,6 +384,7 @@ export function HUD() {
   const toasts = useGame((s) => s.toasts);
   const vault = useLiveVault();
   const surroundings = useSurroundings();
+  const target = useTarget();
   const clockOffset = useGame((s) => s.clockOffset);
   const isDriving = useDriving((s) => s.active);
   const flying = useSettings((s) => s.fly);
@@ -525,6 +570,26 @@ export function HUD() {
         </Pressable>
       ) : null}
 
+      {/*
+        Slaan. Alleen in het park en alleen als er iemand binnen bereik staat —
+        in de stad verschijnt deze knop niet, want daar zou hij niets doen.
+      */}
+      {target ? (
+        <Pressable
+          onPress={() => sendAttack(target.id)}
+          style={({ pressed }) => [
+            styles.attackButton,
+            { bottom: insets.bottom + 216 },
+            pressed && { opacity: 0.7 },
+          ]}
+        >
+          <Text style={styles.attackIcon}>⚔️</Text>
+          <Text style={styles.attackLabel} numberOfLines={1}>
+            {target.name}
+          </Text>
+        </Pressable>
+      ) : null}
+
       {/* Voertuig */}
       {flying ? null : <DriveButton vehicleId={player.vehicleId} bottom={insets.bottom + 148} />}
       {isDriving ? <Speedometer /> : null}
@@ -627,6 +692,21 @@ const styles = StyleSheet.create({
   },
   driveIcon: { fontSize: 22 },
   driveLabel: { color: theme.color.text, fontSize: 11, fontWeight: '700', marginTop: 2 },
+  attackButton: {
+    position: 'absolute',
+    right: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.color.danger,
+    backgroundColor: 'rgba(220, 86, 86, 0.22)',
+    maxWidth: 128,
+  },
+  attackIcon: { fontSize: 22 },
+  attackLabel: { color: theme.color.text, fontSize: 11, fontWeight: '700', marginTop: 2 },
   speedo: {
     position: 'absolute',
     right: 18,

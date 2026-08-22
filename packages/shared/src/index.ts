@@ -19,4 +19,5 @@ export * from './city/park';
 export * from './route';
 export * from './city/streets';
 export * from './shops';
+export * from './combat';
 export * from './addresses';

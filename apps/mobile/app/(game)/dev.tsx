@@ -542,6 +542,42 @@ export default function DevScreen() {
       </Panel>
 
       {/* ---------------------------------------------------------------- */}
+      <SectionTitle hint="server">Vechten</SectionTitle>
+      <Panel>
+        <Row style={{ gap: 8 }}>
+          <Button
+            label="Oefenpop erbij"
+            compact
+            disabled={!enabled || busy}
+            onPress={() =>
+              void run('Oefenpop neergezet', async () => {
+                const pop = await api.devDummy();
+                return `${pop.name} staat naast je`;
+              })
+            }
+          />
+          <Button
+            label="Poppen weg"
+            tone="ghost"
+            compact
+            disabled={!enabled || busy}
+            onPress={() =>
+              void run('Poppen weggehaald', async () => {
+                const uit = await api.devClearDummies();
+                return `${uit.removed} weggehaald`;
+              })
+            }
+          />
+        </Row>
+        <Text style={styles.note}>
+          Vechten kan alleen in Het Verlaten Park en op de landtong ernaartoe; in de stad
+          verschijnt de aanvalsknop niet eens. Teleporteer dus eerst naar het park en zet daar
+          een pop neer. Hij volgt exact dezelfde regels als een speler — bereik, cadans en
+          gebied — alleen valt er niets uit als hij omgaat.
+        </Text>
+      </Panel>
+
+      {/* ---------------------------------------------------------------- */}
       <SectionTitle hint="server">Verplaatsen</SectionTitle>
       <Panel>
         <Choices

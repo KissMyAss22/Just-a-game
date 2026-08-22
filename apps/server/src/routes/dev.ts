@@ -32,6 +32,7 @@ import { env } from '../env.js';
 import { authenticate, playerIdOf } from '../lib/auth.js';
 import { GameError } from '../lib/errors.js';
 import { prisma } from '../lib/prisma.js';
+import { clearDummies, spawnDummy } from '../realtime/city.js';
 import { grant } from '../services/ledger.js';
 import { addItem, loadPlayer, settleVault, toPlayerStateDto } from '../services/player.js';
 
@@ -327,6 +328,35 @@ export async function devRoutes(app: FastifyInstance): Promise<void> {
    * wat je niet wilt testen. Het grootboek blijft staan — dat is de
    * geschiedenis, en die gooi je niet weg.
    */
+  /**
+   * Een oefenpop naast je neerzetten.
+   *
+   * PvP bleef liggen omdat er een tweede speler voor nodig is, en een ronde die
+   * je niet kunt beoordelen is niet af. De pop komt mee in de momentopname en
+   * volgt exact dezelfde aanvalsregels als een speler — alleen valt er niets uit
+   * als hij omgaat.
+   *
+   * Hij leeft alleen in het geheugen van de realtime-laag, dus hij verdwijnt bij
+   * een herstart en na tien minuten vanzelf.
+   */
+  app.post('/dev/dummy', { preHandler: guard }, async (request) => {
+    const playerId = playerIdOf(request);
+    const player = await prisma.player.findUniqueOrThrow({
+      where: { id: playerId },
+      select: { x: true, z: true },
+    });
+    // Twee meter voor je neus: binnen slagafstand, en niet in je gezicht.
+    const spot = nearestWalkable(player.x + 2, player.z) ?? { x: player.x, z: player.z };
+    const pop = spawnDummy(spot.x, spot.z);
+    return { ok: true, ...pop, x: spot.x, z: spot.z };
+  });
+
+  /** Alle oefenpoppen weghalen. */
+  app.post('/dev/dummy/clear', { preHandler: guard }, async () => ({
+    ok: true,
+    removed: clearDummies(),
+  }));
+
   app.post('/dev/reset', { preHandler: guard }, async (request) => {
     const playerId = playerIdOf(request);
     devResetSchema.parse(request.body);

@@ -1,3 +1,4 @@
+import { MAX_HP } from '@game/shared';
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { namePlates } from '../game3d/Crowd';
@@ -33,6 +34,24 @@ export function NamePlates() {
               {plate.name}
             </Text>
             <Text style={styles.level}>lvl {plate.level}</Text>
+            {/*
+              Alleen als er iets af is. Een volle balk boven elke voorbijganger
+              maakt van de stad een schietbaan, en in de stad kán er niet eens
+              gevochten worden.
+            */}
+            {plate.hp < MAX_HP ? (
+              <View style={styles.hpTrack}>
+                <View
+                  style={[
+                    styles.hpFill,
+                    {
+                      width: `${Math.max(0, Math.min(100, (plate.hp / MAX_HP) * 100))}%`,
+                      backgroundColor: plate.hp > MAX_HP * 0.35 ? theme.color.accent : theme.color.danger,
+                    },
+                  ]}
+                />
+              </View>
+            ) : null}
           </View>
         ) : null,
       )}
@@ -61,4 +80,13 @@ const styles = StyleSheet.create({
     fontSize: 10,
     marginTop: 1,
   },
+  hpTrack: {
+    width: 46,
+    height: 4,
+    borderRadius: 2,
+    marginTop: 3,
+    backgroundColor: 'rgba(11, 16, 32, 0.72)',
+    overflow: 'hidden',
+  },
+  hpFill: { height: '100%', borderRadius: 2 },
 });

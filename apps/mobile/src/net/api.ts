@@ -502,5 +502,13 @@ export const devTimeSkip = (hours: number) =>
 export const devSpawn = (x: number, z: number, count = 12) =>
   request<{ created: number; serverTime: number }>('/dev/spawn', { body: { x, z, count } });
 
+export const devDummy = () =>
+  request<{ ok: boolean; id: string; name: string; x: number; z: number }>('/dev/dummy', {
+    method: 'POST',
+  });
+
+export const devClearDummies = () =>
+  request<{ ok: boolean; removed: number }>('/dev/dummy/clear', { method: 'POST' });
+
 export const devReset = () =>
   request<PlayerStateDto>('/dev/reset', { body: { confirm: true } });

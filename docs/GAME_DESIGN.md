@@ -658,6 +658,44 @@ grootste bron van economie-exploits die er is.
 
 ---
 
+## 6c. Elkaar neerhalen in het park
+
+De hele leiding hiervoor lag er al sinds het park zelf: de buidel (`ParkLoot`),
+de poort (de landtong) en het banken bij het oversteken. Deze ronde voegt alleen
+toe dat je elkaar kunt neerhalen.
+
+**De regels staan in `packages/shared/src/combat.ts`**, niet in de server en niet
+in de app. Bereik 2,5 m, één klap per 1,2 seconde, 34 schade — dus drie klappen —
+en alleen op de parkzijde. `judgeAttack` geeft geen `true`/`false` terug maar een
+réden, zodat de app een knop kan verbergen onder precies de voorwaarden waaronder
+de server hem zou weigeren. Een knop die soms werkt zonder zichtbare reden is
+erger dan geen knop.
+
+**Beide spelers moeten aan de parkkant staan**, niet alleen de aanvaller. Anders
+kun je vanaf de landtong iemand raken die net weer op straat staat, en dan is
+"de stad is veilig" een halve waarheid. Daar staat een test op.
+
+**De client meldt alleen een póging**: `{ t: 'attack', target }`, meer niet. Geen
+schade, geen positie, geen "ik heb geraakt". De server toetst tegen posities die
+hij zélf bijhoudt — dezelfde scheiding als bij verkopen bij een pandjeshuis.
+
+**Neergaan** verplaatst je `ParkLoot`-rijen naar `Spawn`-rijen op de plek waar je
+stond, met een korte houdbaarheid. Geen nieuwe tabel: `Spawn` heeft al itemId,
+rarity, x, z en expiresAt, en de bestaande opraaproute werkt er meteen op. Dat ís
+ook precies wat "hij ligt er even voor iedereen" betekent. Je komt terug aan de
+stadskant van de landtong; rugzak, cash en meubels blijven onaangeroerd, want één
+avond pech mag geen week werk kosten.
+
+**Hp leeft alleen in de realtime-laag**, niet in de database. Verbreek je de
+verbinding, dan sta je er de volgende keer fris bij — maar je bent ook je plek in
+het park kwijt. Dat is de eerlijke ruil zonder dat er een verbindingsstraf voor
+nodig is.
+
+**De oefenpop** (`POST /dev/dummy`) bestaat omdat PvP anders niet te beoordelen
+is: er is een tweede speler voor nodig, en een ronde die je niet kunt beoordelen
+is niet af. De pop komt mee in de momentopname en volgt exact dezelfde regels;
+alleen valt er niets uit als hij omgaat.
+
 ## 7. Season pass
 
 - Seizoen = **28 dagen**, 50 tiers, 1.000 season-XP per tier.

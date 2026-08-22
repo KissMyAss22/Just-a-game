@@ -1,4 +1,4 @@
-import { REALTIME, type ServerMessage } from '@game/shared';
+import { REALTIME, type DownedMessage, type ServerMessage } from '@game/shared';
 import { API_URL, currentToken } from './api';
 import { clearPresence, ingestSnapshot, localPresence, realtime } from './presence';
 
@@ -69,6 +69,8 @@ async function open(): Promise<void> {
         realtime.id = message.id;
       } else if (message.t === 'snapshot') {
         ingestSnapshot(message);
+      } else if (message.t === 'downed') {
+        onDowned?.(message);
       }
     } catch {
       // Een onbegrijpelijk bericht negeren we; de volgende komt over 100 ms.
@@ -88,6 +90,30 @@ async function open(): Promise<void> {
   };
   next.onclose = shutdown;
   next.onerror = shutdown;
+}
+
+/**
+ * Wie er geïnformeerd wordt als je neergaat.
+ *
+ * Dit bestand doet alleen verkeer en weet niets van de HUD of van de speltoestand;
+ * `city.tsx` hangt hier zijn afhandeling in. Zo hoeft de netwerklaag geen store te
+ * importeren en blijft de richting één kant op.
+ */
+let onDowned: ((message: DownedMessage) => void) | null = null;
+
+export function setDownedHandler(handler: ((message: DownedMessage) => void) | null): void {
+  onDowned = handler;
+}
+
+/**
+ * Een klap uitdelen: alleen een póging, met wie je probeert te raken.
+ *
+ * De server beslist op basis van posities die hij zelf bijhoudt. Lukt het niet —
+ * te ver, te snel, of niet in het park — dan gebeurt er stil niets.
+ */
+export function sendAttack(targetId: string): void {
+  if (!socket || socket.readyState !== 1) return;
+  socket.send(JSON.stringify({ t: 'attack', target: targetId }));
 }
 
 /** Verbinden met de gedeelde stad. Herstelt zichzelf na een storing. */

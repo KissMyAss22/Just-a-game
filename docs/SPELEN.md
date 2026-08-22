@@ -377,10 +377,26 @@ een aparte buidel terecht en niet in je rugzak. Boven in beeld staat hoeveel er
 in zit. Pas als je de landtong over loopt en weer in de stad staat, verhuist
 alles in één keer naar je rugzak. Dat heet **banken**.
 
-Op dit moment kun je die buit nog niet verliezen: er is nog niets wat je
-neerhaalt. Zodra spelers elkaar in het park kunnen aanvallen verandert dat, en
-dan valt precies dié buidel op de grond als je neergaat. Je base, je meubels,
-je cash en je gewone rugzak blijven daar altijd buiten.
+**En nu kun je die buit verliezen.** In het park en op de landtong kunnen spelers
+elkaar neerhalen. Staat er iemand binnen twee en een halve meter, dan verschijnt
+er een aanvalsknop; in de stad verschijnt die knop niet eens, want daar kan er
+niet gevochten worden.
+
+Drie klappen halen iemand neer, met minstens 1,2 seconde ertussen. Dat is ruim
+drie seconden aanhoudend contact — lang genoeg om weg te rennen als je oplet,
+kort genoeg om spannend te blijven. Boven iemand die klappen heeft gehad staat
+een balkje; bij vol leven staat het er niet, anders lijkt de hele stad een
+schietbaan.
+
+**Ga je neer, dan valt je buidel op de grond.** Precies dat, en niets anders: je
+base, je meubels, je cash en je gewone rugzak blijven onaangeroerd. Wat je liet
+vallen ligt een paar minuten in het gras en is voor wie er als eerste bij is —
+ook voor jou, als je snel genoeg terug bent. Zelf kom je terug aan de stadskant
+van de landtong, met vol leven. Terugkomen kost je dus precies de wandeling die
+je net had gemaakt.
+
+Dat is ook waarom banken de moeite waard is: alles wat je al over de landtong
+hebt gedragen, kan niemand je meer afnemen.
 
 ## De kaart en de weg ernaartoe
 

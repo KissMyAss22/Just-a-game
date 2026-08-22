@@ -103,7 +103,24 @@ export const moveMessageSchema = z.object({
   d: z.union([z.literal(0), z.literal(1)]),
 });
 
-export const clientMessageSchema = z.discriminatedUnion('t', [moveMessageSchema]);
+/**
+ * Client → server: ik probeer die daar te raken.
+ *
+ * Meer staat er bewust niet in. Geen schade, geen positie, geen "ik heb
+ * geraakt" — dat zou de client laten bepalen wat er gebeurt. Dit is een póging;
+ * de server kijkt naar de posities die hij zélf bijhoudt en beslist. Dezelfde
+ * scheiding als bij verkopen: je kunt niet beweren dat je ergens staat.
+ */
+export const attackMessageSchema = z.object({
+  t: z.literal('attack'),
+  /** Het id van de speler die je probeert te raken. */
+  target: z.string().min(1).max(64),
+});
+
+export const clientMessageSchema = z.discriminatedUnion('t', [
+  moveMessageSchema,
+  attackMessageSchema,
+]);
 export type ClientMessage = z.infer<typeof clientMessageSchema>;
 
 /**
@@ -127,6 +144,14 @@ export interface RemotePlayer {
   s: number;
   o: number;
   a: number;
+  /**
+   * Levenspunten, 0 tot `MAX_HP`.
+   *
+   * Gaat bij elke momentopname mee, ook in de stad waar er niets mee gebeurt.
+   * Twee bytes per speler is minder dan de administratie die nodig zou zijn om
+   * hem alleen in het park mee te sturen.
+   */
+  hp: number;
 }
 
 export interface WelcomeMessage {
@@ -144,7 +169,24 @@ export interface SnapshotMessage {
   players: RemotePlayer[];
 }
 
-export type ServerMessage = WelcomeMessage | SnapshotMessage;
+/**
+ * Server → client: je bent neergegaan.
+ *
+ * Komt alleen bij degene die neerging. Wie de klap uitdeelde ziet het vanzelf,
+ * want de ander verdwijnt uit zijn buurt.
+ */
+export interface DownedMessage {
+  t: 'downed';
+  /** De naam van wie je neerhaalde. */
+  by: string;
+  /** Hoeveel stuks buit er uit je buidel op de grond zijn gevallen. */
+  lost: number;
+  /** Waar je opnieuw begint: aan de stadskant van de landtong. */
+  x: number;
+  z: number;
+}
+
+export type ServerMessage = WelcomeMessage | SnapshotMessage | DownedMessage;
 
 /**
  * Naam en uiterlijk gaan bij elke momentopname mee in plaats van één keer bij
@@ -153,5 +195,5 @@ export type ServerMessage = WelcomeMessage | SnapshotMessage;
  * tientallen spelers is dat de goede ruil; bij honderden niet meer.
  */
 export function snapshotSize(players: number): number {
-  return players * 90;
+  return players * 95;
 }

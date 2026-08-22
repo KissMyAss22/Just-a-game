@@ -22,6 +22,11 @@ export interface NamePlate {
   id: string;
   name: string;
   level: number;
+  /**
+   * Levenspunten, 0 tot MAX_HP. Alleen zichtbaar als er iets van af is: een
+   * volle balk boven iedereen die je tegenkomt maakt de stad een schietbaan.
+   */
+  hp: number;
   /** Positie in beeldpunten, linksboven is 0,0. */
   x: number;
   y: number;
@@ -136,6 +141,7 @@ export function createCrowd(castShadow = false): Crowd {
           id,
           name: player.n,
           level: player.level,
+          hp: player.hp,
           x: (projected.x * 0.5 + 0.5) * width,
           y: (-projected.y * 0.5 + 0.5) * height,
           // z buiten [-1,1] betekent achter de camera of voorbij de far-plane.
