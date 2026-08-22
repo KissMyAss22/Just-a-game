@@ -414,12 +414,21 @@ ${GLSL_HELPERS}`,
   // Overdag brandt er weinig licht; een gevel vol verlichte ruiten leest als
   // een spreadsheet in plaats van als een gebouw. 's Avonds gaat het grootste
   // deel aan — maar nooit alles, want dan verdwijnt de structuur weer.
-  float litChance = mix(0.90, 0.34, uNight);
+  float litChance = mix(0.90, 0.24, uNight);
   float lit = step(litChance, hash21(vec2(columnIndex + vInfo.x * 91.0, floorIndex)));
+  // Niet elke woonkamer heeft dezelfde lamp. Een deel trekt naar koel wit of
+  // blauwig tv-licht; dat is wat een avondgevel levendig maakt in plaats van
+  // een raster van identieke oranje vlekjes.
+  float lampSoort = hash21(vec2(floorIndex * 7.0 + 3.0, columnIndex + vInfo.x * 13.0));
+  vec3 lampKleur = mix(
+    vec3(1.00, 0.62, 0.24),
+    mix(vec3(1.00, 0.86, 0.62), vec3(0.38, 0.70, 1.00), step(0.86, lampSoort)),
+    smoothstep(0.55, 0.95, lampSoort)
+  );
   // Hoger in het gebouw vangt de ruit meer lucht en wordt hij lichter.
   float skyward = clamp(height / 42.0, 0.0, 1.0);
   vec3 glassColor = mix(vec3(0.075, 0.095, 0.125), vec3(0.14, 0.19, 0.25), skyward);
-  glassColor = mix(glassColor, mix(vec3(0.30, 0.25, 0.16), vec3(0.55, 0.42, 0.24), uNight), lit);
+  glassColor = mix(glassColor, lampKleur * mix(0.22, 0.42, uNight), lit);
 
   vec3 frameColor = mix(vec3(0.86, 0.85, 0.82), vec3(0.16, 0.17, 0.19), isCurtain);
 
@@ -466,10 +475,20 @@ ${GLSL_HELPERS}`,
 
   diffuseColor.rgb = mix(surface, roofColor, roof);
 
-  // De pui op de begane grond straalt minder dan een woonkamer erboven;
-  // anders verblindt elke winkelruit je zodra het donker wordt.
-  float glowStrength = (0.22 + uNight * 0.95) * mix(1.0, 0.55, ground);
-  totalEmissiveRadiance += vec3(1.0, 0.80, 0.50) * paneAmount * lit * glowStrength;
+  // De pui op de begane grond straalt juist het félst.
+  //
+  // Dit stond andersom — de begane grond werd gedempt om te voorkomen dat een
+  // winkelruit je zou verblinden. Maar een straat op ooghoogte leeft van
+  // verlichte etalages: dat is het licht dat op de stoep valt en dat je van
+  // veraf een winkel laat zien. Ze zijn nu bijna twee keer zo sterk als een
+  // woonkamer erboven, en ze branden ook als er niemand thuis is.
+  float etalage = ground * (1.0 - door);
+  float aan = max(lit, etalage);
+  // Gemeten op de proefstraat: met 1,75 en een factor 1,85 voor de pui blies
+  // elke etalage uit naar zuiver wit, en dan is er geen vorm meer te zien —
+  // alleen een gat. Een verlichte ruit hoort te gloeien, niet te branden.
+  float glowStrength = (0.08 + uNight * 0.44) * mix(1.0, 1.35, etalage);
+  totalEmissiveRadiance += lampKleur * paneAmount * aan * glowStrength;
   roughnessFactor = mix(mix(mix(0.86, 0.94, isBrick), 0.22, paneAmount), 0.93, roof);
   metalnessFactor = mix(mix(0.0, mix(0.52, 0.68, isCurtain), paneAmount), 0.0, roof);
 

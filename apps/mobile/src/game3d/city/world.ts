@@ -195,8 +195,10 @@ export function createWorld(
       sky.setLighting(lighting);
       sky.update(camera, elapsed);
 
-      NIGHT_UNIFORM.value = lighting.night;
-      props.setNight(lighting.night);
+      // Kunstlicht volgt `lights`, niet `night`. Dat verschil is het hele blauwe
+      // uur: de stad staat al aan terwijl de lucht nog blauw is.
+      NIGHT_UNIFORM.value = lighting.lights;
+      props.setNight(lighting.lights);
       sun.color.set(lighting.palette.sunLight);
       sun.intensity = lighting.palette.sunIntensity;
       ambient.color.set(lighting.palette.skyLight);

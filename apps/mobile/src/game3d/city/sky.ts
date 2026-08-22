@@ -29,8 +29,20 @@ export interface SkyPalette {
 
 interface SkyKeyframe extends Omit<SkyPalette, 'sunDirection'> {
   hour: number;
-  /** 0 = klaarlichte dag, 1 = midden in de nacht. */
+  /** 0 = klaarlichte dag, 1 = midden in de nacht. Stuurt de lucht en de sterren. */
   night: number;
+  /**
+   * Hoeveel kunstlicht er brandt: ramen, lantaarns, etalages, koplampen.
+   *
+   * Dit was hetzelfde getal als `night`, en dát is waarom het blauwe uur nooit
+   * te zien was. Om half acht is de lucht op zijn mooist — diep blauw, nog niet
+   * zwart — maar `night` staat dan op een vijfde, dus er brandde vrijwel niets.
+   * In het echt gaan de lichten juist áán terwijl de lucht nog blauw is, en
+   * precies dat contrast maakt blauw uur mooi.
+   *
+   * Twee getallen dus: hoe donker de lucht is, en of de stad aan staat.
+   */
+  lights: number;
 }
 
 /**
@@ -49,49 +61,68 @@ const KEYFRAMES: SkyKeyframe[] = [
     zenith: '#05070f', horizon: '#0e1524', haze: '#141d2e', ground: '#0a0b0e', sun: '#cfd8ff',
     sunLight: '#9db0dc', sunIntensity: 0.62,
     skyLight: '#46587e', groundLight: '#1c1f27', skyIntensity: 0.85,
-    night: 1,
+    night: 1, lights: 1,
   },
   {
     hour: 5.6,
     zenith: '#1d3b6b', horizon: '#c9805f', haze: '#d49a78', ground: '#1b1a1c', sun: '#ffb27a',
     sunLight: '#ffc79a', sunIntensity: 1.3,
     skyLight: '#6f88b5', groundLight: '#4e4335', skyIntensity: 0.55,
-    night: 0.42,
+    night: 0.42, lights: 0.8,
   },
   {
     hour: 8.5,
     zenith: '#2b5fa0', horizon: '#b6cbdd', haze: '#d6d6cf', ground: '#2c2b29', sun: '#ffe0b0',
     sunLight: '#fff0dc', sunIntensity: 2.7,
     skyLight: '#a9c4e0', groundLight: '#5f5646', skyIntensity: 0.46,
-    night: 0.04,
+    night: 0.04, lights: 0,
   },
   {
     hour: 13,
     zenith: '#2f63a6', horizon: '#a8c3d8', haze: '#d8cdba', ground: '#31302d', sun: '#ffd9a0',
     sunLight: '#fffaf0', sunIntensity: 3.3,
     skyLight: '#b9cfe4', groundLight: '#665c4c', skyIntensity: 0.42,
-    night: 0,
+    night: 0, lights: 0,
   },
   {
+    // Zonsondergang. De lichten gaan al aan terwijl de zon nog laag staat;
+    // dat is de aanloop naar het uur hieronder.
     hour: 18.5,
     zenith: '#2a5a9c', horizon: '#dfb187', haze: '#e6c39a', ground: '#2e2b26', sun: '#ffcf90',
     sunLight: '#ffd9a8', sunIntensity: 2.5,
     skyLight: '#a8bcd6', groundLight: '#6a5540', skyIntensity: 0.46,
-    night: 0.05,
+    night: 0.05, lights: 0.55,
+  },
+  {
+    // Het blauwe uur: waar dit spel op ontworpen is.
+    //
+    // De zon is net onder, de lucht is nog diep en verzadigd blauw, en de hele
+    // stad staat aan. Het zonlicht is bijna weg maar niet helemaal — een restje
+    // warm strijklicht houdt de gevels leesbaar en geeft nog een schaduw. Het
+    // hemellicht is bewust koel en stevig: dat is de blauwe vulling waar al het
+    // warme raamlicht tegenin gaat.
+    hour: 19.6,
+    zenith: '#0e2453', horizon: '#2a6098', haze: '#2f5d8c', ground: '#1b2534', sun: '#ff9f63',
+    sunLight: '#ffb277', sunIntensity: 1.05,
+    // Ruim hemellicht, en bewust koel. Op de proefstraat viel de straat in het
+    // zwart terwijl de etalages uitbliezen: dat is geen contrast maar een gat.
+    // Dit blauw is de vulling waar al het warme raamlicht tegenin moet gaan.
+    skyLight: '#7ba3d8', groundLight: '#4a5878', skyIntensity: 2.35,
+    night: 0.35, lights: 1,
   },
   {
     hour: 20.8,
-    zenith: '#16294f', horizon: '#c2704f', haze: '#9b7264', ground: '#1a1917', sun: '#ff9b5e',
-    sunLight: '#e0906a', sunIntensity: 0.95,
-    skyLight: '#4a5f88', groundLight: '#2c2620', skyIntensity: 0.45,
-    night: 0.55,
+    zenith: '#08152f', horizon: '#12315c', haze: '#193458', ground: '#151b26', sun: '#ff9b5e',
+    sunLight: '#7f93c4', sunIntensity: 0.5,
+    skyLight: '#47679c', groundLight: '#2a3346', skyIntensity: 1.35,
+    night: 0.8, lights: 1,
   },
   {
     hour: 24,
     zenith: '#05070f', horizon: '#0e1524', haze: '#141d2e', ground: '#0a0b0e', sun: '#cfd8ff',
     sunLight: '#9db0dc', sunIntensity: 0.62,
     skyLight: '#46587e', groundLight: '#1c1f27', skyIntensity: 0.85,
-    night: 1,
+    night: 1, lights: 1,
   },
 ];
 
@@ -113,8 +144,10 @@ export function sunDirectionAt(hour: number): THREE.Vector3 {
 
 export interface Lighting {
   palette: SkyPalette;
-  /** 0 = dag, 1 = nacht. Stuurt verlichte ramen en lantaarns aan. */
+  /** 0 = dag, 1 = nacht. Stuurt de lucht en de sterren. */
   night: number;
+  /** 0 = alles uit, 1 = de hele stad brandt. Stuurt ramen, lantaarns en koplampen. */
+  lights: number;
 }
 
 /** Mengt de keyframes tot de stand van het licht op dit uur. */
@@ -135,6 +168,7 @@ export function lightingAt(hour: number): Lighting {
 
   return {
     night: lerp(from.night, to.night),
+    lights: lerp(from.lights, to.lights),
     palette: {
       zenith: mixColor(from.zenith, to.zenith, t),
       horizon: mixColor(from.horizon, to.horizon, t),

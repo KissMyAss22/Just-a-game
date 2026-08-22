@@ -418,6 +418,34 @@ const views: View[] = [
     },
   },
   {
+    /**
+     * De proefstraat: blauw uur op ooghoogte.
+     *
+     * Dit is het beeld waar de grafische ronde op beoordeeld wordt. De
+     * referentie (`docs/referentie/stijl-blauw-uur.png`) is een winkelstraat bij
+     * schemer waar álles brandt terwijl de lucht nog diep blauw is — en precies
+     * dat moment was tot nu toe onzichtbaar, omdat "de lichten aan" hetzelfde
+     * getal was als "de lucht is donker".
+     *
+     * 19:36 is het gekozen uur: de zon is net onder, er is nog een restje warm
+     * strijklicht, en de stad staat helemaal aan.
+     */
+    name: 'proefstraat, blauw uur',
+    hour: 19.6,
+    height: 460,
+    // Een gewone winkelstraat, en bewust níét het Marktplein: daar staat per
+    // ontwerp geen straatmeubilair, dus stond er in het eerste beeld geen
+    // enkele lantaarn aan. Een avondstraat zonder lantaarns beoordeelt niets.
+    focus: [26, 44],
+    place: (c) => {
+      // Midden op de stoep, kijkend de straat in. Het eerste beeld stond met
+      // zijn neus tegen een gevel, en dan is de halve plaat één witte pui.
+      c.position.set(21.0, 1.75, 22.0);
+      c.lookAt(27.5, 4.0, 56.0);
+    },
+    fov: 62,
+  },
+  {
     // Elk ander beeld staat op ooghoogte tussen de gevels, en daar zie je van de
     // lucht alleen een streep vlak boven de horizon — precies waar de nevel het
     // overneemt. Het verloop, de zon en de wolken uit `sky.ts` waren dus nergens
