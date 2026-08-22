@@ -28,7 +28,7 @@ import { rarityColor, theme } from '../../src/ui/theme';
  * bekijken. Alles wat hier staat kost normaal uren spelen: een villa, een
  * supercar, een rugzak vol legendarische spullen, een nacht offline-inkomen.
  *
- * De helft werkt alleen als je server met DEV_TOOLS=1 draait; de andere helft
+ * De helft loopt via de server; die doet tijdens het ontwikkelen gewoon mee. De andere helft
  * (de klok van de stad, de meter) zit puur in de app en werkt altijd.
  */
 
@@ -71,6 +71,11 @@ function geldigBedrag(tekst: string, max: number): boolean {
  * Allemaal afgeleid en niets ingetypt. Een lijst met coördinaten in een scherm
  * is precies wat er stukgaat zodra de kaart verandert — en die is deze maand al
  * twee keer veranderd. Wat hier staat verschuift vanzelf mee.
+ *
+ * De sleutels krijgen een voorvoegsel per herkomst. Zonder dat botsten ze: het
+ * pandjeshuis op het plein heeft id `plein` en het gebied eromheen ook, en React
+ * zag twee kinderen met dezelfde sleutel. Ids uit verschillende lijsten horen
+ * niet in één sleutelruimte, ook al lijkt het toevallig goed te gaan.
  */
 function namedPlaces(
   propertyId: string | undefined,
@@ -79,7 +84,7 @@ function namedPlaces(
   const out = [{ key: 'spawn', label: 'Startpunt', ...spawnPosition() }];
 
   for (const shop of shopSpots()) {
-    out.push({ key: shop.id, label: shop.name, x: shop.x, z: shop.z });
+    out.push({ key: `winkel-${shop.id}`, label: shop.name, x: shop.x, z: shop.z });
   }
 
   if (propertyId !== undefined && seed !== undefined) {
@@ -90,7 +95,7 @@ function namedPlaces(
   // Het stadspark en het marktplein: de twee plekken in de stad die geen
   // bouwblok zijn. Zonder deze twee is die ronde alleen te voet te bekijken.
   for (const vak of SPECIAL_AREAS) {
-    out.push({ key: vak.id, label: vak.name, ...specialAreaCenter(vak) });
+    out.push({ key: `vak-${vak.id}`, label: vak.name, ...specialAreaCenter(vak) });
   }
 
   const park = parkRect();
@@ -272,9 +277,13 @@ export default function DevScreen() {
         <Panel style={styles.warning}>
           <Text style={styles.warningTitle}>De server doet niet mee</Text>
           <Text style={styles.note}>
-            Zet <Text style={styles.code}>DEV_TOOLS=1</Text> in{' '}
-            <Text style={styles.code}>apps/server/.env</Text> en herstart de server. Zonder dat
-            weigert hij alles hieronder — en terecht: dit zijn gratis-geldknoppen.
+            Tijdens het ontwikkelen staat dit gereedschap gewoon aan, dus als je dit leest is er
+            iets bijzonders aan de hand. Waarschijnlijk draait je server met{' '}
+            <Text style={styles.code}>NODE_ENV=production</Text> of met{' '}
+            <Text style={styles.code}>DEV_TOOLS=off</Text> — daar kan het namelijk niet aan, en
+            terecht: dit zijn gratis-geldknoppen.
+            {'\n\n'}
+            Draait je server nog van vóór deze wijziging, herstart hem dan even.
             {'\n\n'}
             De klok en de meter onderaan werken wel gewoon; die zitten in de app.
           </Text>
@@ -320,7 +329,7 @@ export default function DevScreen() {
           omlaag. Handig om de stad van boven te bekijken en om te zien waar hij ophoudt.
           {'\n\n'}
           Loopsnelheid en vliegen zitten in de app, maar de server telt wel mee hoe hard je
-          gaat. Zonder DEV_TOOLS=1 duwt de snelheidscontrole je gewoon terug — die staat er
+          gaat. Draait de server met DEV_TOOLS=off, dan duwt de snelheidscontrole je gewoon terug — die staat er
           niet voor niets.
         </Text>
       </Panel>

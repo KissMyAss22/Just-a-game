@@ -219,7 +219,8 @@ Er is ook een stand waarin een tik op de kaart in je telefoon je daarheen laat
 springen. Die staat standaard uit: de kaart is ook een scherm dat een gewone
 speler openslaat.
 
-Dit werkt alleen als de server met `DEV_TOOLS=1` draait. Zonder dat duwt de
+Dit staat tijdens het ontwikkelen aan en is in productie onmogelijk. Zet je het uit
+met `DEV_TOOLS=off`, dan duwt de
 snelheidscontrole je gewoon terug — en dat hoort ook zo: één regel in een `.env`
 mag niet de hele anti-cheat uitschakelen. De vlag doet in productie sowieso
 niets.

@@ -141,7 +141,7 @@ versie, dan is dit de eerste keer die je met de hand moet doen.
 draait. Dat loopt in één keer de weg af die de app ook aflegt — aanmelden,
 toestand ophalen, iets oprapen in het park en de landtong oversteken — en zegt
 bij de eerste stap die niet klopt waar het misgaat. Start je server met
-`DEV_TOOLS=1`, dan wordt het parkdeel meegenomen; zonder slaat hij dat over en
+`DEV_TOOLS` niet op `off`, dan wordt het parkdeel meegenomen; anders slaat hij dat over en
 zegt dat erbij.
 
 Draait je Postgres niet, dan start de server nu ook niet meer — met een duidelijke
@@ -210,8 +210,9 @@ pijlen rechts in beeld omhoog. In datzelfde scherm staat ook de loopsnelheid
 eigen voordeur, het park of een coördinaat dat je zelf intypt. Zet je de
 kaartstand aan, dan brengt een tik op de kaart in je telefoon je erheen.
 
-Daarvoor moet je server wel met `DEV_TOOLS=1` draaien — zie `apps/server/.env`;
-zonder dat weigert hij de teleport en duwt de snelheidscontrole je terug.
+Tijdens het ontwikkelen staat dit gereedschap gewoon aan; je hoeft daar niets voor
+te doen. In productie kan het niet aan, wat er ook in je `.env` staat. Wil je zien
+hoe de app zich zónder gedraagt, zet dan `DEV_TOOLS=off` in `apps/server/.env`.
 
 ### Het hapert — waar zie ik dat aan?
 

@@ -21,9 +21,23 @@ export const env = {
    * loopsnelheidsknop en de vliegmodus in de app niet meteen door de server
    * worden teruggeduwd.
    *
-   * Staat uit tenzij je hem zelf aanzet, en werkt sowieso niet in productie.
-   * Anders zou één regel in een .env de hele anti-cheat uitschakelen.
+   * **Aan tijdens het ontwikkelen, en in productie onmogelijk.**
+   *
+   * Dit stond andersom: uit tenzij je `DEV_TOOLS=1` zette. Dat leverde vooral
+   * verwarring op — `.env.example` levert de uitstand, `.env` staat in
+   * `.gitignore`, dus je begint standaard zonder gereedschap en er is nergens te
+   * zien waarom een knop niets doet. Voor een spel dat door één persoon wordt
+   * gebouwd is dat de verkeerde standaard.
+   *
+   * De bescherming die ertoe doet blijft ongewijzigd: in productie kan dit niet
+   * aan, wat er ook in de .env staat. Eén verkeerde .env zet dus nog steeds geen
+   * gratis-geldknop op internet. Wel is het nu één vergissing in plaats van twee
+   * als je ooit deployt zónder NODE_ENV op production — dat is de prijs, en die
+   * is bewust betaald.
+   *
+   * Uitzetten kan met `DEV_TOOLS=off`, bijvoorbeeld om te zien hoe de app zich
+   * gedraagt zonder.
    */
-  devTools: process.env.DEV_TOOLS === '1' && process.env.NODE_ENV !== 'production',
+  devTools: process.env.DEV_TOOLS !== 'off' && process.env.NODE_ENV !== 'production',
   isProduction: process.env.NODE_ENV === 'production',
 } as const;
