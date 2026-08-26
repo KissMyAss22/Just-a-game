@@ -356,6 +356,25 @@ ${GLSL_HELPERS}`,
   vec3 brick = base * (0.84 + hash21(vec2(brickIndex, courseIndex)) * 0.30);
   vec3 mortar = mix(base, vec3(0.62, 0.60, 0.56), 0.55);
   brick = mix(brick, mortar, joint * fineDetail * 0.75);
+
+  // Diepte in de voeg, en dat is subtieler dan het lijkt.
+  //
+  // Mijn eerste poging maakte de hele voeg donkerder. Gemeten daalde het lokale
+  // contrast daardoor van 8,71 naar 7,92: specie is lichter dan baksteen, dus
+  // verdonkeren trok hem juist naar de steenkleur toe en werd de muur platter.
+  //
+  // Wat wél als diepte leest is een smalle schaduwlijn precies op de overgang —
+  // daar waar de steen erboven overhangt. De voeg zelf blijft licht. Eén donkere
+  // haarlijn met een lichte band eronder is wat het oog als een terugliggende
+  // voeg herkent; een egaal donkere band is gewoon een streep.
+  float schaduwlijnV = smoothstep(0.90, 0.86, fCourse) * smoothstep(0.82, 0.86, fCourse);
+  float schaduwlijnU = smoothstep(0.96, 0.93, fract(brickU)) * smoothstep(0.90, 0.93, fract(brickU));
+  float schaduwlijn = max(schaduwlijnV, schaduwlijnU);
+  brick *= 1.0 - schaduwlijn * fineDetail * 0.55;
+  // En de onderrand van elke steen vangt juist wat meer licht, doordat hij
+  // een fractie uitsteekt boven de voeg eronder.
+  brick *= 1.0 + smoothstep(0.16, 0.03, fCourse) * fineDetail * 0.16;
+
   wall = mix(wall, brick, isBrick);
 
   // Betonpanelen: brede platen met een zichtbare naad ertussen.
@@ -525,7 +544,17 @@ ${GLSL_HELPERS}`,
   // alleen een gat. Een verlichte ruit hoort te gloeien, niet te branden.
   float glowStrength = (0.08 + uNight * 0.44) * mix(1.0, 1.35, etalage);
   totalEmissiveRadiance += lampKleur * paneAmount * aan * glowStrength;
-  roughnessFactor = mix(mix(mix(0.86, 0.94, isBrick), 0.22, paneAmount), 0.93, roof);
+  // Ruwheid varieert per steen in plaats van overal gelijk te zijn.
+  //
+  // Dit is waarom harde oppervlakken egaal ogen: roughnessFactor stond op één
+  // waarde voor de hele gevel, dus het licht viel overal precies hetzelfde. Een
+  // echte muur heeft gladde en dorre stenen door elkaar, en dan schuift er een
+  // lichtstreep over als je erlangs loopt. Dat kost hier een hash die er al is.
+  float steenRuw = 0.86 + (hash21(vec2(brickIndex + 5.0, courseIndex + 2.0)) - 0.5) * 0.22;
+  // De voeg is dorrer dan de steen; specie is nooit glad.
+  steenRuw = mix(steenRuw, 0.97, joint * 0.6);
+  float muurRuw = mix(0.86, steenRuw, isBrick);
+  roughnessFactor = mix(mix(muurRuw, 0.22, paneAmount), 0.93, roof);
   metalnessFactor = mix(mix(0.0, mix(0.52, 0.68, isCurtain), paneAmount), 0.0, roof);
 
   // Een vlakke gevel weerspiegelt de lucht overal precies hetzelfde, waardoor

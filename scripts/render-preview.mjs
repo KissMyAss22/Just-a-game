@@ -34,6 +34,41 @@ if (!chrome) {
 mkdirSync(outDir, { recursive: true });
 const bundle = join(previewDir, 'bundle.js');
 
+/**
+ * Een backtick in shadercommentaar sluit de template-string voortijdig af.
+ *
+ * Dat is twee keer gebeurd, en allebei de keren was de melding een esbuild-fout
+ * over een haakje op een regel die er niets mee te maken had. Deze controle
+ * kost niets en zegt meteen wat er aan de hand is.
+ */
+function controleerShaders() {
+  const bestanden = [
+    'apps/mobile/src/game3d/city/materials.ts',
+    'apps/mobile/src/game3d/city/sky.ts',
+  ];
+  for (const pad of bestanden) {
+    const bron = readFileSync(join(root, pad), 'utf8');
+    let vanaf = 0;
+    for (;;) {
+      const begin = bron.indexOf('/* glsl */', vanaf);
+      if (begin < 0) break;
+      const open = bron.indexOf('`', begin);
+      const dicht = bron.indexOf('`', open + 1);
+      const blok = bron.slice(open + 1, dicht);
+      const regel = bron.slice(0, open).split('\n').length;
+      if (blok.includes('`')) {
+        console.error(
+          `Backtick in het shaderblok van ${pad} rond regel ${regel}.\n` +
+            'Een backtick sluit de template-string af; gebruik aanhalingstekens in commentaar.',
+        );
+        process.exit(1);
+      }
+      vanaf = dicht + 1;
+    }
+  }
+}
+controleerShaders();
+
 console.log('Bundelen...');
 execFileSync(
   join(root, 'node_modules/.bin/esbuild'),
