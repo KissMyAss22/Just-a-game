@@ -21,7 +21,8 @@
     "setup": "node scripts/setup.mjs",
     "test": "pnpm -r --if-present test",
     "typecheck": "pnpm -r typecheck",
-    "smoke": "tsx scripts/smoke.mjs"
+    "smoke": "tsx scripts/smoke.mjs",
+    "knip": "tsx scripts/knip-beeld.ts"
   },
   "devDependencies": {
     "typescript": "~5.9.2"

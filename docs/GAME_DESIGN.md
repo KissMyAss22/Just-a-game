@@ -295,6 +295,52 @@ kortere route kunnen wegstrepen. Een test in `packages/shared` legt een
 bovengrens op de kosten, ruim boven het gemeten getal — hij hoort om te vallen
 als er iets structureels terugkomt, niet als de machine even traag is.
 
+### Omgevingsocclusie zonder postprocessing
+
+Hoeken zagen er plat uit, en dat is de klassieke reden om SSAO erbij te halen.
+Dat is hier bewust niet gedaan: SSAO vraagt een postprocessing-keten met een
+diepte-pass en een full-screen render target, en op een telefoon kost dat
+doorgaans een vijfde tot bijna de helft van je frametijd. Voor een spel dat
+vloeiend moet blijven op een toestel van vier jaar oud is dat de verkeerde ruil.
+
+In plaats daarvan rekent de gevelshader zijn eigen occlusie uit. Hij weet waar
+zijn randen zitten, dus drie plekken worden donkerder — precies waar licht in
+het echt niet komt:
+
+| Plek | Waarom |
+|---|---|
+| De voet van de muur | Waar de gevel de stoep raakt, tot ongeveer 2,6 m hoog |
+| De verticale hoeken | Waar twee vlakken samenkomen, over een halve meter |
+| Onder de kroonlijst | De onderkant van elke uitstekende lijst |
+
+Gemeten: 27 % van de pixels op de gevelproef werd merkbaar donkerder, en de
+gemiddelde helderheid ging van 69,3 naar 66,0. **De belasting bleef gelijk** —
+99 tekenopdrachten en 232k driehoeken tegen 101 en 233k ervoor, met hetzelfde
+aantal shaderprogramma's. Het zijn een handvol instructies in een shader die
+toch al draaide.
+
+De eerste waarden waren te sterk: 0,62 voor de voet maal 0,72 voor de hoek geeft
+0,45 in een binnenhoek, en dan zakt de schaduwkant van een muur weg in het zwart
+— vijf procent van het beeld verloor daar zijn detail. Occlusie hoort diepte te
+geven, niet gaten.
+
+### Schaduwscherpte is een straal, geen resolutie
+
+De schaduwmap is een vast aantal pixels dat over een vierkant van tweemaal de
+schaduwstraal wordt uitgesmeerd. Halveer je die straal, dan verdubbelt de
+scherpte voor exact dezelfde kosten. Op "hoog" stond 2048 px over 180 meter:
+bijna negen centimeter per texel, waarmee de voet van een personage drie pixels
+breed is.
+
+| Stand | Map | Straal | Per texel |
+|---|---|---|---|
+| Normaal | 1024 | 45 m | 8,8 cm |
+| Hoog | 2048 | 55 m | 5,4 cm |
+
+De prijs is dat schaduwen verderop wegvallen. In een stad op ooghoogte merk je
+dat nauwelijks: er staat vrijwel altijd een gevel tussen jou en het punt waar de
+schaduw ophoudt.
+
 ### Beeldkwaliteit in drie standen
 
 Een telefoon van vier jaar oud en een nieuwe iPhone zitten een factor tien uit

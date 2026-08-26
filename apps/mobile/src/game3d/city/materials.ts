@@ -473,6 +473,42 @@ ${GLSL_HELPERS}`,
   surface = mix(average, surface, detail);
   float paneAmount = pane * detail;
 
+  // ---- omgevingsocclusie -------------------------------------------------
+  //
+  // Geen SSAO: dat vraagt een postprocessing-keten met een diepte-pass, en op
+  // een telefoon kost dat een vijfde tot bijna de helft van je frametijd. Dit
+  // is de goedkope versie die het meeste werk doet, en hij kost letterlijk
+  // niets: de gevel weet zelf waar zijn randen zitten.
+  //
+  // Drie plekken worden donkerder, precies waar licht in het echt niet komt:
+  // de voet van de muur waar hij de stoep raakt, de verticale hoeken waar twee
+  // vlakken samenkomen, en de onderkant van elke uitstekende lijst.
+  float aoVoet = mix(0.74, 1.0, smoothstep(0.0, 2.6, height));
+  // "across" loopt over de breedte van het vlak; bij 0 en bij de volle breedte
+  // zit een hoek. Een halve meter is genoeg om te lezen als diepte.
+  // (Geen backticks in dit commentaar: deze shader staat in een template-string,
+  // en een backtick sluit die voortijdig af.)
+  float breedte = max(vSize.x + vSize.z, 0.001);
+  float randAfstand = min(across, breedte - across);
+  float aoHoek = mix(0.82, 1.0, smoothstep(0.0, 0.55, randAfstand));
+  // Onder de kroonlijst en onder de cordonlijst.
+  float aoLijst = 1.0 - 0.22 * (
+    step(top - 1.55, height) * (1.0 - step(top - 1.40, height)) * side
+  );
+  // Gemeten op de gevelproef: met 0,62 en 0,72 vermenigvuldigden ze in een hoek
+  // tot 0,45, en dan zakt de schaduwkant van een muur weg in het zwart — vijf
+  // procent van het beeld verloor daar zijn detail. Occlusie hoort diepte te
+  // geven, niet gaten. Met deze waarden is het effect nog goed te zien en blijft
+  // de baksteen leesbaar.
+  float ao = aoVoet * aoHoek * aoLijst;
+  // Het dak vangt juist alles op; daar hoort geen occlusie.
+  ao = mix(ao, 1.0, roof);
+  // Op afstand uitfaden, net als de rest van het detail: anders zie je een
+  // donkere rand op panden die verder weg staan dan het patroon leesbaar is.
+  ao = mix(1.0, ao, detail);
+
+  surface *= ao;
+
   diffuseColor.rgb = mix(surface, roofColor, roof);
 
   // De pui op de begane grond straalt juist het félst.

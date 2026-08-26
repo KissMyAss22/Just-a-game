@@ -14,7 +14,19 @@ export interface QualitySettings {
   antialias: boolean;
   shadows: boolean;
   shadowMapSize: number;
-  /** Hoe ver de schaduwcamera om de speler heen reikt, in meters. */
+  /**
+   * Hoe ver de schaduwcamera om de speler heen reikt, in meters.
+   *
+   * Dit is de scherpte-knop, niet de kwaliteitsknop. De schaduwmap is een vast
+   * aantal pixels dat over een vierkant van 2 × straal wordt uitgesmeerd, dus
+   * halveer je de straal, dan verdubbelt de scherpte — voor precies dezelfde
+   * kosten. Op 'hoog' stond 2048 px over 180 meter: bijna negen centimeter per
+   * texel, waarmee de voet van een personage drie pixels breed is.
+   *
+   * De prijs is dat schaduwen verderop wegvallen. In een stad op ooghoogte
+   * merk je dat nauwelijks: er staat vrijwel altijd een gevel tussen jou en het
+   * punt waar de schaduw ophoudt.
+   */
   shadowRadius: number;
   /** Verste zichtafstand van de camera. */
   far: number;
@@ -35,7 +47,7 @@ export const QUALITY: Record<QualityLevel, QualitySettings> = {
     antialias: false,
     shadows: false,
     shadowMapSize: 512,
-    shadowRadius: 50,
+    shadowRadius: 35,
     far: 320,
     fogNear: 60,
     fogFar: 280,
@@ -49,7 +61,7 @@ export const QUALITY: Record<QualityLevel, QualitySettings> = {
     antialias: true,
     shadows: true,
     shadowMapSize: 1024,
-    shadowRadius: 70,
+    shadowRadius: 45,
     far: 420,
     fogNear: 100,
     fogFar: 400,
@@ -63,7 +75,7 @@ export const QUALITY: Record<QualityLevel, QualitySettings> = {
     antialias: true,
     shadows: true,
     shadowMapSize: 2048,
-    shadowRadius: 90,
+    shadowRadius: 55,
     far: 520,
     fogNear: 140,
     fogFar: 500,
